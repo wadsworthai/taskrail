@@ -10,6 +10,8 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 - **Allowed kinds.** `[kinds].allowed` in config restricts a repository to a closed set of task
   kinds; `validate` rejects tasks of any other kind with `task-kind-disallowed` (T018).
+- **Prior work in `show`.** `prior_work` reports an existing artifact, the task branch, and
+  commits whose subject names the task, so an executor notices earlier attempts; it never blocks.
 
 ## 0.1.0
 

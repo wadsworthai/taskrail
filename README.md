@@ -34,7 +34,7 @@ never overwritten silently; `--force` replaces them.
 ```bash
 taskrail validate                      # check the backlog; non-zero on errors
 taskrail next                          # eligible tasks, smallest first
-taskrail show T012 --json              # kind, stages, branch, artifact path, blockers
+taskrail show T012 --json              # kind, stages, branch, artifact path, blockers, prior work
 taskrail claim T012                    # reserve it; fails if someone else holds it
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --pts 2
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --workspace   # …in its own branch and worktree

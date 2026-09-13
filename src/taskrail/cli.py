@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, claims, gitutil, ids, install, review, writer
+from taskrail import __version__, claims, gitutil, ids, install, prior, review, writer
 from taskrail.config import find_root, load_config
 from taskrail.issues import ConfigError, Issue
 from taskrail.model import Project, Status
@@ -109,6 +109,7 @@ def cmd_show(args) -> int:
     data = task_dict(task, project, claimed)
     kind = project.kinds.get(task.kind)
     data["kind_descriptor"] = kind.to_dict() if kind else None
+    data["prior_work"] = prior.prior_work(project.config.root, task.id, data["branch"], data["artifact"])
     lines = [
         f"{task.id} — {task.title}",
         f"  backlog {task.backlog} · epic {task.epic} · kind {task.kind} · state {data['state']}",
@@ -124,6 +125,7 @@ def cmd_show(args) -> int:
         lines.append(f"  claimed by {claim['owner']} on {claim['branch'] or '—'} since {claim['created']}")
     if data["skill"]:
         lines.append(f"  skill {data['skill']}")
+    lines.extend(prior.text_lines(data["prior_work"], task.id, data["artifact"]))
     if kind:
         for stage in kind.stages:
             lines.append(f"  · {stage.name} (gate: {stage.gate}{', commit' if stage.commit else ''})")

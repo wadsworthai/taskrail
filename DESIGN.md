@@ -269,7 +269,7 @@ not move the counter.
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks |
 | `taskrail list [--epic E01] [--eligible]` | Tasks, with computed blocked and eligible state |
-| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (the further-ahead of the local and remote mainline, or `diverged`; never fetches), branch, worktree, artifact and index paths, `never_edit`, check commands |
+| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (the further-ahead of the local and remote mainline, or `diverged`; never fetches), branch, worktree, artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
 | `taskrail next` | Eligible tasks in order: points ascending, then file order |
 | `taskrail claim <ID>` / `taskrail release <ID>` | §6.1, §6.2 |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
@@ -349,6 +349,26 @@ than prose. Exit codes are stable:
 Task state, as reported by `list`, `show` and `next`, is one of `pending`, `claimed`,
 `blocked`, `done` or `discarded`. Only local claims are consulted, so these commands never
 need the network.
+
+### 7.2 Prior work
+
+`show` also reports signs that someone may already have worked on the task, in `prior_work`.
+They are informational: they never change the exit code or the task's `state`, and the core
+skill asks the agent to look at them and mention them at its first gate.
+
+- `artifact` — where the artifact file exists: `working tree`, then each local and
+  remote-tracking branch tip that has it (one `git cat-file --batch` over all tips).
+- `branches` — the task branch as a local branch and as `<remote>/<branch>`.
+- `commits` — commits reachable from `HEAD`, local and remote-tracking branches (not tags or
+  claim refs) whose subject names the task, newest first and capped at 10, with
+  `commits_total` for the full count. Each carries the form it matched: `prefix` (the subject
+  starts with the ID), `scope` (the ID in a Conventional Commits scope), `suffix` (a squash
+  title ending in `(<ID>)`, optionally followed by `(#N)` or `(!N)`) or `branch` (the subject
+  contains the task's branch name). A subject that mentions the ID anywhere else is ignored,
+  since backlog maintenance names IDs constantly.
+
+The history search is a single `git log --fixed-strings --grep=<ID>` over those refs, so its
+cost grows with the history; `list` and `next` do not run it. Like `base`, it never fetches.
 
 ## 8. Skills
 

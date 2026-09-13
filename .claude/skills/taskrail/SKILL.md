@@ -43,7 +43,10 @@ of `taskrail show`) supplies what happens inside each stage.
    propose the first candidate; do not start one on your own.
 2. **Inspect.** Run `taskrail show <ID> --json`. Stop if `state` is not `pending` and report
    the claim or `blocked_by`. If the `skill` field names a different executor than the one you
-   are running, stop and name the right one.
+   are running, stop and name the right one. If `prior_work` lists an artifact, the task's
+   branch or commits naming the task, someone may already have worked on it: look at them,
+   check that the description's premises still hold, and mention both at your first gate.
+   These signals never block on their own.
 3. **Workspace.** Run `git fetch` first, then `taskrail show <ID> --json` again: its `base.onto`
    is the ref to branch from — the local or the remote mainline, whichever is further ahead.
    If `base.diverged` is true, stop and ask which one to use. If `worktree` is set, create it:
