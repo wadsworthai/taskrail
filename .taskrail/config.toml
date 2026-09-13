@@ -1,0 +1,23 @@
+version = "local:."   # run taskrail from this checkout's source
+
+[[backlog]]
+name = "main"
+prefix = "T"
+file = "TODO.md"
+mainline = "main"
+artifacts = "docs"
+
+[columns]
+custom = []
+
+[points]
+scale = [1, 2, 3, 5, 8, 13]
+
+[git]
+worktree = "required"        # "required": one worktree per task; "never": a branch in this checkout
+worktree_dir = ".worktrees"
+push_task_branch = false
+claim_remote = ""            # e.g. "origin" to also claim across machines
+
+[checks]                     # commands the task kinds run as quality gates
+test = "uv run pytest -q"

@@ -41,6 +41,19 @@ particular agent:
 - **Prefer plain contracts for tools** — arguments, stdin/stdout, exit codes — over
   agent-specific integrations, so any agent can call them through a shell.
 
+## Backlog
+
+This repository tracks its own work with taskrail: `TODO.md` holds the epics and tasks, and
+`.taskrail/bin/taskrail` runs the CLI from this checkout's source (the config pins `local:.`), so a
+task worktree runs its own branch's code. Use the `taskrail` skill and its executor skills to work
+tasks.
+
+- The skills under `.claude/skills/taskrail*` are **installed copies**. Edit the sources in
+  `src/taskrail/skills/`, then run `.taskrail/bin/taskrail upgrade`.
+- `TODO.md` and the artifacts under `docs/` are public like everything else here; the
+  publishing constraint above applies to task titles, descriptions and write-ups.
+- Claims stay local (`claim_remote` is off), so no refs are pushed for them.
+
 ## Commands
 
 Python, managed with uv, no runtime dependencies. Run from the repository root:
