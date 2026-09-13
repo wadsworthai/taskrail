@@ -201,3 +201,26 @@ def test_self_upgrade_dry_run(capsys, monkeypatch):
 
 def test_release_tag_drops_development_suffixes():
     assert install.release_tag("0.1.0.dev0") == "v0.1.0"
+
+
+def test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout(empty_repo, capsys, monkeypatch):
+    monkeypatch.delenv("TASKRAIL_BIN", raising=False)
+    init(empty_repo, capsys=capsys)
+    config = empty_repo / ".taskrail/config.toml"
+    source = Path(install.__file__).resolve().parents[2]  # the project root
+    link = empty_repo / "vendor-taskrail"
+    link.symlink_to(source)
+    config.write_text(config.read_text().replace(f'"{install.release_tag()}"', '"local:vendor-taskrail"'))
+    result = subprocess.run(
+        [str(empty_repo / ".taskrail/bin/taskrail"), "--version"], cwd=empty_repo, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip().startswith("taskrail ")
+
+
+def test_upgrade_keeps_a_local_pin(empty_repo, capsys):
+    init(empty_repo, capsys=capsys)
+    config = empty_repo / ".taskrail/config.toml"
+    config.write_text(config.read_text().replace(f'"{install.release_tag()}"', '"local:."'))
+    assert run(empty_repo, "upgrade", capsys=capsys)[0] == 0
+    assert 'version = "local:."' in config.read_text()

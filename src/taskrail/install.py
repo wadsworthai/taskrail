@@ -195,13 +195,19 @@ def wrapper_script() -> str:
     return f'''#!/bin/sh
 # Managed by taskrail: `taskrail init` and `taskrail upgrade` rewrite this file.
 # Runs the taskrail version pinned in .taskrail/config.toml: the installed CLI when it matches,
-# otherwise that exact version through uvx. TASKRAIL_BIN overrides both.
+# otherwise that exact version through uvx. A pin of the form `local:<path>` runs the taskrail
+# source at that path inside this checkout instead. TASKRAIL_BIN overrides everything.
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 if [ -n "${{TASKRAIL_BIN:-}}" ]; then
   exec "$TASKRAIL_BIN" "$@"
 fi
 pin=$(sed -n 's/^version[[:space:]]*=[[:space:]]*"\\([^"]*\\)".*/\\1/p' "$root/.taskrail/config.toml" | head -n 1)
+case "$pin" in
+  local:*)
+    exec uv run --quiet --project "$root/${{pin#local:}}" taskrail "$@"
+    ;;
+esac
 installed=$(command -v taskrail 2>/dev/null || true)
 if [ -n "$installed" ] && [ "$installed" != "$0" ]; then
   have=$(taskrail --version 2>/dev/null | sed 's/^taskrail //')
@@ -352,9 +358,15 @@ def install(
     return installer.report
 
 
+LOCAL_PIN = re.compile(r'^version\s*=\s*"local:[^"]*"', re.MULTILINE)
+
+
 def set_version_pin(root: Path) -> bool:
+    """Pin the running release; a `local:` pin is a deliberate development setup and is kept."""
     path = root / ".taskrail/config.toml"
     text = path.read_text(encoding="utf-8")
+    if LOCAL_PIN.search(text):
+        return False
     pin = f'version = "{release_tag()}"'
     updated, count = re.subn(r'^version\s*=\s*"[^"]*"', pin, text, count=1, flags=re.MULTILINE)
     if count == 0:

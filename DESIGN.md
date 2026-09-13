@@ -140,7 +140,6 @@ skill = "taskrail-bug"               # the executor skill for this kind
 branch = "{id}-{slug}"
 artifact = "{artifacts}/bugs/{id}-{slug}.md"
 artifact_index = "{artifacts}/bugs/README.md"
-may_edit = ["code", "tests", "artifact"]
 never_edit = ["specs"]           # a needed spec change becomes a follow-up task
 
 [[stage]]
@@ -343,8 +342,10 @@ the running CLI version. `taskrail self upgrade [--tag]` reinstalls the CLI from
 Unlike Spec Kit, the skills call the CLI while they work. `init` therefore also writes a
 committed wrapper, `.taskrail/bin/taskrail`: it runs the installed CLI when its version matches
 the pin, and otherwise runs the pinned version through `uvx`. The only prerequisite on any
-machine, CI runner or agent sandbox is `uv`. `TASKRAIL_BIN` overrides the wrapper, for
-development builds; `TASKRAIL_SOURCE` overrides the repository URL.
+machine, CI runner or agent sandbox is `uv`. A pin of the form `local:<path>` makes the wrapper
+run the taskrail source at that path in the current checkout, so a worktree runs its own
+branch's code; `upgrade` never replaces such a pin. `TASKRAIL_BIN` overrides the wrapper
+entirely; `TASKRAIL_SOURCE` overrides the repository URL.
 
 ## 10. Layout
 

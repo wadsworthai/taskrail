@@ -58,5 +58,13 @@ uv run pytest tests/test_validate.py -k cycle   # a single test
 uv run taskrail --root <repo> validate          # run the CLI against a repository
 ```
 
-Before a release tag exists, point the wrapper at a development build with
-`TASKRAIL_BIN=/path/to/taskrail`.
+To run taskrail from source in a repository that contains it, pin the path instead of a
+release in `.taskrail/config.toml`:
+
+```toml
+version = "local:."
+```
+
+The wrapper then runs `uv run --project <checkout> taskrail`, so each worktree
+uses its own branch's code, and `taskrail upgrade` leaves the pin alone. Elsewhere,
+`TASKRAIL_BIN=/path/to/taskrail` points the wrapper at any build.
