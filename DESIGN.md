@@ -22,7 +22,8 @@ Goals:
 
 Non-goals for v1:
 
-- The autopilot orchestrator (parallel lanes answering gates on the human's behalf). Phase 2.
+- The autopilot orchestrator (parallel lanes answering gates on the human's behalf). Phase 2;
+  its planned design is §12, not yet implemented.
 - Importing the source projects' existing backlogs. Phase 2.
 - Any Spec Kit integration in the core. A `spec` kind is an extension, shipped as an example.
 - Merging, or creating pull requests through a host's API. Hand-off ends with a pushed branch and
@@ -495,4 +496,279 @@ taskrail/
    allocation, epics, kind resolution, core kinds and skills, the Claude integration, `init`
    and the wrapper.
 2. **v2** — autopilot orchestrator, import from existing backlogs, a git merge driver that
-   resolves `✓` cell conflicts.
+   resolves `✓` cell conflicts. The autopilot is designed in §12 and delivered by T017 (stacked
+   base and `done-branch`), T027 (unreadable manifest), T029–T032 (the `autopilot` commands),
+   then T024 (the skill), and trialled by T033 (§12.10).
+
+## 12. Autopilot (planned)
+
+Status: **planned, not implemented.** Accepted at the decide gate of the
+[T007 spike](../../docs/spikes/T007-design-taskrail-s-autopilot-from-existin.md), with the
+human's decisions in its
+[decision record](../../docs/autopilot/decisions/T007-design-taskrail-s-autopilot-from-existin.md).
+Nothing in this section describes what taskrail does today; each part names the task that will
+build it (§12.10). The evidence (E1–E7) and the full comparison of options stay in the spike.
+
+The autopilot runs several tasks at once, one lane per task, and answers their gates on the
+human's behalf where the governing documents allow it. It covers the
+[reference behaviour](../../docs/research/autopilot-reference-behaviour.md) of two existing
+orchestrators and the lessons of this repository's first autopilot run.
+
+### 12.1 Skill and CLI
+
+One judgement skill, `taskrail-autopilot`, over a thin `taskrail autopilot` command group.
+
+- **The CLI computes:** which tasks are dispatchable now; each lane's base, branch, worktree and
+  resources; the state of every task in a run; silent lanes; files touched by more than one
+  lane; merge detection; cleanup; the paths of decision records; running the notify command.
+- **The skill judges:** answering gates on the human's behalf, reading diffs, re-running checks
+  and exercising the result, writing decision records, building the touch map, resolving
+  conflicts in the known classes, deciding to escalate, and the hand-off conversation.
+
+Every command takes `--json` and uses the exit codes of §7.1; exit 5 gains one meaning, a
+disabled autopilot:
+
+| Command | Does |
+|---|---|
+| `autopilot start --count N [--kinds …]` | Exit 5, naming `[autopilot].enabled`, unless it is true; exit 2 without `--count`. Creates a run file (§12.4) with the target count, kinds and start time, and prints the run ID. |
+| `autopilot next [--run R]` | Tasks to dispatch now, within free lanes, allowed kinds, group limits, claims, failed lanes and stacked bases. For each: `show`'s fields plus `base.commit`, the allocated resources and the decision-record path. Allocates resources atomically; claiming stays the lane's job. |
+| `autopilot lane <ID> --run R [--handle H] [--group G] [--state running\|gate\|escalated\|failed] [--reason …]` | Records the agent-specific lane handle, a group membership assigned by judgement (§12.7) and the orchestrator's view of the lane. `failed` keeps the claim, so the task stays ineligible and its dependents stay blocked. |
+| `autopilot status [--run R] [--fetch]` | Every run task with its state: `pending`, `running`, `gate`, `escalated`, `failed`, `done-branch`, `handed-off`, `done-merged`. Also each lane's handle; minutes since the last commit on its branch or the last change in its worktree, and `silent` past `silent_minutes`; files touched per branch, with overlaps between lanes; governing files touched; the next branch in the hand-off queue. Reads git and never fetches unless `--fetch`. |
+| `autopilot merged <ID> [--cleanup]` | Runs `git fetch --prune`, then the merge detection of §12.8. Reports `merged`, `via` and the mainline commit, and marks the task `done-merged` in the run. With `--cleanup`, removes the worktree and deletes the local branch, refusing when the merge is unverified or the worktree is dirty. Lists stacked dependents with `git rebase --onto <base.onto> <recorded base.commit>`. |
+| `autopilot notify --event escalation\|lane-done\|lane-failed --run R [--task ID]` | Runs `[autopilot].notify` when the event is in `notify_on` (§12.6). A failing notify command is reported and never blocks. |
+
+The autopilot runs only when the human asks for it and gives a task count. The skill states
+this in its prose, not only in frontmatter, so the rule holds on agents that ignore
+invocation-control keys.
+
+### 12.2 Installation and opt-in
+
+- `init` and `upgrade` install `taskrail-autopilot` in **every** repository, with the other
+  skills. No kind names it, so it is not an executor skill and the kind filter of §9 never
+  leaves it out.
+- A repository opts in with `[autopilot].enabled = true`. Until then `autopilot start` refuses
+  with exit 5 and names the key, and the skill stops when it sees that refusal. The refusal is a
+  CLI guarantee, so it holds on any agent.
+
+The spike had recommended installing the skill only where the autopilot is enabled, through the
+kind filter. The human chose to install it always, so every consumer receives the same skills.
+
+### 12.3 Orchestrator and lanes
+
+**The orchestrator** is the session the human talks to. It keeps a lane handle per task in the
+run file, so a compacted or new orchestrator session can resume the lanes.
+
+**A lane** is a sub-session, and its contract is the same on every agent. It:
+
+- runs the `taskrail` skill and the task's executor skill for one task ID;
+- creates its worktree with git and claims inside it (§8);
+- ends its turn at every gate with the full gate report;
+- is resumed with `continue <ID>` plus the answers;
+- never runs `review --publish`, never merges, never starts shared services, and never touches
+  another lane's worktree.
+
+| | Claude Code | OpenCode |
+|---|---|---|
+| Lane | background subagent (Agent tool), general-purpose | task tool, `general` or a lane agent definition |
+| Handle | agent ID | `task_id` (the child session ID) |
+| Resume after a gate | `SendMessage` to the ID | task tool with the same `task_id` |
+| Orchestrator woken when a lane stops | completion notification | when the whole batch of task calls returns; a notification with the experimental background subagents |
+| Lane asks the human | impossible: `AskUserQuestion` is removed from subagents | impossible: `question` is denied |
+| Lane model | the Agent tool's `model` parameter | `model` in a lane agent definition |
+| Timer wake-up | none | none |
+
+OpenCode's task calls block by default, so there the orchestrator answers gates in waves, once
+every lane in a batch has stopped: correct, but slower. Its integration note says so and names
+the experimental background flag without requiring it. Agent-specific text goes in the
+integration notes (§8); agent definitions for pinning a lane model (`.claude/agents/`,
+`.opencode/agents/`) are adapter packaging, deferred until a consumer needs them.
+
+**Not a CLI that launches agents itself** (for example through `claude -p --resume` or
+`opencode run --session`): unattended agent processes deny or skip permission prompts, which
+lanes must not do, and answering gates needs an agent anyway.
+
+### 12.4 State
+
+- **Derived, never stored:**
+  - `pending`;
+  - `running`, a live claim;
+  - `done-branch`, ✅ at the task branch tip but not on the mainline (T017);
+  - `done-merged`, detected as in §12.8, or ✅ on the mainline.
+
+  Any session sees them, and with `claim_remote` any machine.
+- **Claims** (§6) remain the only lock, so dispatch needs no new locking for tasks or IDs.
+  They gain two fields:
+  - `base.commit`, the dependency tip a stacked branch started from, written at claim time by
+    T017, so `rebase --onto` still works after the dependency is squash-merged;
+  - `run`, the ID of the run that owns the lane.
+- **Run file:** `$(git rev-parse --git-common-dir)/taskrail/runs/<run>.json`, next to the claims,
+  local and never committed. It holds only what git cannot derive and what must survive the
+  orchestrator's context:
+  - the target count and kinds;
+  - per task: the lane handle, the group, `gate`, `escalated` or `failed` with a reason, and
+    the allocated resources;
+  - the `handed-off` order;
+  - the run-level decisions agreed so far.
+- **Two orchestrator sessions** may run at once. They never dispatch the same task twice, since
+  dispatch needs a claim, and `status` lists every run in the common directory, so each sees the
+  other's lanes.
+
+### 12.5 Decision records
+
+- **Path:** one file per task at `decisions`, default
+  `{artifacts}/autopilot/decisions/{id}-{slug}.md`, indexed at `decisions_index`, default
+  `{artifacts}/autopilot/decisions/README.md` (columns Task, Title, Document). `autopilot next`
+  and `status` render both paths.
+- **Committed** on the task branch by the orchestrator, **only while the lane is stopped at a
+  gate** and before resuming it, so the record travels with the squash-merged pull request.
+- **Format:**
+  - an introduction stating that each decision is recorded before it is given;
+  - one `## <stage> gate` section per gate: a `Reviewed:` paragraph naming the artifact commit,
+    the diff range, the re-run checks and the real-runtime verification, then a table
+    `# | Question | Options | Decision | Reason`;
+  - `## Conflict handling agreed for all lanes`, when a touch map was given;
+  - `## rebase after …`, with a File / Conflict / Resolution table and the checks re-run
+    afterwards;
+  - `## escalated to the human` for escalated gates, naming who answered.
+- **Run-level decisions** — touch map, conflict classes, order — are copied into each affected
+  task's record, and kept in the run file. No run log lives on the mainline, since it would need
+  a commit outside any task.
+
+### 12.6 Escalation, notification and supervision
+
+The orchestrator stops and asks the human when:
+
+1. a lane's branch touches a `governing` path;
+2. the gate is listed in `escalate_gates`, such as `spike:decide`;
+3. the governing documents reserve the decision to humans;
+4. two lanes contradict each other;
+5. a merge conflict falls outside the known classes (§12.8);
+6. a task row rests on a false premise;
+7. the base has diverged, as `show` and `review` already report.
+
+`autopilot status` computes the first two; the rest are judgement. T032's backlog description
+also mentions flagging conflicts outside the known classes; whether a computed flag helps there
+is settled at T032's own gate, and until then conflict classification stays judgement.
+
+**Notification** is a command contract, not an agent hook: hooks such as Claude Code's
+`Notification` are agent-specific and fire on the agent's own events. `autopilot notify` runs
+`[autopilot].notify` for the events in `notify_on` (default `["escalation", "lane-done"]`), with
+the message on stdin and `TASKRAIL_EVENT`, `TASKRAIL_RUN` and `TASKRAIL_TASK` in the environment.
+
+**Supervision** is event-driven, since neither agent wakes on a timer. Whenever the orchestrator
+wakes, it runs `autopilot status`. A lane silent past `silent_minutes` (default 20) is checked by
+reading its worktree, and escalated if it is stuck. An agent that can wait on a condition may run
+`status` periodically, but the design does not rely on it.
+
+### 12.7 Resources
+
+- **`max_lanes`** (default 3) caps the lanes running at once.
+- **`[[autopilot.group]]`** has a `name`, a `limit`, and either `column` plus `match` (membership
+  computed from the task's column) or neither (membership assigned by the orchestrator's
+  judgement at dispatch, with `autopilot lane --group`). It generalises "at most one UI lane". The
+  column predicate has the same shape as T020's conditional stages, so whichever lands first
+  defines it and the other reuses it.
+- **`[[autopilot.resource]]`** has a `name` and `values`. Each lane gets one free value per
+  resource, allocated under the common-directory lock and released when the lane ends, and passed
+  to the lane in its brief as `TASKRAIL_RESOURCE_<NAME>` — a database name, a port, an emulator.
+- **Shared services** are started by the orchestrator, never by lanes.
+- **Sequential numbers:** task IDs go through `reserve-id` (§6.3), already safe across lanes.
+  Other sequences stay out until a consumer needs them; a value pool covers small cases.
+
+### 12.8 Merge follow-through
+
+- **Publishing.** Lanes stop after `taskrail done` and `review --json`. The orchestrator rebases
+  when needed, re-runs the checks, then runs `review --publish --type … --scope …` in the lane's
+  worktree, which pushes with a lease when `push_task_branch` is set.
+- **Hand-off is sequential** (`handoff = "sequential"`, the only value at first): one branch at a
+  time, dependencies first, then in completion order, each with its exact title and link. Every
+  later branch costs one rebase and retest onto a mainline carrying every earlier merge; in
+  exchange, every pull request is tested on the real mainline before review.
+- **When the human says a branch is merged,** the orchestrator runs
+  `autopilot merged <ID> --cleanup`, names the next branch, and rebases it and every stacked
+  dependent onto the new mainline with `git rebase --onto <mainline> <base.commit>`. It resolves
+  the known classes, re-runs the checks, and publishes again with a lease push.
+- **Merge detection** is by content, since pull requests are squash-merged and ancestry alone
+  sees nothing. After one `git fetch --prune`, in this order:
+  1. the task branch head is an ancestor of the mainline;
+  2. a commit on `git log --first-parent <mainline>` since the merge-base has the head's tree;
+  3. the patch-id of `git diff <merge-base> <head>` equals that of a first-parent commit since the
+     merge-base;
+  4. `git merge-tree` of the head into the current mainline is a no-op.
+
+  The ✅ row on the mainline and an `(ID)` pull request title confirm a merge but never prove it,
+  since a row can be edited by hand.
+- **Known conflict classes,** resolved without a human; anything else escalates:
+  1. backlog rows, united by ID, with ✅ winning unless a `Reopens:` commit exists (the core skill
+     today; T004's merge driver automates it later);
+  2. appended index rows and changelog bullets: keep all;
+  3. installed skill copies and `.taskrail/installed.json`: make the manifest valid first, merge
+     the sources, then run `taskrail upgrade --force`.
+- **Class 3 needs T027 first:** until `init` and `upgrade` stop on an unreadable manifest, a
+  mistaken `init` silently drops the recorded integrations. T027 is not a backlog dependency of
+  the autopilot tasks, but it should land before the skill relies on class 3.
+
+### 12.9 Configuration
+
+These keys join §4 when T029 implements them:
+
+```toml
+[autopilot]
+enabled = false                 # allow `autopilot start`; the skill is installed regardless
+max_lanes = 3
+kinds = []                      # kinds the autopilot may drive; empty means every allowed kind
+governing = []                  # read first to answer gates; a lane touching one escalates
+escalate_gates = []             # "kind:stage" always taken to the human, e.g. "spike:decide"
+decisions = "{artifacts}/autopilot/decisions/{id}-{slug}.md"
+decisions_index = "{artifacts}/autopilot/decisions/README.md"
+silent_minutes = 20
+handoff = "sequential"          # the only value at first
+notify = ""                     # command; event in TASKRAIL_EVENT, message on stdin
+notify_on = ["escalation", "lane-done"]
+
+[[autopilot.group]]             # at most `limit` lanes at once from this group
+name = "ui"
+limit = 1
+column = "Area"                 # omit column and match to assign membership by judgement
+match = ["UI"]
+
+[[autopilot.resource]]          # one value per lane
+name = "PORT"
+values = ["5433", "5434", "5435"]
+```
+
+### 12.10 Delivery
+
+| Task | Kind | Depends on | Builds |
+|---|---|---|---|
+| T017 | feature | — | `done-branch` (§12.4), the stacked base in `show`, `new --workspace` and `review`, and `base.commit` in the claim (§6, §7) |
+| T027 | bug | — | `init` and `upgrade` stop with exit 2 on an unreadable `installed.json`, the prerequisite for conflict class 3 (§12.8) |
+| T028 | chore | — | this section |
+| T029 | feature | T017, T028 | `[autopilot]` configuration (§12.9), run files and `run` in the claim (§12.4), `autopilot start` with its exit-5 refusal (§12.2), `lane` and `status` (§12.1) |
+| T030 | feature | T029 | `autopilot next`: kinds, group limits, resource pools (§12.7) |
+| T031 | feature | T029 | `autopilot merged`: merge detection and cleanup (§12.8) |
+| T032 | feature | T029 | `autopilot notify` and the escalation flags in `status` (§12.6) |
+| T024 | feature | T030, T031, T032 | the `taskrail-autopilot` skill with Claude Code and OpenCode notes, installed in every repository (§12.2, §12.3, §12.5, §12.8) |
+| T033 | spike | T024 | an end-to-end trial on a real backlog with each supported agent |
+
+T019 changes how a task's branch is found, as T017 does, so it runs after T017; it is not needed
+by the autopilot. T020 is independent, apart from the shared column predicate (§12.7). T004 and
+T005 stay independent.
+
+Not planned now: lane agent definitions for pinning a lane model; a `batch` hand-off mode; named
+counters beyond task IDs.
+
+The design changes if:
+
+- OpenCode's background subagents become default and stable: drop the "waves" caveat;
+- either agent loses resume-by-handle: lanes restart from their branch and artifacts, and the
+  run file needs a stage checkpoint per lane;
+- a consumer needs lanes on several machines: the run file needs a remote form, like
+  `claim_remote`;
+- hosts squash with a rebase that alters content: tree and patch-id could miss, and detection
+  would need the host's pull-request state, currently a non-goal (§1);
+- the trial (T033) shows sequential hand-off costs more than it catches: add `batch`;
+- consumers object to being offered an autopilot skill they have not enabled: install it only
+  where enabled, reusing the kind filter of §9.
+
+Rejected alternatives, with their reasons, are in the spike's *Options considered*.

@@ -9,3 +9,4 @@
 | T025 | Skip installing skills for kinds a repository does not allow | [T025-skip-installing-skills-for-kinds-a-repos.md](T025-skip-installing-skills-for-kinds-a-repos.md) |
 | T026 | Refuse --column for core columns in new | [T026-refuse-column-for-core-columns-in-new.md](T026-refuse-column-for-core-columns-in-new.md) |
 | T007 | Design taskrail's autopilot from existing orchestrators | [T007-design-taskrail-s-autopilot-from-existin.md](T007-design-taskrail-s-autopilot-from-existin.md) |
+| T028 | Write the autopilot design into DESIGN.md | [T028-write-the-autopilot-design-into-design-m.md](T028-write-the-autopilot-design-into-design-m.md) |
