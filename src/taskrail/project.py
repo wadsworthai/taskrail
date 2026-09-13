@@ -7,7 +7,7 @@ import re
 from taskrail.backlog import load_backlog
 from taskrail.config import Config
 from taskrail.issues import Issue, error, warning
-from taskrail.kinds import columns_used_by_routes, load_kinds
+from taskrail.kinds import columns_used_by_routes, defined_kind_names, load_kinds
 from taskrail.model import Project, Status
 
 
@@ -34,6 +34,7 @@ def _check_tasks(project: Project) -> list[Issue]:
             warning("route-column-undeclared", f"a kind routes on column `{column}`, which [columns].custom does not declare")
         )
 
+    excluded = defined_kind_names(config) - set(project.kinds) if config.allowed_kinds else set()
     seen: dict[str, tuple[str, int]] = {}
     by_id = {}
     for backlog in project.backlogs:
@@ -62,6 +63,9 @@ def _check_tasks(project: Project) -> list[Issue]:
                 )
             if not task.kind:
                 issues.append(error("task-kind-empty", f"task `{task.id}` has no kind", *where))
+            elif task.kind not in project.kinds and task.kind in excluded:
+                allowed = ", ".join(sorted(config.allowed_kinds))
+                issues.append(error("task-kind-disallowed", f"kind `{task.kind}` is not allowed (kinds.allowed: {allowed})", *where))
             elif task.kind not in project.kinds:
                 known = ", ".join(sorted(project.kinds)) or "none"
                 issues.append(error("task-kind-unknown", f"kind `{task.kind}` is not defined (known: {known})", *where))

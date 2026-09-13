@@ -206,15 +206,29 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
     )
 
 
-def load_kinds(config: Config) -> tuple[dict[str, Kind], list[Issue]]:
-    issues: list[Issue] = []
-    kinds: dict[str, Kind] = {}
-    layers = (
+def _layers(config: Config) -> tuple[tuple[str, Path, Path | None], ...]:
+    return (
         ("core", CORE_DIR, None),
         ("local", config.root / LOCAL_DIR, LOCAL_DIR),
         ("override", config.root / OVERRIDE_DIR, OVERRIDE_DIR),
     )
-    for source, directory, relative in layers:
+
+
+def defined_kind_names(config: Config) -> set[str]:
+    """Names of every kind a layer has a descriptor for, whether or not `[kinds].allowed` keeps it."""
+    return {
+        kind_dir.name
+        for _, directory, _ in _layers(config)
+        if directory.is_dir()
+        for kind_dir in directory.iterdir()
+        if (kind_dir / DESCRIPTOR).is_file()
+    }
+
+
+def load_kinds(config: Config) -> tuple[dict[str, Kind], list[Issue]]:
+    issues: list[Issue] = []
+    kinds: dict[str, Kind] = {}
+    for source, directory, relative in _layers(config):
         if not directory.is_dir():
             continue
         for kind_dir in sorted(p for p in directory.iterdir() if p.is_dir()):
@@ -232,7 +246,21 @@ def load_kinds(config: Config) -> tuple[dict[str, Kind], list[Issue]]:
             kind = _parse(descriptor, source, label, config, issues)
             if kind is not None:
                 kinds[kind.name] = kind
+    if config.allowed_kinds:
+        kinds = _restrict(kinds, config.allowed_kinds, issues)
     return kinds, issues
+
+
+def _restrict(kinds: dict[str, Kind], allowed: tuple[str, ...], issues: list[Issue]) -> dict[str, Kind]:
+    """Keep only the kinds `[kinds].allowed` names, after every layer is resolved."""
+    for name in allowed:
+        if name not in kinds:
+            issues.append(error("kind-allowed-unknown", f"kinds.allowed names `{name}`, which no core, local or override kind defines"))
+    for kind in kinds.values():
+        # Leaving out a core kind is the point of the setting; a repository's own descriptor left out is likely a mistake.
+        if kind.name not in allowed and kind.source != "core":
+            issues.append(warning("kind-not-allowed", f"kind `{kind.name}` is defined but kinds.allowed does not list it", kind.path))
+    return {name: kind for name, kind in kinds.items() if name in allowed}
 
 
 def columns_used_by_routes(kinds: dict[str, Kind]) -> set[str]:

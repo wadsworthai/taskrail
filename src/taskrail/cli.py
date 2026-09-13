@@ -313,7 +313,12 @@ def cmd_new(args) -> int:
     config = origin_config = project.config
     kind = project.kinds.get(args.kind)
     if args.workspace and kind is None:
-        print(f"taskrail: kind `{args.kind}` is not defined", file=sys.stderr)
+        from taskrail.kinds import defined_kind_names
+
+        allowed = config.allowed_kinds
+        disallowed = allowed and args.kind in defined_kind_names(config)
+        reason = f"is not allowed (kinds.allowed: {', '.join(sorted(allowed))})" if disallowed else "is not defined"
+        print(f"taskrail: kind `{args.kind}` {reason}", file=sys.stderr)
         return EXIT_USAGE
     task_id = ids.reserve(config, backlog.config, args.owner or claims.default_owner())
     values["ID"] = task_id

@@ -8,7 +8,8 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
-Nothing yet.
+- **Allowed kinds.** `[kinds].allowed` in config restricts a repository to a closed set of task
+  kinds; `validate` rejects tasks of any other kind with `task-kind-disallowed` (T018).
 
 ## 0.1.0
 

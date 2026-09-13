@@ -54,6 +54,7 @@ class Config:
     worktree_dir: str = ".worktrees"
     checks: dict[str, str] = field(default_factory=dict)
     review: ReviewConfig = field(default_factory=ReviewConfig)
+    allowed_kinds: tuple[str, ...] = ()  # empty: every defined kind is allowed
 
     def backlog(self, name: str) -> BacklogConfig | None:
         return next((b for b in self.backlogs if b.name == name), None)
@@ -193,6 +194,20 @@ def load_config(root: Path) -> Config:
     if review.provider not in PROVIDERS:
         problems.append(f"review.provider must be one of {', '.join(PROVIDERS)}")
 
+    raw_kinds = data.get("kinds", {})
+    if not isinstance(raw_kinds, dict):
+        problems.append("[kinds] must be a table")
+        raw_kinds = {}
+    allowed_kinds = expect(raw_kinds, "allowed", list, None)
+    if allowed_kinds is not None:
+        if not allowed_kinds:
+            problems.append("kinds.allowed must name at least one kind; omit it to allow every kind")
+        elif not all(isinstance(item, str) and NAME_RE.match(item) for item in allowed_kinds):
+            problems.append("kinds.allowed must be a list of kind names (lowercase letters, digits and dashes)")
+            allowed_kinds = []
+        for name in sorted({n for n in allowed_kinds if allowed_kinds.count(n) > 1}):
+            problems.append(f"kinds.allowed names `{name}` more than once")
+
     checks = data.get("checks", {})
     if not isinstance(checks, dict) or not all(isinstance(v, str) for v in checks.values()):
         problems.append("[checks] must map names to command strings")
@@ -214,4 +229,5 @@ def load_config(root: Path) -> Config:
         worktree_dir=worktree_dir,
         checks=dict(checks),
         review=review,
+        allowed_kinds=tuple(allowed_kinds or ()),
     )

@@ -57,6 +57,14 @@ repository adds its own under `.taskrail/types/<kind>/kind.toml`, or adjusts a c
 `.taskrail/overrides/<kind>/kind.toml`. [examples/spec-kit](examples/spec-kit) shows a `spec`
 kind that routes to a project's own Spec Kit skills.
 
+To accept only a closed set of kinds, list them in `.taskrail/config.toml`; `validate` then
+rejects tasks of any other kind:
+
+```toml
+[kinds]
+allowed = ["spec", "bug", "chore"]
+```
+
 ## Development
 
 ```bash

@@ -84,7 +84,8 @@ route on them; the core never interprets them.
 - `✓`: `⬜` pending, `✅` done, `❌` discarded. Nothing else is stored. "Blocked" is computed
   from dependencies; "in progress" is the claim (§6) and never touches the file.
 - `ID`: backlog prefix + zero-padded number, allocated by the CLI (§6.3), never reused.
-- `Kind`: must name a known kind. Empty or unknown is a validation error, never a default.
+- `Kind`: must name a known kind. Empty or unknown is a validation error, never a default. When
+  config restricts the allowed kinds (§5.2), a kind outside that set is an error too.
 - `Pts`: optional; a backlog may restrict the scale (for example Fibonacci).
 - `Depends On`: comma-separated IDs or `—`, checked against the backlog's allowed directions.
 - `Description`: one or two lines. Longer detail goes in a linked file, so rows stay short
@@ -132,6 +133,9 @@ provider = "auto"                # auto | github | gitlab | gitea | forgejo | no
 web_url = ""
 url_template = ""
 scope = ""
+
+[kinds]                          # optional; omit to allow every defined kind (§5.2)
+allowed = ["spec", "bug", "chore"]
 
 [checks]                         # commands the executors run as quality gates
 test = "pnpm test:all"
@@ -187,6 +191,18 @@ Highest wins, as in Spec Kit's layering:
 1. `.taskrail/overrides/<kind>/` — one-off adjustments to a core or local kind
 2. `.taskrail/types/<kind>/` — the repository's own kinds
 3. core kinds shipped with the tool
+
+A repository whose rules name a closed set of kinds lists it in `[kinds].allowed`. The allowlist
+is applied after resolution, so it covers core, local and overridden kinds alike: a kind it
+leaves out is not resolved at all, and `validate` reports:
+
+- `task-kind-disallowed` (error) — a task, whatever its status, whose kind is defined but not
+  allowed; `task-kind-unknown` stays for a kind no layer defines;
+- `kind-allowed-unknown` (error) — `allowed` names a kind no layer defines;
+- `kind-not-allowed` (warning) — a local kind or an override that `allowed` leaves out. Leaving
+  out a core kind is silent, since that is what the setting is for.
+
+Without `allowed`, every defined kind is allowed. An empty list is a configuration error.
 
 ### 5.3 Core kinds
 
