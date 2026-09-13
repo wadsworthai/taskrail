@@ -216,6 +216,9 @@ leaves out is not resolved at all, and `validate` reports:
 
 Without `allowed`, every defined kind is allowed. An empty list is a configuration error.
 
+Installation follows the resolved set too (§9): an executor skill taskrail ships installs only
+when a resolved kind names it.
+
 ### 5.3 Core kinds
 
 | Kind | Stages (gate) | Artifact |
@@ -447,6 +450,14 @@ session starts.
   a file edited since, or one taskrail did not write, is skipped and reported. `--force`
   replaces it. A skill no longer wanted (for example after adding a second integration) is
   removed under the same rule.
+- **Executor skills follow the kinds.** A shipped skill that a core kind names, in `skill` or a
+  route, is an executor skill. It installs only when a kind the repository resolves — core,
+  local and overrides, after `[kinds].allowed` (§5.2) — names it, so a local kind may pull in a
+  shipped executor skill whose own kind is not allowed. Shipped skills no core kind names, such
+  as the core `taskrail` skill, always install; skills taskrail does not ship are never written.
+  The report notes the executor skills left out. While kind resolution reports errors, such as
+  `kind-allowed-unknown`, nothing the kind filter would remove is removed, and a note says so:
+  bad input never deletes a skill, and the next run after the fix removes what is not wanted.
 - **Extras** — `--github-workflow` is remembered in the manifest; `--pre-commit` writes a
   marked block into this clone's git hook, keeping an existing shell hook's contents.
 

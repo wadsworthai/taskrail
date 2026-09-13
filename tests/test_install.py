@@ -230,3 +230,175 @@ def test_upgrade_keeps_a_local_pin(empty_repo, capsys):
     config.write_text(config.read_text().replace(f'"{install.release_tag()}"', '"local:."'))
     assert run(empty_repo, "upgrade", capsys=capsys)[0] == 0
     assert 'version = "local:."' in config.read_text()
+
+
+# T025: executor skills follow the kinds a repository resolves, after `[kinds].allowed`.
+
+KIND = 'name = "{name}"\nsummary = "x"\n{body}\n[[stage]]\nname = "a"\n'
+
+
+def installed_skills(root, skills_dir=".claude/skills"):
+    return sorted(p.parent.name for p in (root / skills_dir).glob("*/SKILL.md"))
+
+
+def set_kinds(root, *allowed: str) -> None:
+    """Rewrite the config's `[kinds]` table; no names removes it."""
+    config = root / ".taskrail/config.toml"
+    text = config.read_text().split("\n[kinds]\n")[0]
+    if allowed:
+        text += "\n[kinds]\nallowed = [" + ", ".join(f'"{name}"' for name in allowed) + "]\n"
+    config.write_text(text)
+
+
+def write_kind(root, layer, name, body):
+    path = root / ".taskrail" / layer / name / "kind.toml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(KIND.format(name=name, body=body))
+
+
+def upgrade(root, *argv, capsys):
+    code, out, err = run(root, "upgrade", "--json", *argv, capsys=capsys)
+    assert code == 0, err
+    return json.loads(out)
+
+
+def left_out_notes(report):
+    return [note for note in report["notes"] if note.startswith("not installing")]
+
+
+def withheld_notes(report):
+    return [note for note in report["notes"] if "left in place" in note]
+
+
+def seed_config(root, *allowed: str) -> None:
+    (root / ".taskrail").mkdir()
+    (root / ".taskrail/config.toml").write_text(install.default_config("main"))
+    set_kinds(root, *allowed)
+
+
+# 1. Without [kinds], every skill installs and nothing is noted.
+def test_without_allowed_kinds_every_skill_installs_without_a_note(empty_repo, capsys):
+    first = init(empty_repo, "--integration", "claude", capsys=capsys)
+    assert installed_skills(empty_repo) == SKILLS
+    assert left_out_notes(first) == []
+    second = init(empty_repo, capsys=capsys)
+    assert second["created"] == second["updated"] == second["removed"] == second["skipped"] == []
+    assert second["notes"] == []
+
+
+# 2. With allowed = [bug, chore], only their executor skills and the core skill install.
+@pytest.mark.parametrize(("integration", "skills_dir"), [("claude", ".claude/skills"), ("opencode", ".opencode/skills")])
+def test_allowed_kinds_limit_the_executor_skills_installed(empty_repo, capsys, integration, skills_dir):
+    seed_config(empty_repo, "bug", "chore")
+    report = init(empty_repo, "--integration", integration, capsys=capsys)
+    assert installed_skills(empty_repo, skills_dir) == ["taskrail", "taskrail-bug", "taskrail-chore"]
+    assert left_out_notes(report) == ["not installing skills that no allowed kind uses: taskrail-feature, taskrail-spike"]
+    manifest = json.loads((empty_repo / ".taskrail/installed.json").read_text())
+    assert not [path for path in manifest["files"] if "feature" in path or "spike" in path]
+    again = init(empty_repo, capsys=capsys)
+    assert again["created"] == again["updated"] == again["removed"] == again["skipped"] == []
+
+
+# 3. Narrowing allowed removes the skills no longer wanted.
+def test_narrowing_allowed_kinds_removes_their_skills_on_upgrade(empty_repo, capsys):
+    init(empty_repo, "--integration", "claude", capsys=capsys)
+    set_kinds(empty_repo, "bug", "chore")
+    report = upgrade(empty_repo, capsys=capsys)
+    assert sorted(report["removed"]) == [".claude/skills/taskrail-feature/SKILL.md", ".claude/skills/taskrail-spike/SKILL.md"]
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-bug", "taskrail-chore"]
+    assert not (empty_repo / ".claude/skills/taskrail-feature").exists()
+    manifest = json.loads((empty_repo / ".taskrail/installed.json").read_text())
+    assert ".claude/skills/taskrail-feature/SKILL.md" not in manifest["files"]
+    assert any("restart the agent session" in note for note in report["notes"])
+
+
+# 4. A locally edited copy stays until --force.
+def test_an_edited_skill_of_a_disallowed_kind_is_kept_unless_forced(empty_repo, capsys):
+    init(empty_repo, "--integration", "claude", capsys=capsys)
+    skill = empty_repo / ".claude/skills/taskrail-feature/SKILL.md"
+    skill.write_text(skill.read_text() + "\nLocal note.\n")
+    set_kinds(empty_repo, "bug", "chore")
+    report = upgrade(empty_repo, capsys=capsys)
+    assert report["removed"] == [".claude/skills/taskrail-spike/SKILL.md"]
+    assert report["skipped"] == [
+        {"path": ".claude/skills/taskrail-feature/SKILL.md", "reason": "no longer installed here, but edited locally; left in place"}
+    ]
+    assert "Local note." in skill.read_text()
+    manifest = json.loads((empty_repo / ".taskrail/installed.json").read_text())
+    assert ".claude/skills/taskrail-feature/SKILL.md" in manifest["files"]
+    forced = upgrade(empty_repo, "--force", capsys=capsys)
+    assert forced["removed"] == [".claude/skills/taskrail-feature/SKILL.md"]
+    assert not skill.exists()
+
+
+# 5. Widening allowed again reinstalls them.
+def test_widening_allowed_kinds_reinstalls_their_skills(empty_repo, capsys):
+    init(empty_repo, "--integration", "claude", capsys=capsys)
+    set_kinds(empty_repo, "bug", "chore")
+    upgrade(empty_repo, capsys=capsys)
+    set_kinds(empty_repo)
+    report = upgrade(empty_repo, capsys=capsys)
+    assert sorted(report["created"]) == [".claude/skills/taskrail-feature/SKILL.md", ".claude/skills/taskrail-spike/SKILL.md"]
+    assert installed_skills(empty_repo) == SKILLS
+    assert left_out_notes(report) == []
+
+
+# 6. A local kind that names a shipped executor skill installs it, by `skill` or by a route.
+@pytest.mark.parametrize(
+    "body",
+    ['skill = "taskrail-spike"', '[[route]]\nwhen = { Area = "*" }\nskill = "taskrail-spike"'],
+    ids=["skill", "route"],
+)
+def test_a_local_kind_naming_a_shipped_skill_installs_it(empty_repo, capsys, body):
+    seed_config(empty_repo, "bug", "research")
+    write_kind(empty_repo, "types", "research", body)
+    report = init(empty_repo, "--integration", "claude", capsys=capsys)
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-bug", "taskrail-spike"]
+    assert left_out_notes(report) == ["not installing skills that no allowed kind uses: taskrail-chore, taskrail-feature"]
+
+
+# 7. The core skill always installs; a skill taskrail does not ship is ignored.
+def test_core_skill_installs_when_only_a_local_kind_with_its_own_skill_is_allowed(empty_repo, capsys):
+    seed_config(empty_repo, "spec")
+    write_kind(empty_repo, "types", "spec", 'skill = "speckit-pipeline"')
+    report = init(empty_repo, "--integration", "claude", capsys=capsys)
+    assert installed_skills(empty_repo) == ["taskrail"]
+    assert report["skipped"] == []
+    assert not any("speckit" in path for path in report["created"])
+
+
+# 8. An override pointing a core kind at another skill stops installing the core kind's skill.
+def test_an_override_replacing_a_core_kinds_skill_skips_that_skill(empty_repo, capsys):
+    seed_config(empty_repo)
+    write_kind(empty_repo, "overrides", "bug", 'skill = "my-bug"')
+    report = init(empty_repo, "--integration", "claude", capsys=capsys)
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-chore", "taskrail-feature", "taskrail-spike"]
+    assert left_out_notes(report) == ["not installing skills that no allowed kind uses: taskrail-bug"]
+
+
+# 9. While kind resolution reports errors, nothing is removed and a note says why.
+def test_kind_resolution_errors_withhold_removals_until_fixed(empty_repo, capsys):
+    init(empty_repo, "--integration", "claude", capsys=capsys)
+    set_kinds(empty_repo, "bgu", "chore")  # a typo: kind-allowed-unknown
+    report = upgrade(empty_repo, capsys=capsys)
+    assert report["removed"] == [] and report["skipped"] == []
+    assert installed_skills(empty_repo) == SKILLS
+    assert withheld_notes(report) == [
+        "kind resolution reports errors (run `taskrail validate`), so skills no longer wanted were left in place: "
+        ".claude/skills/taskrail-bug/SKILL.md, .claude/skills/taskrail-feature/SKILL.md, .claude/skills/taskrail-spike/SKILL.md"
+    ]
+    manifest = json.loads((empty_repo / ".taskrail/installed.json").read_text())
+    assert ".claude/skills/taskrail-bug/SKILL.md" in manifest["files"]
+
+    set_kinds(empty_repo, "bug", "chore")
+    fixed = upgrade(empty_repo, capsys=capsys)
+    assert sorted(fixed["removed"]) == [".claude/skills/taskrail-feature/SKILL.md", ".claude/skills/taskrail-spike/SKILL.md"]
+    assert withheld_notes(fixed) == []
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-bug", "taskrail-chore"]
+
+
+def test_kind_resolution_errors_still_install_from_the_resolved_kinds(empty_repo, capsys):
+    seed_config(empty_repo, "bgu", "chore")
+    report = init(empty_repo, "--integration", "claude", capsys=capsys)
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-chore"]
+    assert withheld_notes(report) == []

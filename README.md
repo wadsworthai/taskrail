@@ -65,6 +65,10 @@ rejects tasks of any other kind:
 allowed = ["spec", "bug", "chore"]
 ```
 
+`init` and `upgrade` install only the executor skills the allowed kinds use, so the example above
+does not install `taskrail-feature` or `taskrail-spike`, and removes them if they were installed
+and not edited locally. The core `taskrail` skill always installs.
+
 ## Development
 
 ```bash

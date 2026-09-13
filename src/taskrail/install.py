@@ -311,6 +311,23 @@ def skill_files(integrations: list[str]) -> dict[str, str]:
     return files
 
 
+def unused_executor_skills(config) -> tuple[list[str], bool]:
+    """Shipped executor skills no resolved kind names, and whether kind resolution reported errors.
+
+    An executor skill is a shipped skill that a core kind names in `skill` or a route; it is
+    wanted when a kind the repository resolves (core, local and overrides, after
+    `[kinds].allowed`) names it. Shipped skills no core kind names, such as the core `taskrail`
+    skill, are always wanted.
+    """
+    from taskrail.kinds import core_kinds, load_kinds
+
+    shipped = {p.name for p in SKILLS_SOURCE.iterdir() if p.is_dir()}
+    executors = shipped & {name for kind in core_kinds(config).values() for name in kind.skill_names()}
+    kinds, issues = load_kinds(config)
+    used = {name for kind in kinds.values() for name in kind.skill_names()}
+    return sorted(executors - used), any(issue.severity == "error" for issue in issues)
+
+
 def _ensure_gitignore(root: Path, entry: str, report: Report) -> None:
     path = root / ".gitignore"
     line = entry.rstrip("/") + "/"
@@ -349,11 +366,25 @@ def install(
         installer.seed(backlog.file, DEFAULT_TODO)
     installer.managed(WRAPPER, wrapper_script(), executable=True)
 
-    wanted = skill_files(selected)
+    left_out, kind_errors = unused_executor_skills(config)
+    every = skill_files(selected)
+    wanted = {relative: content for relative, content in every.items() if Path(relative).parent.name not in left_out}
     for relative, content in wanted.items():
         installer.managed(relative, content)
+    withheld: list[str] = []
     for relative in [p for p in list(installer.files) if p.endswith("/SKILL.md") and p not in wanted]:
+        # Bad kind input must never delete skills: keep what the kind filter alone would remove.
+        if kind_errors and relative in every and (root / relative).exists():
+            withheld.append(relative)
+            continue
         installer.remove_managed(relative)
+    if left_out:
+        installer.report.notes.append(f"not installing skills that no allowed kind uses: {', '.join(left_out)}")
+    if withheld:
+        installer.report.notes.append(
+            "kind resolution reports errors (run `taskrail validate`), so skills no longer wanted were left in place: "
+            + ", ".join(withheld)
+        )
 
     if extras.get("github_workflow"):
         installer.managed(WORKFLOW, workflow([b.mainline for b in config.backlogs]))

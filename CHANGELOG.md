@@ -15,6 +15,9 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 - **Each mainline's own remote.** `show`, `new --workspace` and `review` take the base, fetch, push and pull request link from `branch.<mainline>.remote` when it names a configured remote, and report it as `remote` and `remote_source`. Behaviour change: this tracking config now wins over `[review].remote`, which becomes the fallback.
 - **Column aliases.** `[columns].aliases` maps a core column onto a repository's own header,
   such as `Pts = "Size"`, so a backlog keeps its established headers (T021).
+- **Skills follow the allowed kinds.** `init` and `upgrade` install a shipped executor skill only
+  when a kind the repository resolves uses it, and remove unedited copies that are no longer
+  used, except while kind resolution reports errors (T025).
 
 ## 0.1.0
 

@@ -70,6 +70,10 @@ class Kind:
                 return route.skill
         return self.skill
 
+    def skill_names(self) -> set[str]:
+        """Every skill this kind can hand a task to: its `skill` and each route's."""
+        return {name for name in (self.skill, *(route.skill for route in self.routes)) if name}
+
     def to_dict(self) -> dict:
         return {
             "name": self.name,
@@ -223,6 +227,16 @@ def defined_kind_names(config: Config) -> set[str]:
         for kind_dir in directory.iterdir()
         if (kind_dir / DESCRIPTOR).is_file()
     }
+
+
+def core_kinds(config: Config) -> dict[str, Kind]:
+    """The kinds taskrail ships, before any repository layer or `[kinds].allowed` applies."""
+    kinds: dict[str, Kind] = {}
+    for kind_dir in sorted(p for p in CORE_DIR.iterdir() if (p / DESCRIPTOR).is_file()):
+        kind = _parse(kind_dir / DESCRIPTOR, "core", f"<core>/{kind_dir.name}/{DESCRIPTOR}", config, [])
+        if kind is not None:
+            kinds[kind.name] = kind
+    return kinds
 
 
 def load_kinds(config: Config) -> tuple[dict[str, Kind], list[Issue]]:
