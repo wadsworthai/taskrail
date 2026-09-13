@@ -1,0 +1,105 @@
+---
+name: taskrail
+description: Work a taskrail backlog (TODO.md grouped by epics) through the taskrail CLI — find, claim, create and close tasks, and follow the procedure every task kind shares. Use whenever a task ID such as T012 is mentioned, when asked what to work on next, when adding tasks or epics, and before running any taskrail-* executor skill.
+license: MIT
+metadata:
+  source: https://github.com/alexkander/taskrail
+---
+
+# taskrail
+
+The backlog is Markdown: `TODO.md` holds an `## Epics` table and one section per epic, and an
+epic may live in its own file instead. Each task is a table row with a status (`⬜` pending,
+`✅` done, `❌` discarded), an ID, a kind, dependencies and a title.
+
+**The CLI owns IDs and statuses.** Never invent an ID, never type a status emoji into a row,
+and never reformat a table. Create tasks with `taskrail new`, close them with `taskrail done`
+or `taskrail discard`. Editing a title or description by hand is fine; run `taskrail validate`
+afterwards.
+
+## Running the CLI
+
+Run `.taskrail/bin/taskrail <command>` from anywhere in the repository or a task worktree. Add
+`--json` whenever you need to read the result, and act on the exit code:
+
+| Exit | Meaning | What to do |
+|---|---|---|
+| 0 | success | continue |
+| 1 | the backlog fails validation | run `taskrail validate`, report the errors, stop |
+| 2 | usage, configuration or git error | read the message; fix the invocation or report it |
+| 3 | not found | re-check the ID or name |
+| 4 | conflict: claimed by someone else | stop and report who holds it |
+| 5 | refused: not pending, or blocked | stop and report why |
+
+Useful commands: `next`, `list [--epic E01] [--state pending]`, `show <ID>`, `claims`,
+`kind list`.
+
+## Working a task
+
+Follow these steps for every kind. The executor skill for the kind (named in the `skill` field
+of `taskrail show`) supplies what happens inside each stage.
+
+1. **Identify.** Use the ID the human gave. If none was given, run `taskrail next --json` and
+   propose the first candidate; do not start one on your own.
+2. **Inspect.** Run `taskrail show <ID> --json`. Stop if `state` is not `pending` and report
+   the claim or `blocked_by`. If the `skill` field names a different executor than the one you
+   are running, stop and name the right one.
+3. **Workspace.** Run `git fetch` first. If `worktree` is set, create it:
+   `git worktree add <worktree> -b <branch> <mainline>`; otherwise
+   `git switch -c <branch> <mainline>`. If the branch already exists, stop and ask — someone
+   may have started this task. If a dependency is finished only on an unmerged branch, ask
+   which base to use. From here on, work only inside that workspace.
+4. **Claim.** From inside the workspace, run `taskrail claim <ID>` before any edit.
+5. **Stages.** Take `kind_descriptor.stages` in order. For each stage: do its work, run each of
+   its `checks` with the command from the `checks` map (say so if a check is not configured),
+   commit when `commit` is true, then apply its gate.
+6. **Scope.** Never edit the areas in `never_edit`. Work you discover outside the task's scope
+   becomes a follow-up task (see *Creating tasks*); mention it at the next gate. Only fix
+   something directly on the way when it is small and inseparable from the task.
+7. **Artifact.** Write the kind's document at `artifact`, and add a row for it to
+   `artifact_index`, creating that index as a heading plus a table if it does not exist.
+8. **Close.** With every check passing:
+   - run `taskrail done <ID>` inside the workspace — it marks the row in this branch and
+     releases the claim — and commit that change on its own;
+   - `git fetch` and rebase onto the base the branch came from;
+   - resolve backlog conflicts mechanically: rows added on both sides keep both, and a status
+     cell that is `✅` on either side stays `✅`; then run `taskrail validate`;
+   - stop and ask about any other conflict;
+   - push the branch only if `push_branch` is true.
+9. **Hand off.** Report the branch and its base, each commit on one line, every check with its
+   actual result, the artifact path, and any follow-up tasks. Never merge, never delete the
+   branch, and remove the worktree only when the human asks.
+
+## Gates
+
+A stage's `gate` decides whether you stop after it:
+
+- `always` — stop and wait for explicit approval.
+- `conditional` — stop only if there is something to decide or report; otherwise continue.
+- `none` — continue.
+
+At a gate, stop editing and report: what the stage did; the evidence, with the exact commands
+and the relevant real output; each decision needed, as a direct question; what you will do
+next; and what you will not do. Approval covers that stage only.
+
+If you are a delegated agent with no direct channel to the human, end your turn with that
+report and resume only when told to continue with the task ID. Never shorten evidence for the
+relay: whoever passes it on cannot recover what you leave out.
+
+<!-- taskrail:harness -->
+
+## Creating tasks
+
+```bash
+.taskrail/bin/taskrail new --epic E01 --kind bug --title "Short imperative title" \
+  [--pts 3] [--depends-on T010,T011] [--description "One line."] [--column Owner=api]
+```
+
+Keep the description to one line; put longer detail in a file and link it. Add epics with
+`taskrail epic add --name … --objective … [--done-when …] [--own-file]`, and move a large
+inline epic to its own file with `taskrail epic split E01`.
+
+## Commit messages
+
+Follow the repository's convention. If it has none, use a one-line Conventional Commit that
+names the task, for example `fix(T012): round totals half-up`.

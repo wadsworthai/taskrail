@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, claims, gitutil, ids, writer
+from taskrail import __version__, claims, gitutil, ids, install, writer
 from taskrail.config import find_root, load_config
 from taskrail.issues import ConfigError, Issue
 from taskrail.model import Project, Status
@@ -415,6 +415,58 @@ def cmd_epic_split(args) -> int:
     return _write(edits, args.json, {"id": epic.id, "file": file}, f"moved {epic.id} to {file}")
 
 
+def _install_root(args) -> Path:
+    if args.root:
+        return Path(args.root).resolve()
+    try:
+        return gitutil.toplevel(Path.cwd())
+    except gitutil.GitError:
+        return Path.cwd()
+
+
+def cmd_init(args) -> int:
+    unknown = [name for name in args.integration or [] if name not in install.INTEGRATIONS]
+    if unknown:
+        print(f"taskrail: unknown integration(s): {', '.join(unknown)}; see `taskrail integration list`", file=sys.stderr)
+        return EXIT_USAGE
+    report = install.install(
+        _install_root(args),
+        args.integration or [],
+        github_workflow=args.github_workflow,
+        pre_commit=args.pre_commit,
+        force=args.force,
+    )
+    _emit(report.to_dict(), args.json, report.format())
+    return EXIT_OK
+
+
+def cmd_upgrade(args) -> int:
+    root = Path(args.root).resolve() if args.root else find_root(Path.cwd())
+    try:
+        report = install.upgrade(root, force=args.force)
+    except FileNotFoundError as exc:
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    _emit(report.to_dict(), args.json, report.format())
+    return EXIT_OK
+
+
+def cmd_integration_list(args) -> int:
+    rows = [{"name": name, **info} for name, info in install.INTEGRATIONS.items()]
+    _emit(rows, args.json, "\n".join(f"{r['name']:<9} {r['label']:<12} skills in {r['skills_dir']}" for r in rows))
+    return EXIT_OK
+
+
+def cmd_self_upgrade(args) -> int:
+    try:
+        command, code = install.self_upgrade(args.tag, args.dry_run)
+    except LookupError as exc:
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    _emit({"command": command, "exit": code}, args.json, " ".join(command))
+    return EXIT_OK if code == 0 else EXIT_USAGE
+
+
 def cmd_kind_list(args) -> int:
     project, issues = _load(args)
     kinds = sorted(project.kinds.values(), key=lambda k: k.name)
@@ -480,6 +532,29 @@ def build_parser() -> argparse.ArgumentParser:
 
     unreserve = add("unreserve-id", cmd_unreserve_id, "Cancel an ID reservation that will not be used.")
     unreserve.add_argument("id")
+
+    init = add("init", cmd_init, "Install taskrail into a repository. Safe to run again.")
+    init.add_argument("--integration", action="append", metavar="NAME", help="agent to install skills for; repeatable")
+    init.add_argument("--github-workflow", action="store_true", help="add a GitHub Actions workflow running validate")
+    init.add_argument("--pre-commit", action="store_true", help="add a git pre-commit hook running validate")
+    init.add_argument("--force", action="store_true", help="replace files edited locally or not written by taskrail")
+
+    upgrade = add("upgrade", cmd_upgrade, "Re-install skills and managed files for this CLI version and pin it.")
+    upgrade.add_argument("--force", action="store_true")
+
+    integration = commands.add_parser("integration", help="Agent integrations.")
+    integration_commands = integration.add_subparsers(dest="integration_command", required=True)
+    integration_list = integration_commands.add_parser("list", help="Available agent integrations.")
+    integration_list.add_argument("--json", action="store_true")
+    integration_list.set_defaults(handler=cmd_integration_list)
+
+    self_cmd = commands.add_parser("self", help="Manage the installed CLI.")
+    self_commands = self_cmd.add_subparsers(dest="self_command", required=True)
+    self_upgrade = self_commands.add_parser("upgrade", help="Reinstall the CLI from a release tag with uv.")
+    self_upgrade.add_argument("--tag", help="release tag, e.g. v0.1.0 (default: the latest)")
+    self_upgrade.add_argument("--dry-run", action="store_true", help="print the command without running it")
+    self_upgrade.add_argument("--json", action="store_true")
+    self_upgrade.set_defaults(handler=cmd_self_upgrade)
 
     new = add("new", cmd_new, "Add a task to an epic, with a freshly reserved ID.")
     new.add_argument("--epic", required=True)

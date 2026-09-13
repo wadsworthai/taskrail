@@ -11,6 +11,7 @@ from taskrail.config import BacklogConfig, Config
 from taskrail.issues import Issue
 from taskrail.markdown import Section, parse_sections, split_row
 from taskrail.model import Epic, Project, Status, Task
+from taskrail.templates import slugify  # noqa: F401  (re-exported for the CLI)
 
 DEFAULT_TASK_COLUMNS = ("✓", "ID", "Kind", "Pts", "Depends On", "Title", "Description")
 DEFAULT_WIDTHS = {"✓": 2, "ID": 4, "Kind": 7, "Pts": 3, "Depends On": 10, "Title": 30, "Description": 30}
@@ -18,11 +19,6 @@ DEFAULT_WIDTHS = {"✓": 2, "ID": 4, "Kind": 7, "Pts": 3, "Depends On": 10, "Tit
 
 class WriteError(Exception):
     """The requested edit cannot be made."""
-
-
-def slugify(text: str, limit: int = 40) -> str:
-    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-    return slug[:limit].rstrip("-") or "untitled"
 
 
 def escape_cell(value: str) -> str:

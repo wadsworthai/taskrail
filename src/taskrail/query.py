@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from taskrail.model import Project, Status, Task
+from taskrail.templates import render
 
 STATES = ("pending", "claimed", "blocked", "done", "discarded")
 
@@ -46,6 +47,9 @@ def eligible(project: Project, backlog: str | None = None, claimed: dict | None 
 def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict:
     kind = project.kinds.get(task.kind)
     claim = (claimed or {}).get(task.id)
+    config = project.config
+    backlog = config.backlog(task.backlog)
+    branch = render(kind.branch, task, config) if kind else None
     return {
         "id": task.id,
         "backlog": task.backlog,
@@ -61,6 +65,16 @@ def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict
         "columns": task.columns,
         "skill": kind.skill_for(task) if kind else None,
         "claim": claim.to_dict() if claim else None,
+        "mainline": backlog.mainline if backlog else None,
+        "push_branch": config.push_task_branch,
+        "branch": branch,
+        "worktree": f"{config.worktree_dir}/{branch}" if branch and config.worktree == "required" else None,
+        "artifact": render(kind.artifact, task, config) if kind else None,
+        "artifact_index": render(kind.artifact_index, task, config) if kind else None,
+        "never_edit": list(kind.never_edit) if kind else [],
+        "checks": {name: config.checks[name] for stage in kind.stages for name in stage.checks if name in config.checks}
+        if kind
+        else {},
         "file": task.file,
         "line": task.line,
     }

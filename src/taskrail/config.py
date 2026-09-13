@@ -36,6 +36,8 @@ class Config:
     push_task_branch: bool = False
     claim_remote: str = ""
     claim_grace_minutes: int = 15
+    worktree: str = "required"  # "required" | "never"
+    worktree_dir: str = ".worktrees"
     checks: dict[str, str] = field(default_factory=dict)
 
     def backlog(self, name: str) -> BacklogConfig | None:
@@ -157,6 +159,10 @@ def load_config(root: Path) -> Config:
     claim_grace_minutes = expect(git, "claim_grace_minutes", int, 15)
     if claim_grace_minutes < 0:
         problems.append("git.claim_grace_minutes must not be negative")
+    worktree = expect(git, "worktree", str, "required")
+    if worktree not in ("required", "never"):
+        problems.append('git.worktree must be "required" or "never"')
+    worktree_dir = expect(git, "worktree_dir", str, ".worktrees")
 
     checks = data.get("checks", {})
     if not isinstance(checks, dict) or not all(isinstance(v, str) for v in checks.values()):
@@ -175,5 +181,7 @@ def load_config(root: Path) -> Config:
         push_task_branch=push_task_branch,
         claim_remote=claim_remote,
         claim_grace_minutes=claim_grace_minutes,
+        worktree=worktree,
+        worktree_dir=worktree_dir,
         checks=dict(checks),
     )

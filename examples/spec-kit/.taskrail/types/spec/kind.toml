@@ -1,0 +1,34 @@
+# Example repository-local kind for projects that drive specifications with GitHub Spec Kit.
+# Copy to .taskrail/types/spec/kind.toml, declare the `Spec` column, and point each route at the
+# skills your repository already has.
+name = "spec"
+summary = "Specification-driven work: create a new specification, or amend an existing one, then implement it."
+branch = "{id}-{slug}"
+
+# `Spec` holds `—` for a new specification, or the directory of the one to amend.
+[[route]]
+when = { Spec = "—" }
+skill = "spec-new-pipeline"
+
+[[route]]
+when = { Spec = "*" }
+skill = "spec-amend-pipeline"
+
+[[stage]]
+name = "specify"
+summary = "Write or amend the specification and resolve its open questions."
+gate = "conditional"
+commit = true
+
+[[stage]]
+name = "plan"
+summary = "Produce the plan and task breakdown, and check them against the specification."
+gate = "always"
+commit = true
+
+[[stage]]
+name = "implement"
+summary = "Implement the tasks, then re-check the implementation against the specification."
+gate = "always"
+commit = true
+checks = ["test", "lint"]

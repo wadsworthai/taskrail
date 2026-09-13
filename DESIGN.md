@@ -1,8 +1,6 @@
 # taskrail — design
 
-Status: **v1 in progress**. Implemented so far: configuration, backlog parsing, kind
-resolution, `validate`, `list`, `show`, `next`, `kind list`, claims (local and remote), ID
-reservation, and the write commands `new`, `done`, `discard`, `epic add` and `epic split`.
+Status: **v1 implemented, not yet released.**
 
 An agent-agnostic backlog tool: a deterministic CLI that owns the backlog files, plus thin
 skills that execute tasks by kind. Derived from the task systems of two existing projects,
@@ -123,6 +121,8 @@ scale = [1, 2, 3, 5, 8, 13]
 push_task_branch = false
 claim_remote = ""                # e.g. "origin" to also claim across machines (§6.2)
 claim_grace_minutes = 15         # how long a claim's branch may be missing before it is stale
+worktree = "required"            # "required": one worktree per task; "never": a branch in this checkout
+worktree_dir = ".worktrees"
 
 [checks]                         # commands the executors run as quality gates
 test = "pnpm test:all"
@@ -240,11 +240,11 @@ not move the counter.
 
 | Command | Purpose |
 |---|---|
-| `taskrail init [--integration claude]` | Create `TODO.md`, `.taskrail/config.toml`, and install skills for an agent |
+| `taskrail init [--integration NAME]… [--github-workflow] [--pre-commit] [--force]` | Install into a repository; idempotent (§9) |
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks |
 | `taskrail list [--epic E01] [--eligible]` | Tasks, with computed blocked and eligible state |
-| `taskrail show <ID>` | One task, its kind's resolved stages, and its claim |
+| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, branch, worktree, artifact and index paths, `never_edit`, check commands |
 | `taskrail next` | Eligible tasks in order: points ascending, then file order |
 | `taskrail claim <ID>` / `taskrail release <ID>` | §6.1, §6.2 |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
@@ -285,14 +285,33 @@ need the network.
 
 ## 8. Skills
 
-- `taskrail` — the core skill: what the backlog is, how to call the CLI, and the shared stages
-  from §5.3. Executor skills refer to it instead of repeating it.
-- `taskrail-bug`, `taskrail-chore`, `taskrail-feature`, `taskrail-spike` — one per core kind, containing only
-  what differs.
+- `taskrail` — the core skill: the backlog model, how to call the CLI and read its exit codes,
+  the procedure every kind shares (identify, inspect, workspace, claim, stages, scope,
+  artifact, close, hand off) and the gate protocol. Executor skills refer to it instead of
+  repeating it.
+- `taskrail-bug`, `taskrail-chore`, `taskrail-feature`, `taskrail-spike` — one per core kind,
+  containing only what happens inside each stage and what the artifact must hold.
 
-Agent neutrality: skills describe gates as "stop and return the questions to whoever invoked
-you". How that maps to a harness — a subagent in an isolated worktree relaying through an
-orchestrator on Claude Code — lives in the integration layer, not in the skill text.
+Skills never compute paths: `taskrail show --json` returns the branch, worktree and artifact
+paths rendered from the kind's templates.
+
+Frontmatter is limited to `name`, `description`, `license`, `compatibility` and `metadata`, the
+fields every supported agent accepts. Skills describe gates as "ask the human if you can,
+otherwise stop and return the report to whoever invoked you".
+
+### Integrations
+
+An integration decides where skills are written and adds a short agent-specific section to
+the core skill (at its `<!-- taskrail:harness -->` marker):
+
+| Integration | Skills directory | Agent-specific notes |
+|---|---|---|
+| `claude` | `.claude/skills/` | ask with AskUserQuestion; create task worktrees with git rather than subagent isolation |
+| `opencode` | `.opencode/skills/` | ask in plain text; a subagent's final message returns to its caller |
+
+OpenCode also reads `.claude/skills/` and requires skill names to be unique across every
+location it reads. With both integrations installed, the skills are therefore written once, to
+`.claude/skills/`, carrying both agents' notes.
 
 ## 9. Distribution
 
@@ -306,10 +325,26 @@ taskrail init --integration claude
 
 Tags are the plain version, `vX.Y.Z`.
 
+`init` is idempotent, and every run adds to what is installed:
+
+- **Seeded files** — `.taskrail/config.toml` and each backlog file — are created only when
+  missing and belong to the repository afterwards.
+- **Managed files** — the wrapper, the skills, the optional workflow — are rewritten when they
+  change, unless edited locally. `.taskrail/installed.json` records each managed file's digest;
+  a file edited since, or one taskrail did not write, is skipped and reported. `--force`
+  replaces it. A skill no longer wanted (for example after adding a second integration) is
+  removed under the same rule.
+- **Extras** — `--github-workflow` is remembered in the manifest; `--pre-commit` writes a
+  marked block into this clone's git hook, keeping an existing shell hook's contents.
+
+`taskrail upgrade` repeats the install with the recorded integrations and pins the config to
+the running CLI version. `taskrail self upgrade [--tag]` reinstalls the CLI from a release tag.
+
 Unlike Spec Kit, the skills call the CLI while they work. `init` therefore also writes a
 committed wrapper, `.taskrail/bin/taskrail`: it runs the installed CLI when its version matches
-`.taskrail/config.toml`, and otherwise runs the pinned version through `uvx`. The only
-prerequisite on any machine, CI runner or agent sandbox is `uv`.
+the pin, and otherwise runs the pinned version through `uvx`. The only prerequisite on any
+machine, CI runner or agent sandbox is `uv`. `TASKRAIL_BIN` overrides the wrapper, for
+development builds; `TASKRAIL_SOURCE` overrides the repository URL.
 
 ## 10. Layout
 
@@ -318,10 +353,10 @@ taskrail/
 ├── DESIGN.md
 ├── README.md
 ├── pyproject.toml
-├── src/taskrail/          # parser, validator, claims, CLI
-│   └── kinds/             # core kind descriptors, shipped as package data
-├── skills/                # taskrail, taskrail-bug, taskrail-chore, taskrail-feature, taskrail-spike
-├── integrations/claude/   # agent-specific install mapping
+├── src/taskrail/          # parser, validator, claims, writer, installer, CLI
+│   ├── kinds/             # core kind descriptors        ┐
+│   ├── skills/            # core and executor skills     ├ shipped as package data
+│   └── integrations/      # agent-specific skill notes   ┘
 ├── examples/spec-kit/     # example repository-local `spec` kind
 └── tests/
 ```
