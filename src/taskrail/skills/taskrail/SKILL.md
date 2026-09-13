@@ -42,19 +42,21 @@ of `taskrail show`) supplies what happens inside each stage.
 1. **Identify.** Use the ID the human gave. If none was given, run `taskrail next --json` and
    propose the first candidate; do not start one on your own.
 2. **Inspect.** Run `taskrail show <ID> --json`. Stop if `state` is not `pending` and report
-   the claim or `blocked_by`. If the `skill` field names a different executor than the one you
+   the claim or `blocked_by` — `done-branch` means the task is already finished on its own
+   branch and waits to be merged. If the `skill` field names a different executor than the one you
    are running, stop and name the right one. If `prior_work` lists an artifact, the task's
    branch or commits naming the task, someone may already have worked on it: look at them,
    check that the description's premises still hold, and mention both at your first gate.
    These signals never block on their own.
 3. **Workspace.** Run `git fetch <base.remote>` first, with the mainline's own remote that
    `show` reported, then `taskrail show <ID> --json` again: its `base.onto` is the ref to branch
-   from — the local or the remote mainline, whichever is further ahead.
-   If `base.diverged` is true, stop and ask which one to use. If `worktree` is set, create it:
+   from — the local or the remote mainline, whichever is further ahead, or, when
+   `base.dependency` names a dependency finished only on its unmerged branch, that branch.
+   If `base.diverged` is true, stop and ask which one to use; if `base.onto` is null, stop and
+   report `base.reason`. If `worktree` is set, create it:
    `git worktree add <worktree> -b <branch> <base.onto>`; otherwise
    `git switch -c <branch> <base.onto>`. If the branch already exists, stop and ask — someone
-   may have started this task. If a dependency is finished only on an unmerged branch, ask
-   which base to use. From here on, work only inside that workspace. A task created with
+   may have started this task. From here on, work only inside that workspace. A task created with
    `taskrail new --workspace` already has its workspace: skip to claiming.
 4. **Claim.** From inside the workspace, run `taskrail claim <ID>` before any edit.
 5. **Stages.** Take `kind_descriptor.stages` in order. For each stage: do its work, run each of
@@ -71,7 +73,9 @@ of `taskrail show`) supplies what happens inside each stage.
      releases the claim — and commit that change on its own;
    - run `taskrail review <ID> --json`. It fetches the mainline's remote (`remote`) and reports
      in `rebase.onto` the base to rebase onto: the local or the remote mainline, whichever is
-     further ahead. If `rebase.diverged` is true, stop and ask which one to use;
+     further ahead — or, while `rebase.dependency` names an unmerged dependency, that
+     dependency's branch; the pull request still targets the mainline. If `rebase.diverged` is
+     true, stop and ask which one to use;
    - if `rebase.needed` is true, run `git rebase <rebase.onto>`. Resolve backlog conflicts
      mechanically: rows added on both sides keep both, and a status cell that is `✅` on either
      side stays `✅`, unless one side has a `Reopens: <ID>` commit the other lacks

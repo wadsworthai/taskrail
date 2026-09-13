@@ -70,7 +70,7 @@ def test_prepare_reports_target_head_and_title(task_repo, capsys):
     assert (data["head"], data["target"], data["fetched"]) == (BRANCH, "main", True)
     assert data["rebase"] == {
         "enabled": True, "onto": "origin/main", "diverged": False, "needed": False,
-        "reason": "origin/main is up to date with or ahead of main",
+        "reason": "origin/main is up to date with or ahead of main", "dependency": None,
     }
     assert data["pull_request"]["title"] == "feat: repricing (T002)"
     assert data["pull_request"]["provider"] == "none" and data["pull_request"]["url"] is None

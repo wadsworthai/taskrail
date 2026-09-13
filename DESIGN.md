@@ -242,11 +242,21 @@ task done, and the handoff report.
 
 A claim is a file created atomically (`O_EXCL`) under the git common directory:
 `$(git rev-parse --git-common-dir)/taskrail/claims/<ID>.json`, holding owner, branch, worktree,
-host and timestamp. Every worktree of a clone shares that directory, so parallel sessions on
+host, timestamp and `base`. Every worktree of a clone shares that directory, so parallel sessions on
 one machine see each other's claims without any network.
 
+`base` records where the claimed branch started: `onto`, the ref `show` reports as the base (§7);
+`dependency`, the ID of the unmerged dependency it is stacked on, or `null`; and `commit`, the
+fork point `git merge-base HEAD <onto>` at claim time. Once that dependency is squash-merged,
+`git rebase --onto <mainline> <base.commit>` replays only the task's own commits. `taskrail done`
+releases the claim, so for a finished dependent the fork point is also
+`git merge-base HEAD <dependency branch>` while that branch exists: follow-through must compute it
+before removing the dependency's branch. `base` is
+`null` when no base could be determined. A claim file is read ignoring keys this version does not
+know, so a later version can add fields without hiding its claims from this one.
+
 `taskrail claim <ID>` fails if another live claim exists, and refuses a task that is not
-pending or is blocked (`--ignore-deps` overrides the latter). Claiming again with the same
+pending, is `done-branch`, or is blocked (`--ignore-deps` overrides the last). Claiming again with the same
 owner and branch is a no-op. `taskrail release <ID>` removes a claim; releasing someone
 else's needs `--force`. The owner defaults to `$TASKRAIL_OWNER`, then `user@host`.
 
@@ -259,7 +269,7 @@ automatically; `--takeover` replaces it explicitly, and never replaces a live on
 ### 6.2 Remote claim — optional
 
 With `claim_remote` set, a claim is also pushed as `refs/taskrail/claims/<ID>`: a parentless
-commit holding `claim.json` with only `id`, `owner`, `branch` and `created` — the host and the
+commit holding `claim.json` with only `id`, `owner`, `branch`, `created` and `base` — the host and the
 worktree path stay in the local claim, since a remote may be public — pushed with `--force-with-lease=<ref>:` so the push fails if the
 ref already exists. If the push fails the local claim is rolled back. Releasing deletes the ref
 with a lease on the commit that was pushed. `--local-only` skips the remote for one command.
@@ -287,8 +297,8 @@ not move the counter.
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks |
 | `taskrail list [--epic E01] [--eligible]` | Tasks, with computed blocked and eligible state |
-| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (the further-ahead of the local mainline and its remote's, or `diverged`, with that `remote` and its `remote_source`; never fetches), branch, worktree, artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
-| `taskrail next` | Eligible tasks in order: points ascending, then file order |
+| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches), branch, worktree, artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
+| `taskrail next` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` task |
 | `taskrail claim <ID>` / `taskrail release <ID>` | §6.1, §6.2 |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
@@ -308,7 +318,9 @@ review` owns the deterministic parts; the agent keeps the rebase and its conflic
 1. `taskrail review <ID>` runs on the task branch, only once the task is done there. It fetches
    the mainline's remote (unless `fetch = false` or `--no-fetch`) and picks the rebase base: the
    backlog's `mainline` or its remote-tracking branch, whichever is further ahead, and whichever
-   exists if only one does. Diverged mainlines exit 5. With `rebase = false` no base is chosen.
+   exists if only one does. While the task's single dependency is done only on its unmerged
+   branch, the base is that branch instead, and `rebase.dependency` names it; the pull request
+   still targets the mainline. Diverged mainlines exit 5. With `rebase = false` no base is chosen.
 2. The agent rebases onto that base when `rebase.needed` is true, resolving backlog conflicts as
    the core skill prescribes, and runs `taskrail validate`.
 3. `taskrail review <ID> --publish` refuses a branch that still lacks the base, pushes the task
@@ -375,8 +387,31 @@ than prose. Exit codes are stable:
 | 5 | refused: the task is not pending, or is blocked (for `reopen`: it is already pending) |
 
 Task state, as reported by `list`, `show` and `next`, is one of `pending`, `claimed`,
-`blocked`, `done` or `discarded`. Only local claims are consulted, so these commands never
-need the network.
+`blocked`, `done-branch`, `done` or `discarded`. Only local claims and local refs are
+consulted, so these commands never need the network.
+
+**Done on its branch.** A task is `done-branch` when its row is `⬜` in the current checkout but
+`✅` at the tip of its task branch — the local branch or `<remote>/<branch>` of its mainline's
+remote — and `✅` on neither the local mainline nor `<remote>/<mainline>`. It takes precedence
+over a claim: the work is finished and only waits to be merged, so `next` never offers it and
+`claim` refuses it. "Merged" means `✅` on a mainline ref in every checkout, including a task
+worktree whose own row already says `✅`. The backlog files at those tips are read with one
+`git cat-file --batch` per backlog, only for tasks whose branch exists.
+
+**Dependencies and the base.** A dependency blocks unless it is `done`; one that is done only on
+its unmerged branch does not block, and the dependent is stacked on it. Two or more such
+dependencies block the task, and `blocked_by` lists them. `show`'s `base` holds `onto`,
+`diverged`, `reason`, the mainline's `remote` with its `remote_source`, `commit` (the commit
+`onto` names) and `dependency`:
+
+- no unmerged dependency — `onto` is the further-ahead of the local mainline and
+  `<remote>/<mainline>`, `null` with `diverged` when they have diverged; `dependency` is `null`;
+- exactly one — `onto` is the further-ahead of that dependency's local branch and
+  `<remote>/<branch>`, by the same rule, and `dependency` is its ID;
+- two or more — `onto` is `null` and `reason` names them.
+
+`new --workspace --depends-on …` branches from the same base, and refuses with exit 5 when two or
+more dependencies are unmerged.
 
 ### 7.2 Prior work
 

@@ -6,7 +6,7 @@ import getpass
 import json
 import os
 import socket
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -35,9 +35,21 @@ class Claim:
     worktree: str | None = None
     host: str = ""
     remote: dict | None = None  # {"name", "ref", "commit"} when mirrored to a remote
+    base: dict | None = None  # {"onto", "commit", "dependency"}: where the task branch started
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data) -> "Claim | None":
+        """A claim from its JSON form, ignoring keys a later version may add."""
+        if not isinstance(data, dict):
+            return None
+        known = {field.name for field in fields(cls)}
+        try:
+            return cls(**{key: value for key, value in data.items() if key in known})
+        except TypeError:
+            return None
 
 
 def default_owner() -> str:
@@ -54,8 +66,8 @@ def _path(config: Config, task_id: str) -> Path:
 
 def _load(path: Path) -> Claim | None:
     try:
-        return Claim(**json.loads(path.read_text(encoding="utf-8")))
-    except (FileNotFoundError, json.JSONDecodeError, TypeError):
+        return Claim.from_dict(json.loads(path.read_text(encoding="utf-8")))
+    except (FileNotFoundError, json.JSONDecodeError):
         return None
 
 
@@ -109,8 +121,8 @@ def read_remote(config: Config, task_id: str) -> Claim | None:
     gitutil.run(config.root, "fetch", "--quiet", remote, ref)
     content = gitutil.run(config.root, "show", "FETCH_HEAD:claim.json", check=False).stdout
     try:
-        return Claim(**json.loads(content))
-    except (json.JSONDecodeError, TypeError):
+        return Claim.from_dict(json.loads(content))
+    except json.JSONDecodeError:
         return None
 
 
@@ -151,6 +163,7 @@ def claim(
     worktree: str | None,
     takeover: bool = False,
     local_only: bool = False,
+    base: dict | None = None,
 ) -> tuple[Claim, bool]:
     """Create a claim. Returns (claim, created); created is False when the owner already held it."""
     path = _path(config, task_id)
@@ -172,6 +185,7 @@ def claim(
         worktree=worktree,
         host=socket.gethostname(),
         created=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        base=base,
     )
     try:
         _write_exclusive(path, new)

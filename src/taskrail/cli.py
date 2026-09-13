@@ -8,12 +8,12 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, claims, gitutil, ids, install, prior, review, writer
+from taskrail import __version__, claims, gitutil, ids, install, prior, review, stack, writer
 from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
 from taskrail.model import Project, Status
 from taskrail.project import load_project
-from taskrail.query import STATES, blocked_by, eligible, state, task_dict
+from taskrail.query import STATES, base_dict, blocked_by, eligible, state, task_dict, unmerged_dependencies
 from taskrail.templates import render
 
 EXIT_OK = 0
@@ -62,7 +62,7 @@ def _line(task, project: Project, claimed: dict | None = None) -> str:
     points = f"{task.points}pt" if task.points is not None else "—"
     task_state = state(task, project, claimed)
     deps = f"  ← {', '.join(task.depends_on)}" if task.depends_on else ""
-    return f"{task.id:<6} {task.status_raw} {task_state:<9} {task.kind:<8} {points:>4}  {task.epic:<4}  {task.title}{deps}"
+    return f"{task.id:<6} {task.status_raw} {task_state:<11} {task.kind:<8} {points:>4}  {task.epic:<4}  {task.title}{deps}"
 
 
 def cmd_validate(args) -> int:
@@ -167,6 +167,11 @@ def cmd_claim(args) -> int:
     if task.status is not Status.PENDING:
         print(f"taskrail: {task.id} is {task.status.label}, not pending", file=sys.stderr)
         return EXIT_REFUSED
+    finished = stack.done_on_branch(project).get(task.id)
+    if finished is not None:
+        mainline = project.config.backlog(task.backlog).mainline
+        print(f"taskrail: {task.id} is done on branch {', '.join(finished.refs)}, not yet merged into {mainline}", file=sys.stderr)
+        return EXIT_REFUSED
     blockers = blocked_by(task, project)
     if blockers and not args.ignore_deps:
         print(f"taskrail: {task.id} is blocked by {', '.join(blockers)}; pass --ignore-deps to claim anyway", file=sys.stderr)
@@ -174,6 +179,7 @@ def cmd_claim(args) -> int:
     config = project.config
     branch = args.branch if args.branch is not None else gitutil.current_branch(config.root)
     worktree = args.worktree if args.worktree is not None else str(gitutil.toplevel(config.root))
+    base = _claim_base(task, project)
     try:
         claim, created = claims.claim(
             config,
@@ -183,6 +189,7 @@ def cmd_claim(args) -> int:
             worktree=worktree or None,
             takeover=args.takeover,
             local_only=args.local_only,
+            base=base,
         )
     except claims.ClaimConflict as exc:
         _emit({"claimed": False, "reason": str(exc), "claim": exc.claim.to_dict() if exc.claim else None}, args.json, "")
@@ -191,6 +198,15 @@ def cmd_claim(args) -> int:
     verb = "claimed" if created else "already held"
     _emit({"claimed": True, "created": created, "claim": claim.to_dict()}, args.json, f"{verb} {task.id} as {claim.owner}")
     return EXIT_OK
+
+
+def _claim_base(task, project: Project) -> dict | None:
+    """The base a claimed branch started from; `commit` is its fork point, so `rebase --onto` works later."""
+    base = base_dict(task, project)
+    if not base or not base["onto"]:
+        return None
+    fork = gitutil.run(project.config.root, "merge-base", "HEAD", base["onto"], check=False).stdout.strip()
+    return {"onto": base["onto"], "commit": fork or None, "dependency": base["dependency"]}
 
 
 def cmd_release(args) -> int:
@@ -343,7 +359,8 @@ def cmd_new(args) -> int:
     workspace = None
     if args.workspace:
         try:
-            workspace = _open_workspace(project, backlog.config, kind, epic.id, task_id, args.title)
+            depends_on = [item.strip() for item in (args.depends_on or "").split(",") if item.strip()]
+            workspace = _open_workspace(project, backlog.config, kind, epic.id, task_id, args.title, depends_on)
         except _WorkspaceRefused as exc:
             ids.cancel_reservation(config, backlog.config, task_id)
             print(f"taskrail: {exc}", file=sys.stderr)
@@ -383,22 +400,28 @@ class _WorkspaceRefused(Exception):
         self.code = code
 
 
-def _open_workspace(project: Project, backlog_config, kind, epic_id: str, task_id: str, title: str) -> dict:
-    """Create the branch (and worktree) a new task will be worked in, from the further-ahead mainline."""
+def _open_workspace(
+    project: Project, backlog_config, kind, epic_id: str, task_id: str, title: str, depends_on: list[str]
+) -> dict:
+    """Create the branch (and worktree) a new task will be worked in, from the base `show` would report."""
     from taskrail.model import Task
-    from taskrail.review import choose_base, resolve_remote
 
     config = project.config
     probe = Task(
         id=task_id, status=Status.PENDING, status_raw=Status.PENDING.value, kind=kind.name, points=None, points_raw="",
-        depends_on=[], title=title, description="", columns={}, backlog=backlog_config.name, epic=epic_id,
+        depends_on=depends_on, title=title, description="", columns={}, backlog=backlog_config.name, epic=epic_id,
         file=backlog_config.file, line=0, order=0,
     )
     branch = render(kind.branch, probe, config)
-    remote = resolve_remote(config.root, backlog_config.mainline, config.review.remote)
-    base = choose_base(config.root, remote.name, backlog_config.mainline)
+    gitutil.common_dir(config.root)
+    chosen = base_dict(probe, project)
+    if chosen is None:
+        raise _WorkspaceRefused(f"could not determine the base of {backlog_config.mainline}", EXIT_USAGE)
+    base = review.Base(chosen["onto"], chosen["diverged"], chosen["reason"])
     if base.diverged:
         raise _WorkspaceRefused(f"{base.reason}; decide which one to branch from")
+    if len(unmerged_dependencies(probe, project)) > 1:
+        raise _WorkspaceRefused(base.reason)
     if base.onto is None:
         raise _WorkspaceRefused(base.reason, EXIT_USAGE)
     if gitutil.branch_exists(config.root, branch):
@@ -546,17 +569,26 @@ def cmd_review(args) -> int:
         fetched = True
 
     if settings.rebase:
-        base = review.choose_base(root, remote.name, target)
+        # After the fetch: a dependency may have been merged, or its branch moved, meanwhile.
+        chosen = base_dict(task, project)
+        if chosen is None:
+            print(f"taskrail: could not determine the base of {target}", file=sys.stderr)
+            return EXIT_USAGE
+        base = review.Base(chosen["onto"], chosen["diverged"], chosen["reason"])
         rebase = {
             "enabled": True,
             "onto": base.onto,
             "diverged": base.diverged,
             "needed": bool(base.onto) and not review.contains(root, base.onto),
             "reason": base.reason,
+            "dependency": chosen["dependency"],
         }
     else:
         base = None
-        rebase = {"enabled": False, "onto": None, "diverged": False, "needed": False, "reason": "rebase is disabled in [review]"}
+        rebase = {
+            "enabled": False, "onto": None, "diverged": False, "needed": False, "reason": "rebase is disabled in [review]",
+            "dependency": None,
+        }
 
     remote_url = gitutil.run(root, "remote", "get-url", remote.name, check=False).stdout.strip()
     parsed = review.parse_remote_url(remote_url) if remote_url else None

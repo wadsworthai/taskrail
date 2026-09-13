@@ -11,3 +11,4 @@
 | T007 | Design taskrail's autopilot from existing orchestrators | [T007-design-taskrail-s-autopilot-from-existin.md](T007-design-taskrail-s-autopilot-from-existin.md) |
 | T028 | Write the autopilot design into DESIGN.md | [T028-write-the-autopilot-design-into-design-m.md](T028-write-the-autopilot-design-into-design-m.md) |
 | T027 | Stop init and upgrade on an unreadable installed.json | [T027-stop-init-and-upgrade-on-an-unreadable-i.md](T027-stop-init-and-upgrade-on-an-unreadable-i.md) |
+| T017 | Branch a task from its single unmerged dependency | [T017-branch-a-task-from-its-single-unmerged-d.md](T017-branch-a-task-from-its-single-unmerged-d.md) |

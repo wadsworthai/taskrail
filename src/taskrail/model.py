@@ -69,6 +69,7 @@ class Project:
     config: Config
     backlogs: list[Backlog]
     kinds: dict  # name -> Kind; typed loosely to avoid an import cycle
+    cache: dict = field(default_factory=dict, repr=False, compare=False)  # values derived from git, per load
 
     @property
     def tasks(self) -> list[Task]:

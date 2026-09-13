@@ -27,6 +27,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   be read at all now makes both commands exit 2, name the file and write nothing, `--force`
   included. Behaviour change: `init` used to overwrite it, dropping the recorded integrations,
   extras and digests, and `upgrade` reported it missing (exit 3) or crashed (T027).
+- **Stacked bases and `done-branch`.** A task `✅` only at its own branch tip, not on the
+  mainline, is `done-branch`: `next` never offers it and `claim` refuses it. A dependent of one
+  such task branches from that branch — `show`'s `base` (now with `commit` and `dependency`),
+  `new --workspace` and `review`'s `rebase.dependency` — while two or more make it `blocked`.
+  Claims record `base` with its fork point, and ignore unknown keys when read (T017).
 
 ## 0.1.0
 

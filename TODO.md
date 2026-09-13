@@ -49,7 +49,7 @@ Done when: a consumer project runs its backlog through taskrail with its own kin
 
 | ✓  | ID   | Kind    | Pts | Depends On | Title                          | Description                    |
 |----|------|---------|-----|------------|--------------------------------|--------------------------------|
-| ⬜ | T017 | feature | 5   | —          | Branch a task from its single unmerged dependency | Stacked base for show, new --workspace and review: one dependency done only on its branch sets the base; two or more make the task ineligible. Add a done-branch state that next never offers, and record the base commit in the claim. |
+| ✅ | T017 | feature | 5   | —          | Branch a task from its single unmerged dependency | Stacked base for show, new --workspace and review: one dependency done only on its branch sets the base; two or more make the task ineligible. Add a done-branch state that next never offers, and record the base commit in the claim. |
 | ✅ | T018 | feature | 2   | —          | Restrict the task kinds a repository allows | Let config disable core kinds, so a repository whose rules name a closed set of kinds can reject the rest in validate. |
 | ⬜ | T019 | feature | 3   | —          | Let the executor name or rename a task branch | For branches that depend on facts known only once work starts; claims and review must follow the renamed branch. |
 | ⬜ | T020 | feature | 3   | —          | Run stages conditionally on a column or the executor's judgement | Declare stages that apply only when a column matches or when the executor judges them relevant, instead of duplicating kinds. |
@@ -57,3 +57,4 @@ Done when: a consumer project runs its backlog through taskrail with its own kin
 | ✅ | T022 | feature | 2   | —          | Use each mainline's own remote in review | Resolve the remote from branch.<mainline>.remote before [review].remote, for repositories whose mainlines live on different remotes. |
 | ✅ | T023 | feature | 2   | —          | Report signs of prior work on a task in show | Informational only: an existing artifact, or commits whose subject names the task ID. |
 | ✅ | T025 | feature | 2   | T018       | Skip installing skills for kinds a repository does not allow | init and upgrade should not install executor skills for kinds outside [kinds].allowed. |
+| ⬜ | T034 | bug     | 1   | T017       | Clear done-branch for a task reopened on its mainline | A stale task branch with ✅ hides a task reopened on the mainline; a mainline Reopens: <ID> commit the branch lacks should clear the state. |
