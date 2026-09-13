@@ -1,8 +1,8 @@
 # taskrail — design
 
 Status: **v1 in progress**. Implemented so far: configuration, backlog parsing, kind
-resolution, `validate`, `list`, `show`, `next`, `kind list`, claims (local and remote) and ID
-reservation.
+resolution, `validate`, `list`, `show`, `next`, `kind list`, claims (local and remote), ID
+reservation, and the write commands `new`, `done`, `discard`, `epic add` and `epic split`.
 
 An agent-agnostic backlog tool: a deterministic CLI that owns the backlog files, plus thin
 skills that execute tasks by kind. Derived from the task systems of two existing projects,
@@ -226,7 +226,7 @@ outside `refs/heads` and `refs/tags`.
 
 ### 6.3 ID allocation
 
-`taskrail reserve-id` (and, later, `taskrail new`) reserves the next ID under a lock in the
+`taskrail reserve-id` (and `taskrail new`) reserves the next ID under a lock in the
 same common directory. The next number is one above the maximum of: IDs in the backlog's files
 in the working tree, on every local branch and — with a remote configured — on its
 remote-tracking branches, plus IDs reserved but not yet used. A reservation is dropped once
@@ -250,10 +250,22 @@ not move the counter.
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
 | `taskrail new --epic E01 --kind bug --title …` | Allocate an ID and append a row |
-| `taskrail done <ID>` / `taskrail discard <ID>` | Change status; refuses without a claim |
-| `taskrail epic add` / `taskrail epic split <E##>` | Manage epics; move one to its own file |
+| `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
+| `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |
+
+Write commands follow three rules:
+
+- **Minimal diffs.** A status change rewrites one cell; `new` appends one row. Tables are never
+  reformatted, because re-aligning a table turns every change into a conflict with every open
+  branch. A row whose values are wider than its columns is left unaligned.
+- **Validate before writing.** Every edit is applied in memory and the whole project is
+  validated; if the result has errors nothing is written, and an ID reserved for it is
+  released. Files are replaced atomically.
+- **`done` requires the caller's claim** and releases it; it also refuses a task whose
+  dependencies are not done. `discard` needs no claim, since discarding is usually a decision
+  about a task nobody took, but refuses one claimed by someone else. `--force` overrides both.
 
 Output is human-readable by default and JSON with `--json`, so skills parse results rather
 than prose. Exit codes are stable:

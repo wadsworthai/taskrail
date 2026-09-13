@@ -11,12 +11,13 @@ from taskrail.kinds import columns_used_by_routes, load_kinds
 from taskrail.model import Project, Status
 
 
-def load_project(config: Config) -> tuple[Project, list[Issue]]:
+def load_project(config: Config, overlay: dict[str, str] | None = None) -> tuple[Project, list[Issue]]:
+    """Load everything; `overlay` maps relative paths to contents that replace what is on disk."""
     kinds, issues = load_kinds(config)
     backlogs = []
     counter = [0]
     for backlog_config in config.backlogs:
-        backlog, backlog_issues = load_backlog(config, backlog_config, counter)
+        backlog, backlog_issues = load_backlog(config, backlog_config, counter, overlay)
         backlogs.append(backlog)
         issues.extend(backlog_issues)
     project = Project(config=config, backlogs=backlogs, kinds=kinds)

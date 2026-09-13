@@ -150,7 +150,8 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
             problems.append(f"stage `{stage_name}`: `checks` must be a list of strings")
             checks = []
         for check in checks:
-            if check not in config.checks:
+            # Core kinds name conventional checks that a repository may simply not have.
+            if check not in config.checks and source != "core":
                 issues.append(
                     warning("kind-check-unknown", f"stage `{stage_name}` runs check `{check}`, which [checks] does not define", label)
                 )

@@ -34,7 +34,9 @@ def _is_task_table(table: Table) -> bool:
     return "ID" in columns and ("✓" in columns or "Kind" in columns)
 
 
-def _read(root: Path, relative: str, issues: list[Issue]) -> list[Section] | None:
+def _read(root: Path, relative: str, issues: list[Issue], overlay: dict[str, str] | None = None) -> list[Section] | None:
+    if overlay and relative in overlay:
+        return parse_sections(overlay[relative])
     path = root / relative
     try:
         return parse_sections(path.read_text(encoding="utf-8"))
@@ -154,11 +156,13 @@ def _parse_tasks(
             )
 
 
-def load_backlog(config: Config, backlog_config: BacklogConfig, counter: list[int]) -> tuple[Backlog, list[Issue]]:
+def load_backlog(
+    config: Config, backlog_config: BacklogConfig, counter: list[int], overlay: dict[str, str] | None = None
+) -> tuple[Backlog, list[Issue]]:
     issues: list[Issue] = []
     backlog = Backlog(config=backlog_config)
     main_file = backlog_config.file
-    sections = _read(config.root, main_file, issues)
+    sections = _read(config.root, main_file, issues, overlay)
     if sections is None:
         if not any(issue.file == main_file for issue in issues):
             issues.append(error("backlog-missing", f"backlog `{backlog_config.name}` file does not exist", main_file))
@@ -255,7 +259,7 @@ def load_backlog(config: Config, backlog_config: BacklogConfig, counter: list[in
                     )
                 )
                 continue
-            epic_sections = _read(config.root, epic.file, issues)
+            epic_sections = _read(config.root, epic.file, issues, overlay)
             if epic_sections is None:
                 issues.append(error("epic-file-missing", f"epic `{epic.id}` file `{epic.file}` does not exist", main_file, epic.listing_line))
                 continue

@@ -54,6 +54,19 @@ def test_override_replaces_core_kind(repo):
     assert kinds["bug"].skill == "my-bug"
 
 
+def test_core_kinds_do_not_warn_about_checks_a_repository_lacks(repo):
+    repo.write(".taskrail/config.toml", (repo.root / ".taskrail/config.toml").read_text().split("[checks]")[0])
+    assert repo.codes("warning") == []
+
+
+def test_local_kinds_warn_about_undefined_checks(repo):
+    repo.write(
+        ".taskrail/types/research/kind.toml",
+        'name = "research"\nsummary = "x"\nskill = "x"\n[[stage]]\nname = "a"\nchecks = ["benchmark"]\n',
+    )
+    assert repo.codes("warning") == ["kind-check-unknown"]
+
+
 def test_override_for_unknown_kind_is_an_error(repo):
     repo.write(".taskrail/overrides/epic/kind.toml", 'name = "epic"\nsummary = "x"\nskill = "x"\n[[stage]]\nname = "a"\n')
     assert "override-unknown" in repo.codes()

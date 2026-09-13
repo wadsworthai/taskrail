@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, claims, gitutil, ids
+from taskrail import __version__, claims, gitutil, ids, writer
 from taskrail.config import find_root, load_config
 from taskrail.issues import ConfigError, Issue
 from taskrail.model import Project, Status
@@ -256,6 +256,165 @@ def cmd_unreserve_id(args) -> int:
     return EXIT_OK
 
 
+def _write(edits: "writer.Edits", as_json: bool, result: dict, text: str) -> int:
+    errors = writer.apply(edits)
+    if errors:
+        for issue in errors:
+            print(issue.format(), file=sys.stderr)
+        print("taskrail: the change would leave the backlog invalid; nothing was written", file=sys.stderr)
+        return EXIT_INVALID
+    _emit({**result, "files": sorted(edits.files)}, as_json, text)
+    return EXIT_OK
+
+
+def _find_epic(project: Project, epic_id: str, backlog_name: str | None):
+    matches = [
+        (backlog, epic)
+        for backlog in project.backlogs
+        for epic in backlog.epics
+        if epic.id == epic_id and (backlog_name is None or backlog.config.name == backlog_name)
+    ]
+    if not matches:
+        print(f"taskrail: no epic `{epic_id}`", file=sys.stderr)
+        return None
+    if len(matches) > 1:
+        print(f"taskrail: epic `{epic_id}` exists in several backlogs; pass --backlog", file=sys.stderr)
+        return None
+    return matches[0]
+
+
+def cmd_new(args) -> int:
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    found = _find_epic(project, args.epic, args.backlog)
+    if found is None:
+        return EXIT_NOT_FOUND
+    backlog, epic = found
+    values = {"Kind": args.kind, "Title": args.title}
+    if args.pts is not None:
+        values["Pts"] = str(args.pts)
+    if args.depends_on:
+        values["Depends On"] = ", ".join(item.strip() for item in args.depends_on.split(",") if item.strip())
+    if args.description:
+        values["Description"] = args.description
+    for pair in args.column or []:
+        name, sep, value = pair.partition("=")
+        if not sep:
+            print(f"taskrail: --column expects NAME=VALUE, got `{pair}`", file=sys.stderr)
+            return EXIT_USAGE
+        values[name.strip()] = value.strip()
+
+    config = project.config
+    task_id = ids.reserve(config, backlog.config, args.owner or claims.default_owner())
+    values["ID"] = task_id
+    values["✓"] = Status.PENDING.value
+    edits = writer.Edits(config)
+    try:
+        writer.add_task(edits, project, epic, values)
+    except writer.WriteError as exc:
+        ids.cancel_reservation(config, backlog.config, task_id)
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    code = _write(edits, args.json, {"id": task_id, "backlog": backlog.config.name, "epic": epic.id}, task_id)
+    if code != EXIT_OK:
+        ids.cancel_reservation(config, backlog.config, task_id)
+    return code
+
+
+def _change_status(args, status: Status) -> int:
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    task = project.task(args.id)
+    if task is None:
+        print(f"taskrail: no task `{args.id}`", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    if task.status is not Status.PENDING:
+        print(f"taskrail: {task.id} is {task.status.label}, not pending", file=sys.stderr)
+        return EXIT_REFUSED
+    config = project.config
+    owner = args.owner or claims.default_owner()
+    try:
+        claim = claims.read(config, task.id)
+    except gitutil.GitError:
+        claim = None
+
+    if status is Status.DONE:
+        if claim is None and not args.force:
+            print(f"taskrail: {task.id} is not claimed; claim it before marking it done, or pass --force", file=sys.stderr)
+            return EXIT_REFUSED
+        blockers = blocked_by(task, project)
+        if blockers and not args.force:
+            print(f"taskrail: {task.id} still depends on {', '.join(blockers)}; pass --force to mark it done anyway", file=sys.stderr)
+            return EXIT_REFUSED
+    if claim is not None and claim.owner != owner and not args.force:
+        print(f"taskrail: {task.id} is claimed by {claim.owner}; pass --force", file=sys.stderr)
+        return EXIT_CONFLICT
+
+    edits = writer.Edits(config)
+    writer.set_status(edits, task, status)
+    code = _write(edits, args.json, {"id": task.id, "status": status.label}, f"{task.id} {status.label}")
+    if code == EXIT_OK and claim is not None:
+        claims.release(config, task.id, owner, force=True)
+    return code
+
+
+def cmd_done(args) -> int:
+    return _change_status(args, Status.DONE)
+
+
+def cmd_discard(args) -> int:
+    return _change_status(args, Status.DISCARDED)
+
+
+def cmd_epic_add(args) -> int:
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    config = project.config
+    backlog_config = _backlog_arg(config, args.backlog)
+    if backlog_config is None:
+        return EXIT_USAGE
+    backlog = next(b for b in project.backlogs if b.config.name == backlog_config.name)
+    prefix = backlog_config.epic_prefix
+    epic_id = args.id
+    if epic_id is None:
+        numbers = [int(e.id[len(prefix):]) for e in backlog.epics]
+        epic_id = f"{prefix}{max(numbers, default=0) + 1:02d}"
+    if any(e.id == epic_id for e in backlog.epics):
+        print(f"taskrail: epic `{epic_id}` already exists", file=sys.stderr)
+        return EXIT_REFUSED
+    file = args.file
+    if args.own_file and file is None:
+        file = f"todo/{epic_id}-{writer.slugify(args.name)}.md"
+    edits = writer.Edits(config)
+    try:
+        writer.add_epic(edits, backlog_config, epic_id, args.name, args.objective, args.done_when, file)
+    except writer.WriteError as exc:
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    return _write(edits, args.json, {"id": epic_id, "backlog": backlog_config.name, "file": file}, epic_id)
+
+
+def cmd_epic_split(args) -> int:
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    found = _find_epic(project, args.id, args.backlog)
+    if found is None:
+        return EXIT_NOT_FOUND
+    backlog, epic = found
+    file = args.file or f"todo/{epic.id}-{writer.slugify(epic.name)}.md"
+    edits = writer.Edits(project.config)
+    try:
+        writer.split_epic(edits, backlog.config, epic, file)
+    except writer.WriteError as exc:
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return EXIT_REFUSED
+    return _write(edits, args.json, {"id": epic.id, "file": file}, f"moved {epic.id} to {file}")
+
+
 def cmd_kind_list(args) -> int:
     project, issues = _load(args)
     kinds = sorted(project.kinds.values(), key=lambda k: k.name)
@@ -321,6 +480,48 @@ def build_parser() -> argparse.ArgumentParser:
 
     unreserve = add("unreserve-id", cmd_unreserve_id, "Cancel an ID reservation that will not be used.")
     unreserve.add_argument("id")
+
+    new = add("new", cmd_new, "Add a task to an epic, with a freshly reserved ID.")
+    new.add_argument("--epic", required=True)
+    new.add_argument("--backlog", help="needed when several backlogs have an epic with this ID")
+    new.add_argument("--kind", required=True)
+    new.add_argument("--title", required=True)
+    new.add_argument("--pts", type=int)
+    new.add_argument("--depends-on", help="comma-separated task IDs")
+    new.add_argument("--description")
+    new.add_argument("--column", action="append", metavar="NAME=VALUE", help="a custom column value; repeatable")
+    new.add_argument("--owner")
+    new.add_argument("--allow-invalid", action="store_true")
+
+    done = add("done", cmd_done, "Mark a claimed task done and release its claim.")
+    done.add_argument("id")
+    done.add_argument("--owner")
+    done.add_argument("--force", action="store_true", help="skip the claim and dependency checks")
+
+    discard = add("discard", cmd_discard, "Mark a pending task discarded.")
+    discard.add_argument("id")
+    discard.add_argument("--owner")
+    discard.add_argument("--force", action="store_true", help="discard even if someone else holds the claim")
+
+    epic = commands.add_parser("epic", help="Manage epics.")
+    epic_commands = epic.add_subparsers(dest="epic_command", required=True)
+    epic_add = epic_commands.add_parser("add", help="Add an epic.")
+    epic_add.add_argument("--id", help="epic ID (default: next in the backlog)")
+    epic_add.add_argument("--name", required=True)
+    epic_add.add_argument("--objective", required=True)
+    epic_add.add_argument("--done-when")
+    epic_add.add_argument("--backlog")
+    placement = epic_add.add_mutually_exclusive_group()
+    placement.add_argument("--file", help="put the epic in this file")
+    placement.add_argument("--own-file", action="store_true", help="put the epic in todo/<id>-<slug>.md")
+    epic_add.add_argument("--json", action="store_true")
+    epic_add.set_defaults(handler=cmd_epic_add)
+    epic_split = epic_commands.add_parser("split", help="Move an inline epic to its own file.")
+    epic_split.add_argument("id")
+    epic_split.add_argument("--file", help="target file (default: todo/<id>-<slug>.md)")
+    epic_split.add_argument("--backlog")
+    epic_split.add_argument("--json", action="store_true")
+    epic_split.set_defaults(handler=cmd_epic_split)
 
     kind = commands.add_parser("kind", help="Inspect task kinds.")
     kind_commands = kind.add_subparsers(dest="kind_command", required=True)
