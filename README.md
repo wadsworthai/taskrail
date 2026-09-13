@@ -60,7 +60,9 @@ Every command accepts `--json`. Exit codes are listed in DESIGN.md.
 The core kinds are `bug`, `chore`, `feature` and `spike`, each with its executor skill. A
 repository adds its own under `.taskrail/types/<kind>/kind.toml`, or adjusts a core kind under
 `.taskrail/overrides/<kind>/kind.toml`. [examples/spec-kit](examples/spec-kit) shows a `spec`
-kind that routes to a project's own Spec Kit skills.
+kind that routes to a project's own Spec Kit skills. A `[[route]]` sends a task to another skill
+when every column in its `when` matches; values may be lists and compare case-insensitively, as
+in a stage's `match` below. The first route that matches wins.
 
 A stage can apply to only some tasks of its kind, so one extra step does not need a copy of the
 kind. `column` and `match` limit it to tasks whose custom column matches, case-insensitively;

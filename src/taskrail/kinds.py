@@ -9,8 +9,8 @@ from pathlib import Path
 
 from taskrail.config import CORE_TASK_COLUMNS, Config
 from taskrail.issues import Issue, error, warning
-from taskrail.model import NONE_MARKERS, Task
-from taskrail.predicates import ColumnPredicate, parse_column_predicate, resolve_column
+from taskrail.model import Task
+from taskrail.predicates import ColumnPredicate, parse_column_predicate, parse_match, resolve_column
 
 CORE_DIR = Path(__file__).parent / "kinds"
 LOCAL_DIR = Path(".taskrail") / "types"
@@ -54,21 +54,24 @@ class Stage:
 
 @dataclass(frozen=True)
 class Route:
-    when: dict[str, str]
+    when: tuple[ColumnPredicate, ...]  # one column predicate per `when` entry; every one must hold
     skill: str
 
     def matches(self, task: Task) -> bool:
-        for column, expected in self.when.items():
-            actual = task.columns.get(column, "")
-            if expected == "*":
-                if actual in NONE_MARKERS:
-                    return False
-            elif expected in NONE_MARKERS:
-                if actual not in NONE_MARKERS:
-                    return False
-            elif actual != expected:
-                return False
-        return True
+        return all(predicate.matches(task.columns) for predicate in self.when)
+
+    def covers(self, other: Route) -> bool:
+        """Whether this route holds for every task `other` holds for.
+
+        True only when each of this route's entries covers an entry of `other` on the same column.
+        A column `other` does not constrain is never assumed to match, so a route some task can
+        still reach is never reported as covered.
+        """
+        return all(any(mine.covers(theirs) for theirs in other.when) for mine in self.when)
+
+    def when_dict(self) -> dict[str, str | list[str]]:
+        """`when` as reported: declared column names, one value as a string and several as a list."""
+        return {p.column: p.match[0] if len(p.match) == 1 else list(p.match) for p in self.when}
 
 
 @dataclass(frozen=True)
@@ -108,7 +111,7 @@ class Kind:
             "never_edit": list(self.never_edit),
             "commit_type": self.commit_type,
             "stages": [stage.to_dict(task) for stage in self.stages],
-            "routes": [{"when": r.when, "skill": r.skill} for r in self.routes],
+            "routes": [{"when": r.when_dict(), "skill": r.skill} for r in self.routes],
             "source": self.source,
             "path": self.path,
         }
@@ -210,15 +213,11 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
         problems.append("`route` must be an array of tables")
         raw_routes = []
     for index, raw in enumerate(raw_routes, start=1):
-        when = raw.get("when") if isinstance(raw, dict) else None
-        route_skill = raw.get("skill") if isinstance(raw, dict) else None
-        if not isinstance(when, dict) or not when or not all(isinstance(v, str) for v in when.values()):
-            problems.append(f"route #{index}: `when` must map column names to strings")
-            continue
-        if not isinstance(route_skill, str) or not route_skill:
-            problems.append(f"route #{index}: `skill` is required")
-            continue
-        routes.append(Route(dict(when), route_skill))
+        route = _parse_route(index, raw, config, problems, issues, label)
+        if route is not None:
+            routes.append(route)
+    if not problems:
+        issues.extend(_unreachable_routes(routes, label))
 
     if skill is None and not routes:
         problems.append("either `skill` or at least one [[route]] is required")
@@ -242,6 +241,63 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
         source=source,
         path=label,
     )
+
+
+def _parse_route(index: int, raw: object, config: Config, problems: list[str], issues: list[Issue], label: str) -> Route | None:
+    """One `[[route]]`: each `when` entry is a column predicate, resolved like a stage's (§5.5)."""
+    when = raw.get("when") if isinstance(raw, dict) else None
+    route_skill = raw.get("skill") if isinstance(raw, dict) else None
+    if not isinstance(when, dict) or not when:
+        problems.append(f"route #{index}: `when` must map column names to values")
+        return None
+    predicates: list[ColumnPredicate] = []
+    seen: set[str] = set()
+    invalid = False
+    for column, value in when.items():
+        name = column.strip()
+        if not name:
+            problems.append(f"route #{index}: `when` has an empty column name")
+            invalid = True
+            continue
+        if name.lower() in seen:
+            problems.append(f"route #{index}: `when` names column `{name}` twice")
+            invalid = True
+            continue
+        seen.add(name.lower())
+        try:
+            predicates.append(ColumnPredicate(name, parse_match(value, f"`when.{name}`")))
+        except ValueError as exc:
+            problems.append(f"route #{index}: {exc}")
+            invalid = True
+    if not isinstance(route_skill, str) or not route_skill:
+        problems.append(f"route #{index}: `skill` is required")
+        return None
+    if invalid:
+        return None
+    resolved: list[ColumnPredicate] = []
+    for predicate in predicates:
+        predicate, unknown = resolve_column(predicate, config.custom_columns, config.column_aliases, CORE_TASK_COLUMNS)
+        if unknown:
+            # As for stages: the kind stays loaded, so its tasks are not also reported as task-kind-unknown.
+            issues.append(error("route-column-unknown", f"route #{index}: {unknown}", label))
+        resolved.append(predicate)
+    return Route(tuple(resolved), route_skill)
+
+
+def _unreachable_routes(routes: list[Route], label: str) -> list[Issue]:
+    """Warn about each route an earlier route of the kind fully covers, so it never gives the skill."""
+    issues = []
+    for later, route in enumerate(routes, start=1):
+        earlier = next((n for n, previous in enumerate(routes[: later - 1], start=1) if previous.covers(route)), None)
+        if earlier is not None:
+            issues.append(
+                warning(
+                    "route-unreachable",
+                    f"route #{later} never applies: route #{earlier}, listed before it, matches every task it matches",
+                    label,
+                )
+            )
+    return issues
 
 
 def _layers(config: Config) -> tuple[tuple[str, Path, Path | None], ...]:
@@ -309,7 +365,3 @@ def _restrict(kinds: dict[str, Kind], allowed: tuple[str, ...], issues: list[Iss
         if kind.name not in allowed and kind.source != "core":
             issues.append(warning("kind-not-allowed", f"kind `{kind.name}` is defined but kinds.allowed does not list it", kind.path))
     return {name: kind for name, kind in kinds.items() if name in allowed}
-
-
-def columns_used_by_routes(kinds: dict[str, Kind]) -> set[str]:
-    return {column for kind in kinds.values() for route in kind.routes for column in route.when}

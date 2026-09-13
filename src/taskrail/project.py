@@ -7,7 +7,7 @@ import re
 from taskrail.backlog import load_backlog
 from taskrail.config import Config
 from taskrail.issues import Issue, error, warning
-from taskrail.kinds import columns_used_by_routes, defined_kind_names, load_kinds
+from taskrail.kinds import defined_kind_names, load_kinds
 from taskrail.model import Project, Status
 
 
@@ -28,12 +28,6 @@ def load_project(config: Config, overlay: dict[str, str] | None = None) -> tuple
 def _check_tasks(project: Project) -> list[Issue]:
     issues: list[Issue] = []
     config = project.config
-    declared = set(config.custom_columns)
-    for column in sorted(columns_used_by_routes(project.kinds) - declared):
-        issues.append(
-            warning("route-column-undeclared", f"a kind routes on column `{column}`, which [columns].custom does not declare")
-        )
-
     excluded = defined_kind_names(config) - set(project.kinds) if config.allowed_kinds else set()
     seen: dict[str, tuple[str, int]] = {}
     by_id = {}

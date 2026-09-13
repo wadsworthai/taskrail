@@ -50,6 +50,14 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   run; `autopilot lane` and `autopilot decision` record lanes, hand-offs and run-level decisions;
   and `autopilot status` derives every run task's state with idle lanes, files touched by more
   than one lane and the hand-off queue (T029).
+- **Routes match like stage predicates.** A `[[route]]`'s `when` values may be lists, and routes
+  report `route-unreachable` (warning) when an earlier route always pre-empts them. Behaviour
+  change: columns resolve and values compare case-insensitively after trimming, so a task whose
+  cell differs from a route value only in letter case or padding now takes that route instead of
+  the kind's `skill`, and of two routes differing only in case the first now wins for both; `""` as
+  a value is `kind-invalid`; and a route on a column `[columns].custom` does not declare, a core
+  column or an alias is the error `route-column-unknown`, which replaces the warning
+  `route-column-undeclared` (T035).
 
 ## 0.1.0
 

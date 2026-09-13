@@ -208,7 +208,7 @@ gate = "conditional"             # only if follow-up tasks were opened
 
 A stage may also apply only to some tasks of its kind (§5.4).
 
-Routing on a column, used by a repository-local `spec` kind:
+Routing on a column, used by a repository-local `spec` kind (§5.5):
 
 ```toml
 name = "spec"
@@ -287,7 +287,7 @@ every setting with this shape — the autopilot's groups reuse it (§12.7):
 - `match` is a non-empty list of non-empty strings, or a single string. The predicate holds when
   the cell equals any value.
 - Values are trimmed and compare case-insensitively. `"*"` matches any non-empty cell and `"—"`
-  (or `"-"`) an empty one, as in `[[route]]`. Routes themselves still match exactly.
+  (or `"-"`) an empty one. Routes match through the same predicate (§5.5).
 
 `validate` reports a malformed predicate or `judgement` as `kind-invalid`, and a `column` that
 `[columns].custom` does not declare as `stage-column-unknown` (error), naming the core column when
@@ -305,6 +305,37 @@ The core skill skips a stage whose `applies` is false. When `applies` and `judge
 true, the executor decides; a skipped stage and the reason go into the artifact and the next gate
 report, and a stage whose gate is `always` is not skipped without asking. A stage the executor
 skill does not describe, such as one an override adds, is done as its `summary` says.
+
+### 5.5 Routes
+
+A `[[route]]` hands tasks of its kind to another executor skill. Its `when` is a table of column
+predicates (§5.4): each key is a `column` and each value a `match`, a string or a non-empty list of
+strings. A route holds when every entry holds:
+
+```toml
+[[route]]
+when = { Area = ["ui", "ux"], Spec = "—" }   # Area is ui or ux, and Spec is empty
+skill = "new-screen-pipeline"
+```
+
+- Columns and values follow §5.4: columns resolve case-insensitively to a declared custom column,
+  values are trimmed and compare case-insensitively, `"*"` is any non-empty cell and `"—"` or `"-"`
+  an empty one.
+- Routes are tried in the order the descriptor lists them. The first that holds gives the task's
+  `skill` in `show`; when none holds, the kind's `skill` applies, or `null` for a kind without one.
+- `validate` reports a malformed route — `when` that is not a non-empty table, a value that is not
+  a non-empty string or a non-empty list of them (`""` included), a column named twice in different
+  letter case, or a missing `skill` — as `kind-invalid`. A column `[columns].custom` does not
+  declare is `route-column-unknown` (error), naming the route and the core column when it is one or
+  an alias of one; like `stage-column-unknown`, it keeps the kind loaded.
+- A route that an earlier route of the same kind always pre-empts is `route-unreachable`
+  (warning), naming both. It is reported only when certain: every entry of the earlier route must
+  cover an entry of the later one on the same column — `"*"` covers any literal, an empty marker
+  covers the empty markers, a literal covers itself in any letter case. An earlier route with a
+  column the later one does not constrain never makes it unreachable.
+
+`show --json` and `kind list --json` report each route as `{"when": {<column>: <value>}, "skill": …}`,
+with the declared column name and the trimmed value: a string for one value, a list for several.
 
 ## 6. Claims and IDs
 

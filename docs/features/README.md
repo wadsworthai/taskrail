@@ -13,3 +13,4 @@
 | T020 | Run stages conditionally on a column or the executor's judgement | [T020-run-stages-conditionally-on-a-column-or.md](T020-run-stages-conditionally-on-a-column-or.md) |
 | T019 | Let the executor name or rename a task branch | [T019-let-the-executor-name-or-rename-a-task-b.md](T019-let-the-executor-name-or-rename-a-task-b.md) |
 | T029 | Add the autopilot configuration, runs, and the start, lane and status commands | [T029-add-the-autopilot-configuration-runs-and.md](T029-add-the-autopilot-configuration-runs-and.md) |
+| T035 | Match routes through the shared column predicate | [T035-match-routes-through-the-shared-column-p.md](T035-match-routes-through-the-shared-column-p.md) |
