@@ -22,14 +22,18 @@ class ClaimConflict(Exception):
         self.claim = claim
 
 
+# Fields that describe the local machine; they stay out of the copy pushed to a remote.
+LOCAL_ONLY_FIELDS = ("worktree", "host", "remote")
+
+
 @dataclass
 class Claim:
     id: str
     owner: str
     branch: str | None
-    worktree: str | None
-    host: str
     created: str
+    worktree: str | None = None
+    host: str = ""
     remote: dict | None = None  # {"name", "ref", "commit"} when mirrored to a remote
 
     def to_dict(self) -> dict:
@@ -117,7 +121,8 @@ def list_remote(config: Config) -> list[str]:
 
 def _push_remote(config: Config, claim: Claim) -> dict:
     ref = _remote_ref(claim.id)
-    commit = gitutil.write_claim_commit(config.root, json.dumps(claim.to_dict(), indent=2), f"taskrail claim {claim.id}")
+    public = {key: value for key, value in claim.to_dict().items() if key not in LOCAL_ONLY_FIELDS}
+    commit = gitutil.write_claim_commit(config.root, json.dumps(public, indent=2), f"taskrail claim {claim.id}")
     result = gitutil.run(
         config.root, "push", "--quiet", "--porcelain", f"--force-with-lease={ref}:", config.claim_remote, f"{commit}:{ref}", check=False
     )

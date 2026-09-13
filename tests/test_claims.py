@@ -136,6 +136,13 @@ def test_remote_claim_blocks_another_clone(remote_pair, capsys):
     assert run(second, "claims", "--json", capsys=capsys)[0] == 0
 
 
+def test_remote_claim_does_not_publish_machine_details(remote_pair, capsys):
+    first, _, bare = remote_pair
+    run(first, "claim", "T002", "--owner", "alice", capsys=capsys)
+    published = json.loads(git(bare, "show", "refs/taskrail/claims/T002:claim.json"))
+    assert sorted(published) == ["branch", "created", "id", "owner"]
+
+
 def test_releasing_a_remote_claim_deletes_the_ref(remote_pair, capsys):
     first, second, bare = remote_pair
     run(first, "claim", "T002", "--owner", "alice", capsys=capsys)

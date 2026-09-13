@@ -216,7 +216,8 @@ automatically; `--takeover` replaces it explicitly, and never replaces a live on
 ### 6.2 Remote claim — optional
 
 With `claim_remote` set, a claim is also pushed as `refs/taskrail/claims/<ID>`: a parentless
-commit holding `claim.json`, pushed with `--force-with-lease=<ref>:` so the push fails if the
+commit holding `claim.json` with only `id`, `owner`, `branch` and `created` — the host and the
+worktree path stay in the local claim, since a remote may be public — pushed with `--force-with-lease=<ref>:` so the push fails if the
 ref already exists. If the push fails the local claim is rolled back. Releasing deletes the ref
 with a lease on the commit that was pushed. `--local-only` skips the remote for one command.
 
