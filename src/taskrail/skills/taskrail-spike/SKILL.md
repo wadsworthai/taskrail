@@ -15,8 +15,9 @@ repository or clearly marked as such.
 ## frame — gate: always
 
 Draft the artifact with: the **Question**; what **Evidence** would answer it; the
-**Approach**; and the **Limits** — the time box and what the investigation will not cover. At
-the gate, the human agrees on the question and the approach.
+**Approach**; and the **Limits** — the time box and what the investigation will not cover.
+Commit the draft, so it is not lost while the task waits. At the gate, the human agrees on the
+question and the approach.
 
 ## investigate — gate: none
 

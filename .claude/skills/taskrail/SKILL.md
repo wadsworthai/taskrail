@@ -44,15 +44,19 @@ of `taskrail show`) supplies what happens inside each stage.
 2. **Inspect.** Run `taskrail show <ID> --json`. Stop if `state` is not `pending` and report
    the claim or `blocked_by`. If the `skill` field names a different executor than the one you
    are running, stop and name the right one.
-3. **Workspace.** Run `git fetch` first. If `worktree` is set, create it:
-   `git worktree add <worktree> -b <branch> <mainline>`; otherwise
-   `git switch -c <branch> <mainline>`. If the branch already exists, stop and ask — someone
+3. **Workspace.** Run `git fetch` first, then `taskrail show <ID> --json` again: its `base.onto`
+   is the ref to branch from — the local or the remote mainline, whichever is further ahead.
+   If `base.diverged` is true, stop and ask which one to use. If `worktree` is set, create it:
+   `git worktree add <worktree> -b <branch> <base.onto>`; otherwise
+   `git switch -c <branch> <base.onto>`. If the branch already exists, stop and ask — someone
    may have started this task. If a dependency is finished only on an unmerged branch, ask
-   which base to use. From here on, work only inside that workspace.
+   which base to use. From here on, work only inside that workspace. A task created with
+   `taskrail new --workspace` already has its workspace: skip to claiming.
 4. **Claim.** From inside the workspace, run `taskrail claim <ID>` before any edit.
 5. **Stages.** Take `kind_descriptor.stages` in order. For each stage: do its work, run each of
    its `checks` with the command from the `checks` map (say so if a check is not configured),
-   commit when `commit` is true, then apply its gate.
+   commit when `commit` is true, then apply its gate. `commit = false` means a commit is not
+   required at that point, not that one is forbidden.
 6. **Scope.** Never edit the areas in `never_edit`. Work you discover outside the task's scope
    becomes a follow-up task (see *Creating tasks*); mention it at the next gate. Only fix
    something directly on the way when it is small and inseparable from the task.
@@ -114,7 +118,13 @@ relay: whoever passes it on cannot recover what you leave out.
   [--pts 3] [--depends-on T010,T011] [--description "One line."] [--column Owner=api]
 ```
 
-Keep the description to one line; put longer detail in a file and link it. Add epics with
+Keep the description to one line; put longer detail in a file and link it.
+
+To open a task and start working on it straight away, add `--workspace`. It creates the task's
+branch — and worktree, when the repository uses them — from `base.onto` and writes the new row
+there instead of in the current checkout, so the task travels with its own pull request rather
+than being committed to the mainline first. Commit the row inside that workspace, then claim
+the task. It refuses when the mainlines have diverged or the branch already exists. Add epics with
 `taskrail epic add --name … --objective … [--done-when …] [--own-file]`, and move a large
 inline epic to its own file with `taskrail epic split E01`.
 

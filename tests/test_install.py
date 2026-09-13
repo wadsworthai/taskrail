@@ -49,6 +49,12 @@ def test_init_creates_a_valid_project(empty_repo, capsys):
     assert manifest["integrations"] == ["claude"]
 
 
+def test_changing_skills_asks_for_an_agent_restart(empty_repo, capsys):
+    first = init(empty_repo, "--integration", "claude", capsys=capsys)
+    assert any("restart the agent session" in note for note in first["notes"])
+    assert not any("restart" in note for note in init(empty_repo, capsys=capsys)["notes"])
+
+
 def test_init_is_idempotent(empty_repo, capsys):
     init(empty_repo, "--integration", "claude", capsys=capsys)
     snapshot = {p: p.read_bytes() for p in empty_repo.rglob("*") if p.is_file() and ".git/" not in str(p)}

@@ -31,6 +31,8 @@ def run(root: Path, *args: str, input: str | None = None, check: bool = True, en
             env={**os.environ, **(env or {})},
         )
     except FileNotFoundError as exc:
+        if not Path(root).is_dir():
+            raise GitError(f"{root} does not exist") from exc
         raise GitError("git is not installed") from exc
     if check and result.returncode != 0:
         raise GitError(f"git {' '.join(args)}: {result.stderr.strip() or result.stdout.strip()}")

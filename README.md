@@ -14,6 +14,9 @@ cd your-repository
 taskrail init --integration claude            # or --integration opencode; repeatable
 ```
 
+Restart the agent session after `init` or `upgrade`: agents load skills when a session starts,
+so one already running does not see new or changed skills.
+
 `init` is safe to run again. It creates `.taskrail/config.toml` and `TODO.md` when missing, and
 installs the skills and a committed wrapper, `.taskrail/bin/taskrail`, which runs the version
 pinned in the config — through `uvx` if the installed CLI differs. Two optional flags:
@@ -34,6 +37,7 @@ taskrail next                          # eligible tasks, smallest first
 taskrail show T012 --json              # kind, stages, branch, artifact path, blockers
 taskrail claim T012                    # reserve it; fails if someone else holds it
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --pts 2
+taskrail new --epic E01 --kind bug --title "Round totals half-up" --workspace   # …in its own branch and worktree
 taskrail done T012                     # needs your claim; releases it
 taskrail review T012                   # fetch and pick the rebase base for the closed task
 taskrail review T012 --publish --scope billing   # push and print the PR/MR title and link

@@ -360,6 +360,9 @@ def install(
         _ensure_gitignore(root, config.worktree_dir, installer.report)
     if pre_commit:
         install_hook(root, installer.report)
+    changed = [*installer.report.created, *installer.report.updated, *installer.report.removed]
+    if any(path.endswith("/SKILL.md") for path in changed):
+        installer.report.notes.append("skills changed: restart the agent session so it loads them")
     if not selected:
         installer.report.notes.append("no agent integration installed; pass --integration claude or --integration opencode")
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from taskrail import gitutil
 from taskrail.model import Project, Status, Task
 from taskrail.templates import render
 
@@ -44,6 +45,20 @@ def eligible(project: Project, backlog: str | None = None, claimed: dict | None 
     return sorted(tasks, key=order_key)
 
 
+def base_dict(project: Project, mainline: str | None) -> dict | None:
+    """Where a task branch should start: the further-ahead of the local and remote mainline."""
+    from taskrail.review import choose_base
+
+    if not mainline:
+        return None
+    try:
+        gitutil.common_dir(project.config.root)
+        base = choose_base(project.config.root, project.config.review.remote, mainline)
+    except gitutil.GitError:
+        return None
+    return {"onto": base.onto, "diverged": base.diverged, "reason": base.reason}
+
+
 def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict:
     kind = project.kinds.get(task.kind)
     claim = (claimed or {}).get(task.id)
@@ -66,6 +81,7 @@ def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict
         "skill": kind.skill_for(task) if kind else None,
         "claim": claim.to_dict() if claim else None,
         "mainline": backlog.mainline if backlog else None,
+        "base": base_dict(project, backlog.mainline if backlog else None),
         "push_branch": config.push_task_branch,
         "branch": branch,
         "worktree": f"{config.worktree_dir}/{branch}" if branch and config.worktree == "required" else None,

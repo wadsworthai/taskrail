@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -115,6 +116,9 @@ def cmd_show(args) -> int:
     ]
     if data["blocked_by"]:
         lines.append(f"  blocked by {', '.join(data['blocked_by'])}")
+    if data["base"]:
+        base = data["base"]
+        lines.append(f"  base {base['onto'] or '—'} ({base['reason']})")
     if data["claim"]:
         claim = data["claim"]
         lines.append(f"  claimed by {claim['owner']} on {claim['branch'] or '—'} since {claim['created']}")
@@ -306,21 +310,99 @@ def cmd_new(args) -> int:
             return EXIT_USAGE
         values[name.strip()] = value.strip()
 
-    config = project.config
+    config = origin_config = project.config
+    kind = project.kinds.get(args.kind)
+    if args.workspace and kind is None:
+        print(f"taskrail: kind `{args.kind}` is not defined", file=sys.stderr)
+        return EXIT_USAGE
     task_id = ids.reserve(config, backlog.config, args.owner or claims.default_owner())
     values["ID"] = task_id
     values["✓"] = Status.PENDING.value
+    result = {"id": task_id, "backlog": backlog.config.name, "epic": epic.id}
+
+    workspace = None
+    if args.workspace:
+        try:
+            workspace = _open_workspace(project, backlog.config, kind, epic.id, task_id, args.title)
+        except _WorkspaceRefused as exc:
+            ids.cancel_reservation(config, backlog.config, task_id)
+            print(f"taskrail: {exc}", file=sys.stderr)
+            return exc.code
+        # The row is written inside the new workspace, against the backlog as it is on its base.
+        config = dataclasses.replace(config, root=workspace["path"])
+        project, _ = load_project(config)
+        epic = next((e for b in project.backlogs for e in b.epics if b.config.name == backlog.config.name and e.id == epic.id), None)
+        if epic is None:
+            _close_workspace(workspace)
+            ids.cancel_reservation(origin_config, backlog.config, task_id)
+            print(f"taskrail: epic `{args.epic}` does not exist on {workspace['base']}", file=sys.stderr)
+            return EXIT_NOT_FOUND
+        result.update(branch=workspace["branch"], workspace=str(workspace["path"]), base=workspace["base"])
+
     edits = writer.Edits(config)
     try:
         writer.add_task(edits, project, epic, values)
     except writer.WriteError as exc:
-        ids.cancel_reservation(config, backlog.config, task_id)
+        if workspace:
+            _close_workspace(workspace)
+        ids.cancel_reservation(origin_config, backlog.config, task_id)
         print(f"taskrail: {exc}", file=sys.stderr)
         return EXIT_USAGE
-    code = _write(edits, args.json, {"id": task_id, "backlog": backlog.config.name, "epic": epic.id}, task_id)
+    text = task_id if not workspace else f"{task_id}\nworkspace {workspace['path']} on branch {workspace['branch']} from {workspace['base']}"
+    code = _write(edits, args.json, result, text)
     if code != EXIT_OK:
-        ids.cancel_reservation(config, backlog.config, task_id)
+        if workspace:
+            _close_workspace(workspace)
+        ids.cancel_reservation(origin_config, backlog.config, task_id)
     return code
+
+
+class _WorkspaceRefused(Exception):
+    def __init__(self, message: str, code: int = EXIT_REFUSED):
+        super().__init__(message)
+        self.code = code
+
+
+def _open_workspace(project: Project, backlog_config, kind, epic_id: str, task_id: str, title: str) -> dict:
+    """Create the branch (and worktree) a new task will be worked in, from the further-ahead mainline."""
+    from taskrail.model import Task
+    from taskrail.review import choose_base
+
+    config = project.config
+    probe = Task(
+        id=task_id, status=Status.PENDING, status_raw=Status.PENDING.value, kind=kind.name, points=None, points_raw="",
+        depends_on=[], title=title, description="", columns={}, backlog=backlog_config.name, epic=epic_id,
+        file=backlog_config.file, line=0, order=0,
+    )
+    branch = render(kind.branch, probe, config)
+    base = choose_base(config.root, config.review.remote, backlog_config.mainline)
+    if base.diverged:
+        raise _WorkspaceRefused(f"{base.reason}; decide which one to branch from")
+    if base.onto is None:
+        raise _WorkspaceRefused(base.reason, EXIT_USAGE)
+    if gitutil.branch_exists(config.root, branch):
+        raise _WorkspaceRefused(f"branch {branch} already exists")
+    if config.worktree == "required":
+        path = (config.root / config.worktree_dir / branch).resolve()
+        if path.exists():
+            raise _WorkspaceRefused(f"{path} already exists")
+        gitutil.run(config.root, "worktree", "add", "--quiet", str(path), "-b", branch, base.onto)
+        return {"path": path, "branch": branch, "base": base.onto, "worktree": True, "origin": config.root}
+    if gitutil.run(config.root, "status", "--porcelain").stdout.strip():
+        raise _WorkspaceRefused("this checkout has uncommitted changes; commit or set them aside before switching branch")
+    previous = gitutil.current_branch(config.root)
+    gitutil.run(config.root, "switch", "--quiet", "-c", branch, base.onto)
+    return {"path": config.root, "branch": branch, "base": base.onto, "worktree": False, "origin": config.root, "previous": previous}
+
+
+def _close_workspace(workspace: dict) -> None:
+    """Undo a workspace that `new --workspace` just created and nothing else has used."""
+    origin = workspace["origin"]
+    if workspace["worktree"]:
+        gitutil.run(origin, "worktree", "remove", "--force", str(workspace["path"]), check=False)
+    elif workspace.get("previous"):
+        gitutil.run(origin, "switch", "--quiet", workspace["previous"], check=False)
+    gitutil.run(origin, "branch", "-D", workspace["branch"], check=False)
 
 
 def _change_status(args, status: Status) -> int:
@@ -719,6 +801,7 @@ def build_parser() -> argparse.ArgumentParser:
     new.add_argument("--description")
     new.add_argument("--column", action="append", metavar="NAME=VALUE", help="a custom column value; repeatable")
     new.add_argument("--owner")
+    new.add_argument("--workspace", action="store_true", help="create the task's branch and worktree from the mainline and add the row there")
     new.add_argument("--allow-invalid", action="store_true")
 
     done = add("done", cmd_done, "Mark a claimed task done and release its claim.")

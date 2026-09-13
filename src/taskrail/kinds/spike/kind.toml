@@ -11,6 +11,7 @@ never_edit = ["code", "specs"]
 name = "frame"
 summary = "State the question, what would answer it, and the approach and limits of the investigation."
 gate = "always"
+commit = true
 
 [[stage]]
 name = "investigate"

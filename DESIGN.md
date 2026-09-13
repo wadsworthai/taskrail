@@ -36,7 +36,7 @@ Non-goals for v1:
 | Epic | A group of tasks with an objective and a "Done when" criterion. Its status is computed. |
 | Task | One table row: status, ID, kind, dependencies, title, short description. |
 | Kind | A task type, defined by a descriptor: routing, stages, gates, artifact, branch pattern. |
-| Stage | A step of a kind's workflow, with optional commit point. |
+| Stage | A step of a kind's workflow. `commit = true` requires a commit at its end; `false` means none is required, not that one is forbidden. |
 | Gate | A stop for human approval: `always`, or `conditional` (only when it has content). |
 | Artifact | The durable document a kind must produce, e.g. a root-cause write-up for a bug. |
 | Claim | An exclusive, persisted reservation of a task by one agent session. |
@@ -253,12 +253,12 @@ not move the counter.
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks |
 | `taskrail list [--epic E01] [--eligible]` | Tasks, with computed blocked and eligible state |
-| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, branch, worktree, artifact and index paths, `never_edit`, check commands |
+| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (the further-ahead of the local and remote mainline, or `diverged`; never fetches), branch, worktree, artifact and index paths, `never_edit`, check commands |
 | `taskrail next` | Eligible tasks in order: points ascending, then file order |
 | `taskrail claim <ID>` / `taskrail release <ID>` | §6.1, §6.2 |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
-| `taskrail new --epic E01 --kind bug --title …` | Allocate an ID and append a row |
+| `taskrail new --epic E01 --kind bug --title … [--workspace]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch and worktree from the base and append the row there |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
@@ -376,7 +376,11 @@ taskrail init --integration claude
 
 Tags are the plain version, `vX.Y.Z`.
 
-`init` is idempotent, and every run adds to what is installed:
+`init` is idempotent, and every run adds to what is installed. When it creates, changes or
+removes a skill, its report says to restart the agent session, since agents load skills when a
+session starts.
+
+`init` adds to what is installed on every run:
 
 - **Seeded files** — `.taskrail/config.toml` and each backlog file — are created only when
   missing and belong to the repository afterwards.
