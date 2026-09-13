@@ -69,3 +69,28 @@ def repo(tmp_path: Path) -> Repo:
     r.write(".taskrail/config.toml", BASE_CONFIG)
     r.write("TODO.md", BASE_TODO)
     return r
+
+
+def git(root: Path, *args: str) -> str:
+    import subprocess
+
+    result = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
+
+
+@pytest.fixture
+def git_repo(repo: Repo, monkeypatch) -> Repo:
+    for key, value in {
+        "GIT_AUTHOR_NAME": "test",
+        "GIT_AUTHOR_EMAIL": "test@example.com",
+        "GIT_COMMITTER_NAME": "test",
+        "GIT_COMMITTER_EMAIL": "test@example.com",
+        "GIT_CONFIG_GLOBAL": "/dev/null",
+        "GIT_CONFIG_NOSYSTEM": "1",
+    }.items():
+        monkeypatch.setenv(key, value)
+    git(repo.root, "init", "-q", "-b", "main")
+    git(repo.root, "add", "-A")
+    git(repo.root, "commit", "-q", "-m", "init")
+    return repo

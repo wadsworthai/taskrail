@@ -35,6 +35,7 @@ class Config:
     points_scale: tuple[int, ...] = ()
     push_task_branch: bool = False
     claim_remote: str = ""
+    claim_grace_minutes: int = 15
     checks: dict[str, str] = field(default_factory=dict)
 
     def backlog(self, name: str) -> BacklogConfig | None:
@@ -153,6 +154,9 @@ def load_config(root: Path) -> Config:
     git = git if isinstance(git, dict) else {}
     push_task_branch = expect(git, "push_task_branch", bool, False)
     claim_remote = expect(git, "claim_remote", str, "")
+    claim_grace_minutes = expect(git, "claim_grace_minutes", int, 15)
+    if claim_grace_minutes < 0:
+        problems.append("git.claim_grace_minutes must not be negative")
 
     checks = data.get("checks", {})
     if not isinstance(checks, dict) or not all(isinstance(v, str) for v in checks.values()):
@@ -170,5 +174,6 @@ def load_config(root: Path) -> Config:
         points_scale=tuple(scale),
         push_task_branch=push_task_branch,
         claim_remote=claim_remote,
+        claim_grace_minutes=claim_grace_minutes,
         checks=dict(checks),
     )

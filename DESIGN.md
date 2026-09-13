@@ -1,7 +1,8 @@
 # taskrail — design
 
 Status: **v1 in progress**. Implemented so far: configuration, backlog parsing, kind
-resolution, `validate`, `list`, `show`, `next` and `kind list`.
+resolution, `validate`, `list`, `show`, `next`, `kind list`, claims (local and remote) and ID
+reservation.
 
 An agent-agnostic backlog tool: a deterministic CLI that owns the backlog files, plus thin
 skills that execute tasks by kind. Derived from the task systems of two existing projects,
@@ -121,6 +122,7 @@ scale = [1, 2, 3, 5, 8, 13]
 [git]
 push_task_branch = false
 claim_remote = ""                # e.g. "origin" to also claim across machines (§6.2)
+claim_grace_minutes = 15         # how long a claim's branch may be missing before it is stale
 
 [checks]                         # commands the executors run as quality gates
 test = "pnpm test:all"
@@ -196,24 +198,42 @@ task done, and the handoff report.
 ### 6.1 Local claim — always on
 
 A claim is a file created atomically (`O_EXCL`) under the git common directory:
-`$(git rev-parse --git-common-dir)/taskrail/claims/<ID>.json`, holding owner, branch, host,
-process and timestamp. Every worktree of a clone shares that directory, so parallel sessions
-on one machine see each other's claims without any network.
+`$(git rev-parse --git-common-dir)/taskrail/claims/<ID>.json`, holding owner, branch, worktree,
+host and timestamp. Every worktree of a clone shares that directory, so parallel sessions on
+one machine see each other's claims without any network.
 
-`taskrail claim <ID>` fails if another live claim exists. `taskrail release <ID>` removes it. A claim
-whose owner process is gone is reported as stale and can be taken over explicitly.
+`taskrail claim <ID>` fails if another live claim exists, and refuses a task that is not
+pending or is blocked (`--ignore-deps` overrides the latter). Claiming again with the same
+owner and branch is a no-op. `taskrail release <ID>` removes a claim; releasing someone
+else's needs `--force`. The owner defaults to `$TASKRAIL_OWNER`, then `user@host`.
+
+A claim is **stale** when its worktree no longer exists, or when its branch does not exist and
+the claim is older than `claim_grace_minutes` — the grace lets an agent claim first and create
+the branch right after. The age of the claiming process is deliberately not a criterion: the
+CLI exits as soon as the claim is written. A stale claim is only ever reported, never removed
+automatically; `--takeover` replaces it explicitly, and never replaces a live one.
 
 ### 6.2 Remote claim — optional
 
-With `claim_remote` set, a claim is also pushed as `refs/taskrail/claims/<ID>` with a lease, so
-claims are visible across machines. Off by default: it needs network and permission to push.
+With `claim_remote` set, a claim is also pushed as `refs/taskrail/claims/<ID>`: a parentless
+commit holding `claim.json`, pushed with `--force-with-lease=<ref>:` so the push fails if the
+ref already exists. If the push fails the local claim is rolled back. Releasing deletes the ref
+with a lease on the commit that was pushed. `--local-only` skips the remote for one command.
+
+Off by default: it needs network and permission to push, and the server must accept refs
+outside `refs/heads` and `refs/tags`.
 
 ### 6.3 ID allocation
 
-`taskrail new` reserves the next ID under a lock in the same common directory. The next number is
-one above the maximum of: IDs in the backlog file on every local branch, IDs reserved but not
-yet committed, and — with a remote configured — IDs on remote branches. This replaces
-"highest plus one", which two agents can compute identically.
+`taskrail reserve-id` (and, later, `taskrail new`) reserves the next ID under a lock in the
+same common directory. The next number is one above the maximum of: IDs in the backlog's files
+in the working tree, on every local branch and — with a remote configured — on its
+remote-tracking branches, plus IDs reserved but not yet used. A reservation is dropped once
+its ID appears in any of those files; `taskrail unreserve-id` cancels one that will not be
+used. This replaces "highest plus one", which two agents can compute identically.
+
+Only IDs in the `ID` column of task tables count, so a description that mentions an ID does
+not move the counter.
 
 ## 7. CLI
 
@@ -225,7 +245,9 @@ yet committed, and — with a remote configured — IDs on remote branches. This
 | `taskrail list [--epic E01] [--eligible]` | Tasks, with computed blocked and eligible state |
 | `taskrail show <ID>` | One task, its kind's resolved stages, and its claim |
 | `taskrail next` | Eligible tasks in order: points ascending, then file order |
-| `taskrail claim <ID>` / `taskrail release <ID>` | §6 |
+| `taskrail claim <ID>` / `taskrail release <ID>` | §6.1, §6.2 |
+| `taskrail claims [--remote]` | Claims, each marked live or stale |
+| `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
 | `taskrail new --epic E01 --kind bug --title …` | Allocate an ID and append a row |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status; refuses without a claim |
 | `taskrail epic add` / `taskrail epic split <E##>` | Manage epics; move one to its own file |
@@ -233,7 +255,20 @@ yet committed, and — with a remote configured — IDs on remote branches. This
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |
 
 Output is human-readable by default and JSON with `--json`, so skills parse results rather
-than prose. Exit codes are stable and documented.
+than prose. Exit codes are stable:
+
+| Code | Meaning |
+|---|---|
+| 0 | success |
+| 1 | the backlog fails validation |
+| 2 | usage, configuration or git error |
+| 3 | task, claim or reservation not found |
+| 4 | conflict: claimed by someone else, or a lock could not be acquired |
+| 5 | refused: the task is not pending, or is blocked |
+
+Task state, as reported by `list`, `show` and `next`, is one of `pending`, `claimed`,
+`blocked`, `done` or `discarded`. Only local claims are consulted, so these commands never
+need the network.
 
 ## 8. Skills
 
