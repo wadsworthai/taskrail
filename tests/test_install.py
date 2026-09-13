@@ -194,6 +194,61 @@ def test_upgrade_needs_a_previous_init(repo, capsys):
     assert run(repo.root, "upgrade", capsys=capsys)[0] == 3
 
 
+def _break_manifest(root: Path, shape: str) -> None:
+    path = root / install.MANIFEST
+    if shape == "conflict markers":
+        lines = path.read_text().splitlines(keepends=True)
+        wrapper = next(i for i, line in enumerate(lines) if install.WRAPPER in line)
+        lines[wrapper:wrapper] = ["<<<<<<< HEAD\n", '    "a": "1",\n', "=======\n", '    "b": "2",\n', ">>>>>>> a\n"]
+        path.write_text("".join(lines))
+    elif shape == "empty file":
+        path.write_text("")
+    elif shape == "not an object":
+        path.write_text("[]\n")
+    elif shape == "not UTF-8":
+        path.write_bytes(b'{"version": "\xff"}\n')
+    elif shape == "a directory":
+        path.unlink()
+        path.mkdir()
+
+
+def _tree(root: Path) -> dict:
+    return {p: p.read_bytes() for p in root.rglob("*") if p.is_file() and ".git" not in p.relative_to(root).parts}
+
+
+@pytest.mark.parametrize("shape", ["conflict markers", "empty file", "not an object", "not UTF-8", "a directory"])
+@pytest.mark.parametrize("command", [["init"], ["init", "--force"], ["upgrade"], ["upgrade", "--force"]], ids=" ".join)
+def test_an_unreadable_manifest_stops_init_and_upgrade(empty_repo, capsys, shape, command):
+    init(empty_repo, "--integration", "claude", "--github-workflow", capsys=capsys)
+    _break_manifest(empty_repo, shape)
+    before = _tree(empty_repo)
+    code, _, err = run(empty_repo, *command, capsys=capsys)
+    assert code == 2, err
+    assert install.MANIFEST in err
+    assert _tree(empty_repo) == before
+
+
+@pytest.mark.skipif(not hasattr(os, "geteuid") or os.geteuid() == 0, reason="root reads any file")
+def test_a_manifest_without_read_permission_stops_init_and_upgrade(empty_repo, capsys):
+    init(empty_repo, "--integration", "claude", capsys=capsys)
+    manifest = empty_repo / install.MANIFEST
+    manifest.chmod(0)
+    try:
+        for command in (["init"], ["upgrade"]):
+            code, _, err = run(empty_repo, *command, capsys=capsys)
+            assert code == 2, err
+            assert install.MANIFEST in err
+    finally:
+        manifest.chmod(0o644)
+
+
+def test_an_empty_object_manifest_is_still_treated_as_nothing_installed(empty_repo, capsys):
+    init(empty_repo, capsys=capsys)
+    (empty_repo / install.MANIFEST).write_text("{}\n")
+    assert run(empty_repo, "upgrade", capsys=capsys)[0] == 3
+    assert run(empty_repo, "init", capsys=capsys)[0] == 0
+
+
 def test_unknown_integration(empty_repo, capsys):
     assert run(empty_repo, "init", "--integration", "vim", capsys=capsys)[0] == 2
 

@@ -22,6 +22,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   `Title`, `Pts` or `Description`, in any letter case and aliased or not, now exits 2 and names
   the flag that fills it. Behaviour change: it used to overwrite `--kind`, `--title` or `--pts`,
   silently drop `ID` and `✓`, or report a missing column for another letter case (T026).
+- **An unreadable `installed.json` stops `init` and `upgrade`.** A manifest with merge-conflict
+  markers, invalid JSON, a value that is not an object, bytes that are not UTF-8, or that cannot
+  be read at all now makes both commands exit 2, name the file and write nothing, `--force`
+  included. Behaviour change: `init` used to overwrite it, dropping the recorded integrations,
+  extras and digests, and `upgrade` reported it missing (exit 3) or crashed (T027).
 
 ## 0.1.0
 

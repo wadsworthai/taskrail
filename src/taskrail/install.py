@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from taskrail import __version__, gitutil
+from taskrail.issues import ConfigError
 
 PACKAGE = Path(__file__).parent
 SKILLS_SOURCE = PACKAGE / "skills"
@@ -71,10 +72,25 @@ def _digest(text: str) -> str:
 
 
 def read_manifest(root: Path) -> dict:
+    """The recorded install, or {} when taskrail was never installed. An unreadable manifest is
+    an error, never an empty one: treating it as missing would drop what it records."""
     try:
-        return json.loads((root / MANIFEST).read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
+        manifest = json.loads((root / MANIFEST).read_text(encoding="utf-8"))
+    except FileNotFoundError:
         return {}
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        reason = exc.strerror if isinstance(exc, OSError) and exc.strerror else str(exc)
+        raise ConfigError(_unreadable_manifest(reason)) from exc
+    if not isinstance(manifest, dict):
+        raise ConfigError(_unreadable_manifest(f"expected a JSON object, found {type(manifest).__name__}"))
+    return manifest
+
+
+def _unreadable_manifest(reason: str) -> str:
+    return (
+        f"{MANIFEST} cannot be read ({reason}); resolve any merge conflict or fix the file, "
+        "or delete it to reinstall from scratch"
+    )
 
 
 class Installer:
