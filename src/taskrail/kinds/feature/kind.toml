@@ -1,0 +1,24 @@
+name = "feature"
+summary = "New behaviour delivered from a short approved plan, without a separate specification process."
+skill = "taskrail-feature"
+branch = "{id}-{slug}"
+artifact = "{artifacts}/features/{id}-{slug}.md"
+artifact_index = "{artifacts}/features/README.md"
+
+[[stage]]
+name = "plan"
+summary = "Write a short plan: behaviour, acceptance criteria, affected areas, and what is out of scope."
+gate = "always"
+commit = true
+
+[[stage]]
+name = "implement"
+summary = "Build to the plan with tests for each acceptance criterion, and run the checks."
+gate = "always"
+commit = true
+checks = ["test", "lint"]
+
+[[stage]]
+name = "verify"
+summary = "Exercise the feature in its real runtime and report any gap against the plan."
+gate = "conditional"

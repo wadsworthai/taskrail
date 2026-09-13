@@ -1,0 +1,26 @@
+name = "chore"
+summary = "Maintenance work whose change set and boundary are approved before anything is edited."
+skill = "taskrail-chore"
+branch = "{id}-{slug}"
+artifact = "{artifacts}/chores/{id}-{slug}.md"
+artifact_index = "{artifacts}/chores/README.md"
+never_edit = ["specs"]
+
+[[stage]]
+name = "scope"
+summary = "Without editing anything, propose the change set, open decisions, what is out of scope, and how it will be verified."
+gate = "always"
+commit = true
+
+[[stage]]
+name = "implement"
+summary = "Apply the approved change set, exercise what changed for real, and run the checks."
+gate = "always"
+commit = true
+checks = ["test", "lint"]
+
+[[stage]]
+name = "docs"
+summary = "Bring documentation in line with the change and open follow-up tasks where needed."
+gate = "conditional"
+commit = true

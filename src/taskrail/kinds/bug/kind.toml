@@ -1,0 +1,25 @@
+name = "bug"
+summary = "Reproduce, find the root cause, and fix under a regression test observed failing first."
+skill = "taskrail-bug"
+branch = "{id}-{slug}"
+artifact = "{artifacts}/bugs/{id}-{slug}.md"
+artifact_index = "{artifacts}/bugs/README.md"
+never_edit = ["specs"]
+
+[[stage]]
+name = "diagnose"
+summary = "Reproduce with concrete evidence, rule out suspects, and write down the root cause."
+gate = "always"
+commit = true
+
+[[stage]]
+name = "fix"
+summary = "Write the regression test, watch it fail, apply the minimal fix, and run the checks."
+gate = "always"
+commit = true
+checks = ["test", "lint"]
+
+[[stage]]
+name = "impact"
+summary = "Open follow-up tasks for anything outside this bug's scope, such as a wrong spec."
+gate = "conditional"

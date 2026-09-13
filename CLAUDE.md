@@ -43,5 +43,10 @@ particular agent:
 
 ## Commands
 
-None yet — the repository has no build, lint, or test setup. Tools are expected to carry their
-own (per-directory) instructions. Record any repository-wide command here once one exists.
+Python, managed with uv, no runtime dependencies. Run from the repository root:
+
+```bash
+uv run pytest                                   # all tests
+uv run pytest tests/test_validate.py -k cycle   # a single test
+uv run taskrail --root <repo> validate          # run the CLI against a repository
+```

@@ -1,0 +1,23 @@
+name = "spike"
+summary = "Time-boxed investigation that ends in a documented decision, not in production code."
+skill = "taskrail-spike"
+branch = "{id}-{slug}"
+artifact = "{artifacts}/spikes/{id}-{slug}.md"
+artifact_index = "{artifacts}/spikes/README.md"
+never_edit = ["code", "specs"]
+
+[[stage]]
+name = "frame"
+summary = "State the question, what would answer it, and the approach and limits of the investigation."
+gate = "always"
+
+[[stage]]
+name = "investigate"
+summary = "Gather evidence by measuring and reproducing, recording methods so the result can be repeated."
+gate = "none"
+
+[[stage]]
+name = "decide"
+summary = "Write the evaluation with a clear recommendation and the conditions that would change it."
+gate = "always"
+commit = true

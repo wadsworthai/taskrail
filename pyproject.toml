@@ -1,0 +1,21 @@
+[project]
+name = "taskrail"
+version = "0.1.0.dev0"
+description = "Agent-agnostic backlog tool: a deterministic CLI plus task-execution skills."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = []
+
+[project.scripts]
+taskrail = "taskrail.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
