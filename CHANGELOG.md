@@ -12,6 +12,7 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   kinds; `validate` rejects tasks of any other kind with `task-kind-disallowed` (T018).
 - **Prior work in `show`.** `prior_work` reports an existing artifact, the task branch, and
   commits whose subject names the task, so an executor notices earlier attempts; it never blocks.
+- **Each mainline's own remote.** `show`, `new --workspace` and `review` take the base, fetch, push and pull request link from `branch.<mainline>.remote` when it names a configured remote, and report it as `remote` and `remote_source`. Behaviour change: this tracking config now wins over `[review].remote`, which becomes the fallback.
 
 ## 0.1.0
 

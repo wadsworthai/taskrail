@@ -51,6 +51,20 @@ def web_base(review: ReviewConfig, remote: Remote | None) -> str | None:
 
 
 @dataclass(frozen=True)
+class ResolvedRemote:
+    name: str
+    source: str  # "branch.<mainline>.remote" or "[review].remote"
+
+
+def resolve_remote(root: Path, mainline: str, fallback: str) -> ResolvedRemote:
+    """The remote a mainline tracks when it names a configured remote, else the `[review].remote` fallback."""
+    tracked = gitutil.run(root, "config", "--get", f"branch.{mainline}.remote", check=False).stdout.strip()
+    if tracked and tracked in gitutil.run(root, "remote", check=False).stdout.split():
+        return ResolvedRemote(tracked, f"branch.{mainline}.remote")
+    return ResolvedRemote(fallback, "[review].remote")
+
+
+@dataclass(frozen=True)
 class Base:
     onto: str | None
     diverged: bool

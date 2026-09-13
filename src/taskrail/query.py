@@ -47,16 +47,17 @@ def eligible(project: Project, backlog: str | None = None, claimed: dict | None 
 
 def base_dict(project: Project, mainline: str | None) -> dict | None:
     """Where a task branch should start: the further-ahead of the local and remote mainline."""
-    from taskrail.review import choose_base
+    from taskrail.review import choose_base, resolve_remote
 
     if not mainline:
         return None
     try:
         gitutil.common_dir(project.config.root)
-        base = choose_base(project.config.root, project.config.review.remote, mainline)
+        remote = resolve_remote(project.config.root, mainline, project.config.review.remote)
+        base = choose_base(project.config.root, remote.name, mainline)
     except gitutil.GitError:
         return None
-    return {"onto": base.onto, "diverged": base.diverged, "reason": base.reason}
+    return {"onto": base.onto, "diverged": base.diverged, "reason": base.reason, "remote": remote.name, "remote_source": remote.source}
 
 
 def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict:

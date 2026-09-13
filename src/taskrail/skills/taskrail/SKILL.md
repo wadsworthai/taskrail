@@ -47,8 +47,9 @@ of `taskrail show`) supplies what happens inside each stage.
    branch or commits naming the task, someone may already have worked on it: look at them,
    check that the description's premises still hold, and mention both at your first gate.
    These signals never block on their own.
-3. **Workspace.** Run `git fetch` first, then `taskrail show <ID> --json` again: its `base.onto`
-   is the ref to branch from — the local or the remote mainline, whichever is further ahead.
+3. **Workspace.** Run `git fetch <base.remote>` first, with the mainline's own remote that
+   `show` reported, then `taskrail show <ID> --json` again: its `base.onto` is the ref to branch
+   from — the local or the remote mainline, whichever is further ahead.
    If `base.diverged` is true, stop and ask which one to use. If `worktree` is set, create it:
    `git worktree add <worktree> -b <branch> <base.onto>`; otherwise
    `git switch -c <branch> <base.onto>`. If the branch already exists, stop and ask — someone
@@ -68,8 +69,8 @@ of `taskrail show`) supplies what happens inside each stage.
 8. **Close.** With every check passing:
    - run `taskrail done <ID>` inside the workspace — it marks the row in this branch and
      releases the claim — and commit that change on its own;
-   - run `taskrail review <ID> --json`. It fetches the review remote and reports in
-     `rebase.onto` the base to rebase onto: the local or the remote mainline, whichever is
+   - run `taskrail review <ID> --json`. It fetches the mainline's remote (`remote`) and reports
+     in `rebase.onto` the base to rebase onto: the local or the remote mainline, whichever is
      further ahead. If `rebase.diverged` is true, stop and ask which one to use;
    - if `rebase.needed` is true, run `git rebase <rebase.onto>`. Resolve backlog conflicts
      mechanically: rows added on both sides keep both, and a status cell that is `✅` on either
@@ -82,8 +83,8 @@ of `taskrail show`) supplies what happens inside each stage.
      `refactor`, …; the kind's default fits most tasks) and the affected component as scope, and
      mark incompatible changes as breaking;
    - run `taskrail review <ID> --publish --json [--type <type>] [--scope <scope>] [--breaking]`.
-     It pushes the branch when the repository enables it — exit 4 means the push was rejected:
-     stop and report — and returns `pull_request.title`, `body` and `url`.
+     It pushes the branch to that remote when the repository enables it — exit 4 means the push
+     was rejected: stop and report — and returns `pull_request.title`, `body` and `url`.
 9. **Hand off.** Report the branch and its base, each commit on one line, every check with its
    actual result, the artifact path, any follow-up tasks, whether the branch was pushed, and the
    pull request title and link — with its body too when the link cannot carry it. Never merge,

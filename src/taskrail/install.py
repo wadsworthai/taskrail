@@ -177,7 +177,7 @@ push_task_branch = true      # `taskrail review --publish` pushes the task branc
 claim_remote = ""            # e.g. "origin" to also claim across machines
 
 [review]                     # hand-off after a task is closed
-remote = "origin"
+remote = "origin"            # fallback for a mainline without branch.<mainline>.remote
 fetch = true
 rebase = true                # rebase onto the further-ahead of the local and remote mainline
 provider = "auto"            # auto | github | gitlab | gitea | forgejo | none

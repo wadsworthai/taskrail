@@ -6,3 +6,4 @@
 | T015 | Hand closed tasks off for review with a merge request link | [T015-hand-closed-tasks-off-for-review-with-a.md](T015-hand-closed-tasks-off-for-review-with-a.md) |
 | T018 | Restrict the task kinds a repository allows | [T018-restrict-the-task-kinds-a-repository-all.md](T018-restrict-the-task-kinds-a-repository-all.md) |
 | T023 | Report signs of prior work on a task in show | [T023-report-signs-of-prior-work-on-a-task-in.md](T023-report-signs-of-prior-work-on-a-task-in.md) |
+| T022 | Use each mainline's own remote in review | [T022-use-each-mainline-s-own-remote-in-review.md](T022-use-each-mainline-s-own-remote-in-review.md) |

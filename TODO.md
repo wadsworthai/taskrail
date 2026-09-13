@@ -46,6 +46,6 @@ Done when: a consumer project runs its backlog through taskrail with its own kin
 | ⬜ | T019 | feature | 3   | —          | Let the executor name or rename a task branch | For branches that depend on facts known only once work starts; claims and review must follow the renamed branch. |
 | ⬜ | T020 | feature | 3   | —          | Run stages conditionally on a column or the executor's judgement | Declare stages that apply only when a column matches or when the executor judges them relevant, instead of duplicating kinds. |
 | ⬜ | T021 | feature | 2   | —          | Map a repository's column names onto taskrail's columns | Column aliases in config, such as Size for Pts, so a backlog keeps its established headers. |
-| ⬜ | T022 | feature | 2   | —          | Use each mainline's own remote in review | Resolve the remote from branch.<mainline>.remote before [review].remote, for repositories whose mainlines live on different remotes. |
+| ✅ | T022 | feature | 2   | —          | Use each mainline's own remote in review | Resolve the remote from branch.<mainline>.remote before [review].remote, for repositories whose mainlines live on different remotes. |
 | ✅ | T023 | feature | 2   | —          | Report signs of prior work on a task in show | Informational only: an existing artifact, or commits whose subject names the task ID. |
 | ⬜ | T025 | feature | 2   | T018       | Skip installing skills for kinds a repository does not allow | init and upgrade should not install executor skills for kinds outside [kinds].allowed. |

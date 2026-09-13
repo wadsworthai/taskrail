@@ -39,7 +39,7 @@ taskrail claim T012                    # reserve it; fails if someone else holds
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --pts 2
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --workspace   # …in its own branch and worktree
 taskrail done T012                     # needs your claim; releases it
-taskrail review T012                   # fetch and pick the rebase base for the closed task
+taskrail review T012                   # fetch the mainline's remote and pick the rebase base
 taskrail review T012 --publish --scope billing   # push and print the PR/MR title and link
 taskrail reopen T012 --reason "…"       # back to pending; prints a commit message to use
 taskrail epic add --name Auth --objective "Sign in without passwords" --own-file

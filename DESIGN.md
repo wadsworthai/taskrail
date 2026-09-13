@@ -126,7 +126,7 @@ worktree = "required"            # "required": one worktree per task; "never": a
 worktree_dir = ".worktrees"
 
 [review]                         # hand-off after closing (§7.1)
-remote = "origin"
+remote = "origin"                # for a mainline without branch.<mainline>.remote (§7.1)
 fetch = true
 rebase = true
 provider = "auto"                # auto | github | gitlab | gitea | forgejo | none
@@ -269,7 +269,7 @@ not move the counter.
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks |
 | `taskrail list [--epic E01] [--eligible]` | Tasks, with computed blocked and eligible state |
-| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (the further-ahead of the local and remote mainline, or `diverged`; never fetches), branch, worktree, artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
+| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (the further-ahead of the local mainline and its remote's, or `diverged`, with that `remote` and its `remote_source`; never fetches), branch, worktree, artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
 | `taskrail next` | Eligible tasks in order: points ascending, then file order |
 | `taskrail claim <ID>` / `taskrail release <ID>` | §6.1, §6.2 |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
@@ -288,7 +288,7 @@ Closing a task ends in a pull or merge request on whatever host the repository u
 review` owns the deterministic parts; the agent keeps the rebase and its conflicts.
 
 1. `taskrail review <ID>` runs on the task branch, only once the task is done there. It fetches
-   `[review].remote` (unless `fetch = false` or `--no-fetch`) and picks the rebase base: the
+   the mainline's remote (unless `fetch = false` or `--no-fetch`) and picks the rebase base: the
    backlog's `mainline` or its remote-tracking branch, whichever is further ahead, and whichever
    exists if only one does. Diverged mainlines exit 5. With `rebase = false` no base is chosen.
 2. The agent rebases onto that base when `rebase.needed` is true, resolving backlog conflicts as
@@ -297,6 +297,16 @@ review` owns the deterministic parts; the agent keeps the rebase and its conflic
    branch when `push_task_branch` is true — a plain push for a new remote branch, otherwise with
    `--force-with-lease` on the remote's current commit; a rejected push exits 4 — and returns the
    pull request title, description and link.
+
+**The mainline's remote.** Each mainline uses one remote for its base, fetch, push and link:
+`branch.<mainline>.remote` from git config when it names a configured remote, otherwise
+`[review].remote`. A repository whose backlogs have mainlines on different remotes — `main`
+tracking a template's `upstream`, `dev` tracking `origin` — therefore needs no configuration, and
+tracking config wins over `[review].remote` when both are set. A value of `.` or a URL has no
+remote-tracking branches and falls back. `show`, `new --workspace` and `review` resolve it the same
+way, and `show --json`'s `base` and `review --json` report it as `remote` with `remote_source`
+(`branch.<mainline>.remote` or `[review].remote`). The task branch is pushed to that remote, so
+the link opens a same-repository pull request there; the provider settings stay repository-wide.
 
 Pull requests are expected to be squash-merged, so the title is the commit that reaches the
 mainline. It is rendered as `{type}({scope}): {subject} ({id})`: the type from the kind's

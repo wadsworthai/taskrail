@@ -373,7 +373,7 @@ class _WorkspaceRefused(Exception):
 def _open_workspace(project: Project, backlog_config, kind, epic_id: str, task_id: str, title: str) -> dict:
     """Create the branch (and worktree) a new task will be worked in, from the further-ahead mainline."""
     from taskrail.model import Task
-    from taskrail.review import choose_base
+    from taskrail.review import choose_base, resolve_remote
 
     config = project.config
     probe = Task(
@@ -382,7 +382,8 @@ def _open_workspace(project: Project, backlog_config, kind, epic_id: str, task_i
         file=backlog_config.file, line=0, order=0,
     )
     branch = render(kind.branch, probe, config)
-    base = choose_base(config.root, config.review.remote, backlog_config.mainline)
+    remote = resolve_remote(config.root, backlog_config.mainline, config.review.remote)
+    base = choose_base(config.root, remote.name, backlog_config.mainline)
     if base.diverged:
         raise _WorkspaceRefused(f"{base.reason}; decide which one to branch from")
     if base.onto is None:
@@ -521,17 +522,18 @@ def cmd_review(args) -> int:
         return EXIT_REFUSED
 
     settings = config.review
+    target = backlog.mainline
+    remote = review.resolve_remote(root, target, settings.remote)
     fetched = False
     if settings.fetch and not args.no_fetch:
-        result = gitutil.run(root, "fetch", "--quiet", settings.remote, check=False)
+        result = gitutil.run(root, "fetch", "--quiet", remote.name, check=False)
         if result.returncode != 0:
-            print(f"taskrail: git fetch {settings.remote} failed: {result.stderr.strip()}", file=sys.stderr)
+            print(f"taskrail: git fetch {remote.name} failed: {result.stderr.strip()}", file=sys.stderr)
             return EXIT_USAGE
         fetched = True
 
-    target = backlog.mainline
     if settings.rebase:
-        base = review.choose_base(root, settings.remote, target)
+        base = review.choose_base(root, remote.name, target)
         rebase = {
             "enabled": True,
             "onto": base.onto,
@@ -543,7 +545,7 @@ def cmd_review(args) -> int:
         base = None
         rebase = {"enabled": False, "onto": None, "diverged": False, "needed": False, "reason": "rebase is disabled in [review]"}
 
-    remote_url = gitutil.run(root, "remote", "get-url", settings.remote, check=False).stdout.strip()
+    remote_url = gitutil.run(root, "remote", "get-url", remote.name, check=False).stdout.strip()
     parsed = review.parse_remote_url(remote_url) if remote_url else None
     provider = review.detect_provider(settings, parsed)
     title = review.pr_title(
@@ -563,7 +565,8 @@ def cmd_review(args) -> int:
         "id": task.id,
         "head": head,
         "target": target,
-        "remote": settings.remote,
+        "remote": remote.name,
+        "remote_source": remote.source,
         "fetched": fetched,
         "rebase": rebase,
         "push": push_info,
@@ -591,20 +594,20 @@ def cmd_review(args) -> int:
 
     try:
         if config.push_task_branch and not args.no_push:
-            pushed = review.push(root, settings.remote, head)
+            pushed = review.push(root, remote.name, head)
             push_info.update(pushed=pushed.pushed, command=" ".join(pushed.command), error=pushed.error)
             if not pushed.pushed:
                 print(f"taskrail: push rejected: {pushed.error}", file=sys.stderr)
                 _emit(data, args.json, "")
                 return EXIT_CONFLICT
         else:
-            push_info["command"] = " ".join(review.push_command(root, settings.remote, head))
+            push_info["command"] = " ".join(review.push_command(root, remote.name, head))
     except gitutil.GitError as exc:
         print(f"taskrail: {exc}", file=sys.stderr)
         return EXIT_USAGE
 
     data["published"] = True
-    lines = [f"pushed {head} to {settings.remote}" if push_info["pushed"] else f"not pushed; to push: {push_info['command']}", "", title]
+    lines = [f"pushed {head} to {remote.name}" if push_info["pushed"] else f"not pushed; to push: {push_info['command']}", "", title]
     lines.append(url if url else "no pull request link: set [review].provider (and web_url) for this host")
     _emit(data, args.json, "\n".join(lines))
     return EXIT_OK
