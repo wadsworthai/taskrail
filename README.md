@@ -45,6 +45,10 @@ taskrail review T012 --publish --scope billing   # push and print the PR/MR titl
 taskrail reopen T012 --reason "…"       # back to pending; prints a commit message to use
 taskrail epic add --name Auth --objective "Sign in without passwords" --own-file
 taskrail epic split E01                # move an inline epic to todo/E01-<slug>.md
+taskrail autopilot start --count 3     # start an autopilot run; refused until [autopilot].enabled = true
+taskrail claim T012 --run 20260913-1   # …a lane claims inside the run
+taskrail autopilot lane T012 --run 20260913-1 --handle <agent-id> --state gate
+taskrail autopilot status              # every run task's state, idle lanes, overlapping files, hand-off queue
 taskrail upgrade                       # re-install skills for this CLI version and pin it
 taskrail self upgrade                  # update the CLI to the latest release
 ```

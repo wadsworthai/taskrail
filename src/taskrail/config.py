@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import tomllib
+import dataclasses
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -41,6 +42,29 @@ class ReviewConfig:
     scope: str = ""
 
 
+NOTIFY_EVENTS = ("escalation", "lane-done", "lane-failed")
+HANDOFF_MODES = ("sequential",)
+GATE_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$")
+TEMPLATE_VALUES = {"id": "T001", "slug": "slug", "artifacts": "docs", "backlog": "main", "epic": "E01"}
+
+
+@dataclass(frozen=True)
+class AutopilotConfig:
+    """`[autopilot]` (DESIGN.md §12.9). The group and resource tables are not read here yet."""
+
+    enabled: bool = False
+    max_lanes: int = 3
+    kinds: tuple[str, ...] = ()  # empty: every allowed kind
+    governing: tuple[str, ...] = ()
+    escalate_gates: tuple[str, ...] = ()  # "kind:stage"
+    decisions: str = "{artifacts}/autopilot/decisions/{id}-{slug}.md"
+    decisions_index: str = "{artifacts}/autopilot/decisions/README.md"
+    silent_minutes: int = 20
+    handoff: str = "sequential"
+    notify: str = ""
+    notify_on: tuple[str, ...] = ("escalation", "lane-done")
+
+
 @dataclass(frozen=True)
 class Config:
     root: Path
@@ -57,6 +81,7 @@ class Config:
     checks: dict[str, str] = field(default_factory=dict)
     review: ReviewConfig = field(default_factory=ReviewConfig)
     allowed_kinds: tuple[str, ...] = ()  # empty: every defined kind is allowed
+    autopilot: AutopilotConfig = field(default_factory=AutopilotConfig)
 
     def backlog(self, name: str) -> BacklogConfig | None:
         return next((b for b in self.backlogs if b.name == name), None)
@@ -216,6 +241,8 @@ def load_config(root: Path) -> Config:
         problems.append("[checks] must map names to command strings")
         checks = {}
 
+    autopilot = _autopilot(data.get("autopilot", {}), problems)
+
     if problems:
         raise ConfigError(f"{CONFIG_PATH}: " + "; ".join(problems))
 
@@ -234,7 +261,67 @@ def load_config(root: Path) -> Config:
         checks=dict(checks),
         review=review,
         allowed_kinds=tuple(allowed_kinds or ()),
+        autopilot=autopilot,
     )
+
+
+def _autopilot(raw, problems: list[str]) -> AutopilotConfig:
+    """Check `[autopilot]` and return it with the defaults of DESIGN.md §12.9 filled in."""
+    defaults = AutopilotConfig()
+    if not isinstance(raw, dict):
+        problems.append("[autopilot] must be a table")
+        return defaults
+    values: dict = {}
+
+    def scalar(key: str, kind: type) -> None:
+        if key not in raw:
+            return
+        value = raw[key]
+        if not isinstance(value, kind) or (kind is int and isinstance(value, bool)):
+            problems.append(f"autopilot.{key} must be {kind.__name__}, got {type(value).__name__}")
+        else:
+            values[key] = value
+
+    def strings(key: str) -> None:
+        if key not in raw:
+            return
+        value = raw[key]
+        if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+            problems.append(f"autopilot.{key} must be a list of non-empty strings")
+        else:
+            values[key] = tuple(value)
+
+    for key in ("enabled",):
+        scalar(key, bool)
+    for key in ("max_lanes", "silent_minutes"):
+        scalar(key, int)
+    for key in ("decisions", "decisions_index", "handoff", "notify"):
+        scalar(key, str)
+    for key in ("kinds", "governing", "escalate_gates", "notify_on"):
+        strings(key)
+
+    if values.get("max_lanes", 1) < 1:
+        problems.append("autopilot.max_lanes must be at least 1")
+    if values.get("silent_minutes", 0) < 0:
+        problems.append("autopilot.silent_minutes must not be negative")
+    if values.get("handoff", "sequential") not in HANDOFF_MODES:
+        problems.append(f"autopilot.handoff must be one of {', '.join(HANDOFF_MODES)}")
+    for name in values.get("kinds", ()):
+        if not NAME_RE.match(name):
+            problems.append(f"autopilot.kinds: `{name}` is not a kind name (lowercase letters, digits and dashes)")
+    for gate in values.get("escalate_gates", ()):
+        if not GATE_RE.match(gate):
+            problems.append(f"autopilot.escalate_gates: `{gate}` must be shaped kind:stage")
+    for event in values.get("notify_on", ()):
+        if event not in NOTIFY_EVENTS:
+            problems.append(f"autopilot.notify_on: `{event}` is not one of {', '.join(NOTIFY_EVENTS)}")
+    for key in ("decisions", "decisions_index"):
+        if key in values:
+            try:
+                values[key].format(**TEMPLATE_VALUES)
+            except (KeyError, IndexError, ValueError) as exc:
+                problems.append(f"autopilot.{key}: invalid template ({exc!r}); placeholders are {', '.join(f'{{{k}}}' for k in TEMPLATE_VALUES)}")
+    return dataclasses.replace(defaults, **values)
 
 
 def _column_aliases(raw: dict, custom: list, problems: list[str]) -> dict[str, str]:

@@ -36,6 +36,7 @@ class Claim:
     host: str = ""
     remote: dict | None = None  # {"name", "ref", "commit"} when mirrored to a remote
     base: dict | None = None  # {"onto", "commit", "dependency"}: where the task branch started
+    run: str | None = None  # the autopilot run that owns the lane (DESIGN.md §12.4)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -168,6 +169,7 @@ def claim(
     takeover: bool = False,
     local_only: bool = False,
     base: dict | None = None,
+    run: str | None = None,
 ) -> tuple[Claim, bool]:
     """Create a claim. Returns (claim, created); created is False when the owner already held it."""
     path = _path(config, task_id)
@@ -190,6 +192,7 @@ def claim(
         host=socket.gethostname(),
         created=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         base=base,
+        run=run,
     )
     try:
         _write_exclusive(path, new)

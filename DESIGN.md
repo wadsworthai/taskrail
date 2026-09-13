@@ -155,7 +155,26 @@ allowed = ["spec", "bug", "chore"]
 [checks]                         # commands the executors run as quality gates
 test = "pnpm test:all"
 lint = "pnpm lint"
+
+[autopilot]                      # §12; every key is optional
+enabled = false                  # allow `autopilot start`; the skill is installed regardless
+max_lanes = 3                    # lanes at once; takes effect with `autopilot next` (T030)
+kinds = []                       # kinds a run drives; empty means every allowed kind
+governing = []                   # read first to answer gates; flagged by `status` from T032
+escalate_gates = []              # "kind:stage" always taken to the human; flagged from T032
+decisions = "{artifacts}/autopilot/decisions/{id}-{slug}.md"
+decisions_index = "{artifacts}/autopilot/decisions/README.md"
+silent_minutes = 20              # a running lane idle longer is `silent` in `autopilot status`
+handoff = "sequential"           # the only value
+notify = ""                      # command run by `autopilot notify` (T032)
+notify_on = ["escalation", "lane-done"]   # any of escalation, lane-done, lane-failed
 ```
+
+`[autopilot]` is checked when the config loads: a value of the wrong type, `max_lanes` below 1, a
+negative `silent_minutes`, a `kinds` entry that is not a kind name, an `escalate_gates` entry not
+shaped `kind:stage`, an unknown `notify_on` event or a `decisions` template with an unknown
+placeholder exits 2. The `[[autopilot.group]]` and `[[autopilot.resource]]` tables of §12.9 are not
+read yet (T030).
 
 ## 5. Kinds
 
@@ -293,7 +312,7 @@ skill does not describe, such as one an override adds, is done as its `summary` 
 
 A claim is a file created atomically (`O_EXCL`) under the git common directory:
 `$(git rev-parse --git-common-dir)/taskrail/claims/<ID>.json`, holding owner, branch, worktree,
-host, timestamp and `base`. Every worktree of a clone shares that directory, so parallel sessions on
+host, timestamp, `base` and `run`. Every worktree of a clone shares that directory, so parallel sessions on
 one machine see each other's claims without any network.
 
 `base` records where the claimed branch started: `onto`, the ref `show` reports as the base (§7);
@@ -303,7 +322,8 @@ fork point `git merge-base HEAD <onto>` at claim time. Once that dependency is s
 releases the claim, so for a finished dependent the fork point is also
 `git merge-base HEAD <dependency branch>` while that branch exists: follow-through must compute it
 before removing the dependency's branch. `base` is
-`null` when no base could be determined. A claim file is read ignoring keys this version does not
+`null` when no base could be determined. `run` is the autopilot run that owns the lane, set with
+`claim --run R` (exit 3 when that run does not exist, §12.4), or `null`. A claim file is read ignoring keys this version does not
 know, so a later version can add fields without hiding its claims from this one.
 
 `taskrail claim <ID>` fails if another live claim exists, and refuses a task that is not
@@ -325,7 +345,7 @@ automatically; `--takeover` replaces it explicitly, and never replaces a live on
 ### 6.2 Remote claim — optional
 
 With `claim_remote` set, a claim is also pushed as `refs/taskrail/claims/<ID>`: a parentless
-commit holding `claim.json` with only `id`, `owner`, `branch`, `created` and `base` — the host and the
+commit holding `claim.json` with only `id`, `owner`, `branch`, `created`, `base` and `run` — the host and the
 worktree path stay in the local claim, since a remote may be public — pushed with `--force-with-lease=<ref>:` so the push fails if the
 ref already exists. If the push fails the local claim is rolled back. Releasing deletes the ref
 with a lease on the commit that was pushed. `--local-only` skips the remote for one command.
@@ -391,7 +411,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail list [--epic E01] [--eligible]` | Tasks, with computed blocked and eligible state |
 | `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; `null` unless `worktree = "required"`), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
 | `taskrail next` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` task |
-| `taskrail claim <ID>` / `taskrail release <ID>` | §6.1, §6.2 |
+| `taskrail claim <ID> [--run R]` / `taskrail release <ID>` | §6.1, §6.2; `--run` ties the claim to an autopilot run (§12.4) |
 | `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4) |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
@@ -401,6 +421,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
+| `taskrail autopilot start` / `lane` / `decision` / `status` | Autopilot runs and their lanes (§12.1) |
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |
 
 ### 7.1 Review hand-off
@@ -629,14 +650,15 @@ taskrail/
    base and `done-branch`), T027 (unreadable manifest), T029–T032 (the `autopilot` commands),
    then T024 (the skill), and trialled by T033 (§12.10).
 
-## 12. Autopilot (planned)
+## 12. Autopilot (partly implemented)
 
-Status: **planned, not implemented.** Accepted at the decide gate of the
+Status: **partly implemented.** Accepted at the decide gate of the
 [T007 spike](../../docs/spikes/T007-design-taskrail-s-autopilot-from-existin.md), with the
 human's decisions in its
 [decision record](../../docs/autopilot/decisions/T007-design-taskrail-s-autopilot-from-existin.md).
-Nothing in this section describes what taskrail does today; each part names the task that will
-build it (§12.10). The evidence (E1–E7) and the full comparison of options stay in the spike.
+T029 implemented the configuration (§12.9, now in §4), run files and `run` in the claim (§12.4),
+and `autopilot start`, `lane`, `decision` and `status` (§12.1), each marked *implemented*. Every
+other part is still planned and names the task that will build it (§12.10). The evidence (E1–E7) and the full comparison of options stay in the spike.
 
 The autopilot runs several tasks at once, one lane per task, and answers their gates on the
 human's behalf where the governing documents allow it. It covers the
@@ -659,12 +681,13 @@ disabled autopilot:
 
 | Command | Does |
 |---|---|
-| `autopilot start --count N [--kinds …]` | Exit 5, naming `[autopilot].enabled`, unless it is true; exit 2 without `--count`. Creates a run file (§12.4) with the target count, kinds and start time, and prints the run ID. |
-| `autopilot next [--run R]` | Tasks to dispatch now, within free lanes, allowed kinds, group limits, claims, failed lanes and stacked bases. For each: `show`'s fields plus `base.commit`, the allocated resources and the decision-record path. Allocates resources atomically; claiming stays the lane's job. |
-| `autopilot lane <ID> --run R [--handle H] [--group G] [--state running\|gate\|escalated\|failed] [--reason …]` | Records the agent-specific lane handle, a group membership assigned by judgement (§12.7) and the orchestrator's view of the lane. `failed` keeps the claim, so the task stays ineligible and its dependents stay blocked. |
-| `autopilot status [--run R] [--fetch]` | Every run task with its state: `pending`, `running`, `gate`, `escalated`, `failed`, `done-branch`, `handed-off`, `done-merged`. Also each lane's handle; minutes since the last commit on its branch or the last change in its worktree, and `silent` past `silent_minutes`; files touched per branch, with overlaps between lanes; governing files touched; the next branch in the hand-off queue. Reads git and never fetches unless `--fetch`. |
-| `autopilot merged <ID> [--cleanup]` | Runs `git fetch --prune`, then the merge detection of §12.8. Reports `merged`, `via` and the mainline commit, and marks the task `done-merged` in the run. With `--cleanup`, removes the worktree and deletes the local branch, refusing when the merge is unverified or the worktree is dirty. Lists stacked dependents with `git rebase --onto <base.onto> <recorded base.commit>`. |
-| `autopilot notify --event escalation\|lane-done\|lane-failed --run R [--task ID]` | Runs `[autopilot].notify` when the event is in `notify_on` (§12.6). A failing notify command is reported and never blocks. |
+| `autopilot start --count N [--kinds …]` | *Implemented (T029).* Exit 5, naming `[autopilot].enabled`, unless it is true — checked first, so the refusal comes even without `--count`; then exit 2 without `--count` or with a count below 1, exit 1 for an invalid backlog, and exit 2 for a kind the project does not define or allow. `--kinds` defaults to `[autopilot].kinds`. Creates a run file (§12.4) with the target count, kinds, owner and start time, and prints the run ID. |
+| `autopilot next [--run R]` | *Planned (T030).* Tasks to dispatch now, within free lanes, allowed kinds, group limits, claims, failed lanes and stacked bases. For each: `show`'s fields plus `base.commit`, the allocated resources and the decision-record path. Allocates resources atomically; claiming stays the lane's job. |
+| `autopilot lane <ID> --run R [--handle H] [--group G] [--state running\|gate\|escalated\|failed\|handed-off] [--reason …]` | *Implemented (T029).* Records the agent-specific lane handle, a group membership assigned by judgement (§12.7, stored as given until T030 checks it) and the orchestrator's view of the lane. `--reason` is required with `escalated` and `failed`, optional with `gate`, and cleared by `running`. `failed` keeps the claim, so the task stays ineligible and its dependents stay blocked. `handed-off` appends the task to the run's hand-off order once, and exits 5 unless the task is `done-branch`. An unknown run or task exits 3. |
+| `autopilot decision --run R --question … --decision … --reason …` | *Implemented (T029).* Appends a numbered run-level decision (touch map, conflict classes, order) to the run file, so run state is written only by the CLI. |
+| `autopilot status [--run R] [--fetch]` | *Implemented (T029), except the escalation flags (T032).* Every run, newest first, with `complete` once `count` of its tasks are `done-merged`, its run-level decisions, and every run task with its state: `pending` (with `blocked_by`), `running`, `gate`, `escalated`, `failed`, `done-branch`, `handed-off`, `done-merged`, `discarded`. Precedence: `done-merged`, `discarded`, `handed-off` or `done-branch`, the recorded `failed`, `escalated` or `gate`, `running` (a claim, stale or not, with its stale reason), `pending`. Also each lane's handle, group, reason and resources, branch and worktree; `idle_minutes` since the latest of the branch tip's commit, a change in its worktree, the claim and the last `lane` update, and `silent` when a `running` lane is idle past `silent_minutes`; `touched`, the files changed since the fork point plus uncommitted ones, with `overlaps` between lanes across the runs listed; the decision-record paths; and `handoff`: `in_review`, `queue` (dependencies first, then by the branch tip's commit time) and `next`, `null` while a branch is in review. Governing files touched: planned (T032). Reads git and never fetches unless `--fetch`; exit 3 for an unknown run. |
+| `autopilot merged <ID> [--cleanup]` | *Planned (T031).* Runs `git fetch --prune`, then the merge detection of §12.8. Reports `merged`, `via` and the mainline commit, and marks the task `done-merged` in the run. With `--cleanup`, removes the worktree and deletes the local branch, refusing when the merge is unverified or the worktree is dirty. Lists stacked dependents with `git rebase --onto <base.onto> <recorded base.commit>`. |
+| `autopilot notify --event escalation\|lane-done\|lane-failed --run R [--task ID]` | *Planned (T032).* Runs `[autopilot].notify` when the event is in `notify_on` (§12.6). A failing notify command is reported and never blocks. |
 
 The autopilot runs only when the human asks for it and gives a task count. The skill states
 this in its prose, not only in frontmatter, so the rule holds on agents that ignore
@@ -677,7 +700,7 @@ invocation-control keys.
   leaves it out.
 - A repository opts in with `[autopilot].enabled = true`. Until then `autopilot start` refuses
   with exit 5 and names the key, and the skill stops when it sees that refusal. The refusal is a
-  CLI guarantee, so it holds on any agent.
+  CLI guarantee, so it holds on any agent (*implemented, T029*).
 
 The spike had recommended installing the skill only where the autopilot is enabled, through the
 kind filter. The human chose to install it always, so every consumer receives the same skills.
@@ -722,15 +745,19 @@ lanes must not do, and answering gates needs an agent anyway.
   - `pending`;
   - `running`, a live claim;
   - `done-branch`, ✅ at the task branch tip but not on the mainline (T017);
-  - `done-merged`, detected as in §12.8, or ✅ on the mainline.
+  - `done-merged`, detected as in §12.8, or ✅ on the mainline — until T031, only ✅ on the local
+    mainline or `<remote>/<mainline>`;
+  - `discarded`, ❌ in the checkout, so a discarded run task stays visible.
 
   Any session sees them, and with `claim_remote` any machine.
 - **Claims** (§6) remain the only lock, so dispatch needs no new locking for tasks or IDs.
   They gain two fields:
   - `base.commit`, the dependency tip a stacked branch started from, written at claim time by
     T017, so `rebase --onto` still works after the dependency is squash-merged;
-  - `run`, the ID of the run that owns the lane.
-- **Run file:** `$(git rev-parse --git-common-dir)/taskrail/runs/<run>.json`, next to the claims,
+  - `run`, the ID of the run that owns the lane, written by `claim <ID> --run R`, which also
+    lists the task in the run file so it stays a member after `done` releases the claim
+    (*implemented, T029*).
+- **Run file** (*implemented, T029*): `$(git rev-parse --git-common-dir)/taskrail/runs/<run>.json`, next to the claims,
   local and never committed. It holds only what git cannot derive and what must survive the
   orchestrator's context:
   - the target count and kinds;
@@ -738,6 +765,14 @@ lanes must not do, and answering gates needs an agent anyway.
     the allocated resources;
   - the `handed-off` order;
   - the run-level decisions agreed so far.
+
+  The run ID is `YYYYMMDD-N`: the UTC date and the first number of that day no run holds. The
+  file is created exclusively (a fully written temporary file hard-linked into place), changed
+  under the common-directory lock `reserve-id` uses, replaced atomically, and read keeping keys
+  this version does not know. Its keys are `id`, `started`, `owner`, `count`, `kinds`, `tasks`
+  (per task: `handle`, `group`, `state`, `reason`, `updated`, `resources`), `handed_off` and
+  `decisions` (each `number`, `question`, `decision`, `reason`, `recorded`). A task belongs to a
+  run when the run file lists it or its claim names the run. Runs are never removed.
 - **Two orchestrator sessions** may run at once. They never dispatch the same task twice, since
   dispatch needs a claim, and `status` lists every run in the common directory, so each sees the
   other's lanes.
@@ -839,7 +874,7 @@ reading its worktree, and escalated if it is stuck. An agent that can wait on a 
 
 ### 12.9 Configuration
 
-These keys join §4 when T029 implements them:
+The single-value keys joined §4 with T029; the `group` and `resource` tables are read from T030:
 
 ```toml
 [autopilot]
@@ -873,7 +908,7 @@ values = ["5433", "5434", "5435"]
 | T017 | feature | — | `done-branch` (§12.4), the stacked base in `show`, `new --workspace` and `review`, and `base.commit` in the claim (§6, §7) |
 | T027 | bug | — | `init` and `upgrade` stop with exit 2 on an unreadable `installed.json`, the prerequisite for conflict class 3 (§12.8) |
 | T028 | chore | — | this section |
-| T029 | feature | T017, T028 | `[autopilot]` configuration (§12.9), run files and `run` in the claim (§12.4), `autopilot start` with its exit-5 refusal (§12.2), `lane` and `status` (§12.1) |
+| T029 | feature | T017, T028 | `[autopilot]` configuration (§12.9), run files and `run` in the claim (§12.4), `autopilot start` with its exit-5 refusal (§12.2), `lane`, `decision` and `status` (§12.1) — implemented |
 | T030 | feature | T029 | `autopilot next`: kinds, group limits, resource pools (§12.7) |
 | T031 | feature | T029 | `autopilot merged`: merge detection and cleanup (§12.8) |
 | T032 | feature | T029 | `autopilot notify` and the escalation flags in `status` (§12.6) |

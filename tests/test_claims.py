@@ -140,7 +140,7 @@ def test_remote_claim_does_not_publish_machine_details(remote_pair, capsys):
     first, _, bare = remote_pair
     run(first, "claim", "T002", "--owner", "alice", capsys=capsys)
     published = json.loads(git(bare, "show", "refs/taskrail/claims/T002:claim.json"))
-    assert sorted(published) == ["base", "branch", "created", "id", "owner"]
+    assert sorted(published) == ["base", "branch", "created", "id", "owner", "run"]
 
 
 def test_releasing_a_remote_claim_deletes_the_ref(remote_pair, capsys):

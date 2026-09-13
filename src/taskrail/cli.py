@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from taskrail import __version__, branches, claims, gitutil, ids, install, prior, review, stack, writer
+from taskrail.autopilot import runs as autopilot_runs
 from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
 from taskrail.model import Project, Status
@@ -183,6 +184,10 @@ def cmd_claim(args) -> int:
         print(f"taskrail: {task.id} is blocked by {', '.join(blockers)}; pass --ignore-deps to claim anyway", file=sys.stderr)
         return EXIT_REFUSED
     config = project.config
+    if args.run is not None:
+        if autopilot_runs.read(config, args.run) is None:
+            print(f"taskrail: no autopilot run `{args.run}`", file=sys.stderr)
+            return EXIT_NOT_FOUND
     branch = args.branch if args.branch is not None else gitutil.current_branch(config.root)
     worktree = args.worktree if args.worktree is not None else str(gitutil.toplevel(config.root))
     base = _claim_base(task, project)
@@ -196,6 +201,7 @@ def cmd_claim(args) -> int:
             takeover=args.takeover,
             local_only=args.local_only,
             base=base,
+            run=args.run,
         )
     except claims.ClaimConflict as exc:
         _emit({"claimed": False, "reason": str(exc), "claim": exc.claim.to_dict() if exc.claim else None}, args.json, "")
@@ -204,6 +210,13 @@ def cmd_claim(args) -> int:
     recorded, warning = _freeze_branch(task, project, claim.branch)
     if warning:
         print(f"taskrail: warning: {warning}", file=sys.stderr)
+    if created and args.run is not None:
+        try:
+            with autopilot_runs.update(config, args.run) as run:  # the run keeps its member after `done` releases the claim
+                autopilot_runs.lane(run, task.id)
+        except (autopilot_runs.RunNotFound, ids.LockTimeout) as exc:
+            print(f"taskrail: claimed {task.id}, but could not list it in run {args.run}: {exc}", file=sys.stderr)
+            return EXIT_CONFLICT
     verb = "claimed" if created else "already held"
     _emit(
         {"claimed": True, "created": created, "claim": claim.to_dict(), "branch_recorded": recorded, "warning": warning},
@@ -929,6 +942,7 @@ def build_parser() -> argparse.ArgumentParser:
     claim.add_argument("--takeover", action="store_true", help="replace a stale claim")
     claim.add_argument("--ignore-deps", action="store_true", help="claim even if dependencies are not done")
     claim.add_argument("--local-only", action="store_true", help="do not mirror the claim to the remote")
+    claim.add_argument("--run", help="the autopilot run that owns this lane")
     claim.add_argument("--allow-invalid", action="store_true")
 
     release = add("release", cmd_release, "Release a claim.")
@@ -1040,6 +1054,10 @@ def build_parser() -> argparse.ArgumentParser:
     kind_list = kind_commands.add_parser("list", help="List resolved kinds and where each comes from.")
     kind_list.add_argument("--json", action="store_true")
     kind_list.set_defaults(handler=cmd_kind_list)
+
+    from taskrail.autopilot.commands import register as register_autopilot
+
+    register_autopilot(commands)
     return parser
 
 

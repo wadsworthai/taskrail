@@ -44,6 +44,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   template name it is claimed on, so a hand-edited title no longer moves the branch, and warns
   when claimed on another branch. A pushed branch is renamed only with `--force`, and the remote
   is never changed (T019).
+- **Autopilot runs.** `[autopilot]` in config (the single-value keys of DESIGN.md §12.9);
+  `autopilot start --count N` creates a local run file under the git common directory and is
+  refused with exit 5 until `[autopilot].enabled` is true; `claim --run` ties a lane's claim to a
+  run; `autopilot lane` and `autopilot decision` record lanes, hand-offs and run-level decisions;
+  and `autopilot status` derives every run task's state with idle lanes, files touched by more
+  than one lane and the hand-off queue (T029).
 
 ## 0.1.0
 
