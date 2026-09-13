@@ -1,3 +1,4 @@
+import re
 import tomllib
 from pathlib import Path
 
@@ -10,5 +11,6 @@ def test_the_package_version_comes_from_pyproject():
     assert __version__ == pyproject["project"]["version"]
 
 
-def test_the_release_tag_matches_the_version():
-    assert release_tag() == f"v{__version__}"
+def test_the_release_tag_is_the_version_without_its_development_suffix():
+    release = re.match(r"^\d+\.\d+\.\d+", __version__).group(0)
+    assert release_tag() == f"v{release}"
