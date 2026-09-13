@@ -14,8 +14,8 @@ epic may live in its own file instead. Each task is a table row with a status (`
 
 **The CLI owns IDs and statuses.** Never invent an ID, never type a status emoji into a row,
 and never reformat a table. Create tasks with `taskrail new`, close them with `taskrail done`
-or `taskrail discard`. Editing a title or description by hand is fine; run `taskrail validate`
-afterwards.
+or `taskrail discard`, and bring a closed one back with `taskrail reopen`. Editing a title or
+description by hand is fine; run `taskrail validate` afterwards.
 
 ## Running the CLI
 
@@ -63,7 +63,9 @@ of `taskrail show`) supplies what happens inside each stage.
      releases the claim — and commit that change on its own;
    - `git fetch` and rebase onto the base the branch came from;
    - resolve backlog conflicts mechanically: rows added on both sides keep both, and a status
-     cell that is `✅` on either side stays `✅`; then run `taskrail validate`;
+     cell that is `✅` on either side stays `✅`, unless one side has a `Reopens: <ID>` commit the
+     other lacks (`git log --grep='^Reopens: <ID>$' <side>`) — then that side's `⬜` stays.
+     Then run `taskrail validate`;
    - stop and ask about any other conflict;
    - push the branch only if `push_branch` is true.
 9. **Hand off.** Report the branch and its base, each commit on one line, every check with its
@@ -98,6 +100,20 @@ relay: whoever passes it on cannot recover what you leave out.
 Keep the description to one line; put longer detail in a file and link it. Add epics with
 `taskrail epic add --name … --objective … [--done-when …] [--own-file]`, and move a large
 inline epic to its own file with `taskrail epic split E01`.
+
+## Reopening a task
+
+When a done or discarded task turns out not to be finished, reopen it only on the human's
+say-so:
+
+```bash
+.taskrail/bin/taskrail reopen T012 --reason "Totals still round half-down for refunds" --json
+```
+
+The reason is not stored in the backlog. Commit the status change on its own, using
+`commit_message` from the result — you may adapt its subject line to the repository's
+convention, but keep the reason as the body and the `Reopens: <ID>` trailer as its last line.
+Report any `dependents`: they are done or claimed on top of a task that is no longer done.
 
 ## Commit messages
 

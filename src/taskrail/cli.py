@@ -368,6 +368,46 @@ def cmd_discard(args) -> int:
     return _change_status(args, Status.DISCARDED)
 
 
+def cmd_reopen(args) -> int:
+    reason = args.reason.strip()
+    if not reason:
+        print("taskrail: --reason must not be empty; it becomes the body of the commit message", file=sys.stderr)
+        return EXIT_USAGE
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    task = project.task(args.id)
+    if task is None:
+        print(f"taskrail: no task `{args.id}`", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    if task.status is Status.PENDING:
+        print(f"taskrail: {task.id} is already pending", file=sys.stderr)
+        return EXIT_REFUSED
+
+    claimed = _local_claims(project)
+    dependents = [
+        {"id": other.id, "state": other_state}
+        for other in project.tasks
+        if task.id in other.depends_on
+        and (other_state := state(other, project, claimed)) in ("done", "claimed")
+    ]
+    # The backlog holds state, not history: the reason travels in the commit that reopens the task.
+    message = f"Reopen {task.id}: {task.title}\n\n{reason}\n\nReopens: {task.id}\n"
+    edits = writer.Edits(project.config)
+    writer.set_status(edits, task, Status.PENDING)
+    text = [f"{task.id} {Status.PENDING.label}"]
+    text += [f"{d['id']} depends on {task.id} and is {d['state']}" for d in dependents]
+    text += ["Suggested commit message:", "", message.rstrip("\n")]
+    result = {
+        "id": task.id,
+        "status": Status.PENDING.label,
+        "reason": reason,
+        "dependents": dependents,
+        "commit_message": message,
+    }
+    return _write(edits, args.json, result, "\n".join(text))
+
+
 def cmd_epic_add(args) -> int:
     project, issues = _load(args)
     if _refuse_if_invalid(issues, args):
@@ -577,6 +617,10 @@ def build_parser() -> argparse.ArgumentParser:
     discard.add_argument("id")
     discard.add_argument("--owner")
     discard.add_argument("--force", action="store_true", help="discard even if someone else holds the claim")
+
+    reopen = add("reopen", cmd_reopen, "Move a done or discarded task back to pending.")
+    reopen.add_argument("id")
+    reopen.add_argument("--reason", required=True, help="why it is reopened; returned as the commit message body")
 
     epic = commands.add_parser("epic", help="Manage epics.")
     epic_commands = epic.add_subparsers(dest="epic_command", required=True)

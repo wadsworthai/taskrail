@@ -1,6 +1,8 @@
 import difflib
 import json
 
+import pytest
+
 from conftest import BASE_TODO, git
 
 from taskrail.cli import main
@@ -148,3 +150,79 @@ def test_epic_split_moves_the_section_and_keeps_the_backlog_valid(git_repo, caps
 def test_writes_refuse_an_invalid_backlog(git_repo, capsys):
     git_repo.write("TODO.md", BASE_TODO.replace("| bug     |", "| story   |"))
     assert run(git_repo.root, "new", "--epic", "E01", "--kind", "bug", "--title", "X", capsys=capsys)[0] == 1
+
+
+def test_reopen_changes_only_the_status_cell_and_suggests_a_commit_message(git_repo, capsys):
+    before = todo(git_repo)
+    code, out, _ = run(git_repo.root, "reopen", "T001", "--reason", "Prices were never loaded", "--json", capsys=capsys)
+    assert code == 0
+    assert changed_lines(before, todo(git_repo)) == [
+        "-| ✅ | T001 | chore   | 2   | —          | Price table    | Base prices |",
+        "+| ⬜ | T001 | chore   | 2   | —          | Price table    | Base prices |",
+    ]
+    result = json.loads(out)
+    assert (result["id"], result["status"], result["reason"]) == ("T001", "pending", "Prices were never loaded")
+    assert result["commit_message"] == "Reopen T001: Price table\n\nPrices were never loaded\n\nReopens: T001\n"
+
+
+def test_reopen_prints_the_suggested_message_in_text_output(git_repo, capsys):
+    code, out, _ = run(git_repo.root, "reopen", "T001", "--reason", "Prices were never loaded", capsys=capsys)
+    assert code == 0
+    assert out.startswith("T001 pending\n")
+    assert out.endswith("\nReopen T001: Price table\n\nPrices were never loaded\n\nReopens: T001\n")
+
+
+def test_reopen_accepts_a_discarded_task(git_repo, capsys):
+    run(git_repo.root, "discard", "T003", capsys=capsys)
+    assert run(git_repo.root, "reopen", "T003", "--reason", "Still reproducible", capsys=capsys)[0] == 0
+    assert "| ⬜ | T003 |" in todo(git_repo)
+
+
+def test_reopen_refuses_a_pending_task(git_repo, capsys):
+    before = todo(git_repo)
+    code, _, err = run(git_repo.root, "reopen", "T002", "--reason", "x", capsys=capsys)
+    assert code == 5
+    assert "already pending" in err
+    assert todo(git_repo) == before
+
+
+def test_reopen_refuses_an_unknown_task(git_repo, capsys):
+    assert run(git_repo.root, "reopen", "T009", "--reason", "x", capsys=capsys)[0] == 3
+
+
+def test_reopen_requires_a_reason(git_repo, capsys):
+    before = todo(git_repo)
+    with pytest.raises(SystemExit) as missing:
+        run(git_repo.root, "reopen", "T001", capsys=capsys)
+    assert missing.value.code == 2
+    code, _, err = run(git_repo.root, "reopen", "T001", "--reason", "  ", capsys=capsys)
+    assert code == 2
+    assert "--reason" in err
+    assert todo(git_repo) == before
+
+
+def test_reopen_refuses_an_invalid_backlog(git_repo, capsys):
+    git_repo.write("TODO.md", BASE_TODO.replace("| bug     |", "| story   |"))
+    assert run(git_repo.root, "reopen", "T001", "--reason", "x", capsys=capsys)[0] == 1
+
+
+def test_reopen_lists_dependents_that_are_done_or_claimed(git_repo, capsys):
+    run(git_repo.root, "done", "T002", "--force", capsys=capsys)
+    run(git_repo.root, "claim", "T003", "--owner", "alice", capsys=capsys)
+    code, out, _ = run(git_repo.root, "reopen", "T002", "--reason", "Wrong totals", "--json", capsys=capsys)
+    assert code == 0
+    assert json.loads(out)["dependents"] == [{"id": "T003", "state": "claimed"}]
+    assert json.loads(run(git_repo.root, "reopen", "T001", "--reason", "x", "--json", capsys=capsys)[1])["dependents"] == []
+
+
+def test_reopen_reports_done_dependents_in_text(git_repo, capsys):
+    run(git_repo.root, "done", "T002", "--force", capsys=capsys)
+    code, out, _ = run(git_repo.root, "reopen", "T001", "--reason", "Prices were never loaded", capsys=capsys)
+    assert code == 0
+    assert "T002 depends on T001 and is done" in out
+
+
+def test_a_reopened_task_can_be_claimed_again(git_repo, capsys):
+    run(git_repo.root, "reopen", "T001", "--reason", "Prices were never loaded", capsys=capsys)
+    assert json.loads(run(git_repo.root, "show", "T001", "--json", capsys=capsys)[1])["state"] == "pending"
+    assert run(git_repo.root, "claim", "T001", "--owner", "alice", capsys=capsys)[0] == 0

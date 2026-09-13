@@ -250,6 +250,7 @@ not move the counter.
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
 | `taskrail new --epic E01 --kind bug --title …` | Allocate an ID and append a row |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
+| `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |
@@ -265,6 +266,10 @@ Write commands follow three rules:
 - **`done` requires the caller's claim** and releases it; it also refuses a task whose
   dependencies are not done. `discard` needs no claim, since discarding is usually a decision
   about a task nobody took, but refuses one claimed by someone else. `--force` overrides both.
+- **`reopen` records its reason in git, not in the backlog.** The backlog holds state, not
+  history, so `reopen` changes only the status cell. It requires `--reason` and returns a
+  suggested commit message: the reason as the body and a `Reopens: <ID>` trailer. It needs no
+  claim, and lists tasks that depend on the reopened one and are already done or claimed.
 
 Output is human-readable by default and JSON with `--json`, so skills parse results rather
 than prose. Exit codes are stable:
@@ -276,7 +281,7 @@ than prose. Exit codes are stable:
 | 2 | usage, configuration or git error |
 | 3 | task, claim or reservation not found |
 | 4 | conflict: claimed by someone else, or a lock could not be acquired |
-| 5 | refused: the task is not pending, or is blocked |
+| 5 | refused: the task is not pending, or is blocked (for `reopen`: it is already pending) |
 
 Task state, as reported by `list`, `show` and `next`, is one of `pending`, `claimed`,
 `blocked`, `done` or `discarded`. Only local claims are consulted, so these commands never

@@ -26,6 +26,7 @@ Done when: backlog conflicts resolve automatically, existing backlogs import, an
 |----|------|---------|-----|------------|--------------------------------|--------------------------------|
 | ⬜ | T004 | feature | 5   | —          | Add a git merge driver for status cells and appended rows | Resolve the conflicts parallel task branches produce in backlog tables. |
 | ⬜ | T005 | feature | 5   | —          | Import tasks from table-based backlogs without epics | Convert an existing single-table TODO into epics and rows taskrail validates. |
-| ⬜ | T006 | feature | 2   | —          | Add a reopen command for tasks marked done by mistake | Move a task from done back to pending, leaving a trace of why. |
+| ✅ | T006 | feature | 2   | —          | Add a reopen command for tasks marked done by mistake | Move a task from done back to pending, leaving a trace of why. |
 | ⬜ | T007 | spike   | 3   | —          | Define the autopilot orchestration model | Lanes, gate answering, escalation and decision records for running tasks in parallel. |
+| ⬜ | T012 | feature | 2   | T006       | Flag reopened tasks committed without a Reopens trailer | Have validate read git history and warn when a status went from done to pending without a Reopens: <ID> commit. |
 | ⬜ | T014 | feature | 3   | T001       | Add an edit command for existing task rows | Fix T001 friction F4: change dependencies, points, title, description or custom columns without hand edits. |

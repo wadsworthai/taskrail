@@ -35,6 +35,7 @@ taskrail show T012 --json              # kind, stages, branch, artifact path, bl
 taskrail claim T012                    # reserve it; fails if someone else holds it
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --pts 2
 taskrail done T012                     # needs your claim; releases it
+taskrail reopen T012 --reason "…"       # back to pending; prints a commit message to use
 taskrail epic add --name Auth --objective "Sign in without passwords" --own-file
 taskrail epic split E01                # move an inline epic to todo/E01-<slug>.md
 taskrail upgrade                       # re-install skills for this CLI version and pin it
