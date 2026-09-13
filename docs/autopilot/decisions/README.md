@@ -7,3 +7,4 @@
 | T022 | Use each mainline's own remote in review | [T022-use-each-mainline-s-own-remote-in-review.md](T022-use-each-mainline-s-own-remote-in-review.md) |
 | T021 | Map a repository's column names onto taskrail's columns | [T021-map-a-repository-s-column-names-onto-tas.md](T021-map-a-repository-s-column-names-onto-tas.md) |
 | T025 | Skip installing skills for kinds a repository does not allow | [T025-skip-installing-skills-for-kinds-a-repos.md](T025-skip-installing-skills-for-kinds-a-repos.md) |
+| T026 | Refuse --column for core columns in new | [T026-refuse-column-for-core-columns-in-new.md](T026-refuse-column-for-core-columns-in-new.md) |

@@ -134,6 +134,15 @@ def test_a_failed_write_removes_the_new_workspace(git_repo, capsys):
     assert run(git_repo.root, "reserve-id", capsys=capsys)[1].strip() == "T004"
 
 
+def test_column_for_a_core_column_is_refused_before_the_workspace_exists(git_repo, capsys):
+    _, err = new_in_workspace(git_repo.root, "--column", "Kind=feature", capsys=capsys, expect=2)
+    assert "--column cannot set core column Kind; set it with --kind" in err
+    assert not (git_repo.root / ".worktrees").exists()
+    assert not git(git_repo.root, "branch", "--list", BRANCH)
+    assert git(git_repo.root, "status", "--porcelain") == ""
+    assert run(git_repo.root, "reserve-id", capsys=capsys)[1].strip() == "T004"
+
+
 def test_without_workspace_new_still_writes_here(git_repo, capsys):
     assert run(git_repo.root, "new", "--epic", "E01", "--kind", "bug", "--title", "Negative totals", capsys=capsys)[0] == 0
     assert "| T004 |" in (git_repo.root / "TODO.md").read_text()

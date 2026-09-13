@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from taskrail import __version__, claims, gitutil, ids, install, prior, review, writer
-from taskrail.config import find_root, load_config
+from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
 from taskrail.model import Project, Status
 from taskrail.project import load_project
@@ -308,20 +308,20 @@ def cmd_new(args) -> int:
         values["Depends On"] = ", ".join(item.strip() for item in args.depends_on.split(",") if item.strip())
     if args.description:
         values["Description"] = args.description
+    aliases = project.config.column_aliases
+    core_names = {core.lower(): core for core in CORE_TASK_COLUMNS}
+    core_names.update({alias.lower(): core for core, alias in aliases.items()})
     for pair in args.column or []:
         name, sep, value = pair.partition("=")
         if not sep:
             print(f"taskrail: --column expects NAME=VALUE, got `{pair}`", file=sys.stderr)
             return EXIT_USAGE
-        aliased = next(
-            (core for core, alias in project.config.column_aliases.items() if name.strip().lower() in (core.lower(), alias.lower())),
-            None,
-        )
-        if aliased is not None:
-            flag = CORE_COLUMN_FLAGS.get(aliased)
+        core = core_names.get(name.strip().lower())
+        if core is not None:
+            flag = CORE_COLUMN_FLAGS.get(core)
             how = f"set it with {flag}" if flag else "taskrail sets it"
-            alias = project.config.column_aliases[aliased]
-            print(f"taskrail: --column cannot set core column {aliased} (named `{alias}` here); {how}", file=sys.stderr)
+            named = f" (named `{aliases[core]}` here)" if core in aliases else ""
+            print(f"taskrail: --column cannot set core column {core}{named}; {how}", file=sys.stderr)
             return EXIT_USAGE
         values[name.strip()] = value.strip()
 

@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from conftest import BASE_TODO, git
+from conftest import BASE_CONFIG, BASE_TODO, git
 
 from taskrail.cli import main
 from taskrail.writer import replace_cell
@@ -98,6 +98,52 @@ def test_new_with_an_unknown_column_is_refused(git_repo, capsys):
     )
     assert code == 2
     assert "no column(s): Owner" in err
+
+
+@pytest.mark.parametrize(
+    ("pair", "core", "hint"),
+    [
+        ("✓=✅", "✓", "taskrail sets it"),
+        ("ID=T9", "ID", "taskrail sets it"),
+        ("Kind=feature", "Kind", "set it with --kind"),
+        ("Depends On=T001", "Depends On", "set it with --depends-on"),
+        ("Title=Other", "Title", "set it with --title"),
+        ("Pts=3", "Pts", "set it with --pts"),
+        ("Description=Other", "Description", "set it with --description"),
+        ("id=T9", "ID", "taskrail sets it"),
+        (" kind =feature", "Kind", "set it with --kind"),
+    ],
+)
+def test_new_refuses_column_for_a_core_column_and_names_the_flag(git_repo, capsys, pair, core, hint):
+    before = todo(git_repo)
+    code, out, err = run(
+        git_repo.root, "new", "--epic", "E01", "--kind", "bug", "--title", "X", "--pts", "5", "--column", pair,
+        capsys=capsys,
+    )
+    assert (code, out) == (2, "")
+    assert err.strip() == f"taskrail: --column cannot set core column {core}; {hint}"
+    assert todo(git_repo) == before
+    assert run(git_repo.root, "reserve-id", capsys=capsys)[1].strip() == "T004"
+
+
+def test_new_still_fills_a_custom_column(git_repo, capsys):
+    git_repo.write(".taskrail/config.toml", BASE_CONFIG.replace("custom = []", 'custom = ["Owner"]'))
+    table = BASE_TODO[BASE_TODO.index("| ✓"):]
+    git_repo.write(
+        "TODO.md",
+        BASE_TODO[: BASE_TODO.index("| ✓")]
+        + "".join(
+            line + (" Owner |\n" if i == 0 else "-------|\n" if i == 1 else " —     |\n")
+            for i, line in enumerate(table.splitlines())
+        ),
+    )
+    git(git_repo.root, "commit", "-q", "-am", "add Owner")
+    code, out, err = run(
+        git_repo.root, "new", "--epic", "E01", "--kind", "bug", "--title", "X", "--column", "Owner=api", capsys=capsys
+    )
+    assert (code, out.strip()) == (0, "T004"), err
+    row = next(line for line in todo(git_repo).splitlines() if "| T004 |" in line)
+    assert row.rstrip().endswith("| api   |")
 
 
 def test_new_refuses_an_unknown_epic(git_repo, capsys):

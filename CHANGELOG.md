@@ -18,6 +18,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 - **Skills follow the allowed kinds.** `init` and `upgrade` install a shipped executor skill only
   when a kind the repository resolves uses it, and remove unedited copies that are no longer
   used, except while kind resolution reports errors (T025).
+- **`new --column` refuses every core column.** `--column` for `✓`, `ID`, `Kind`, `Depends On`,
+  `Title`, `Pts` or `Description`, in any letter case and aliased or not, now exits 2 and names
+  the flag that fills it. Behaviour change: it used to overwrite `--kind`, `--title` or `--pts`,
+  silently drop `ID` and `✓`, or report a missing column for another letter case (T026).
 
 ## 0.1.0
 

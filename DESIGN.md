@@ -85,7 +85,9 @@ the header that repository uses; both match case-insensitively. The alias replac
 every command reads and writes the column by its alias, a task table that still uses the core
 name of an aliased column fails validation (`column-alias`), and a missing required column is
 reported by both names. `--json` output keeps the core field names, and `new` fills an aliased
-column through its usual flag (`--pts`), refusing `--column` for it. Config is refused when a
+column through its usual flag (`--pts`). `new --column` is for custom columns only: it refuses
+every core column, by core name or alias and in any letter case, naming the flag that fills it
+(`ID` and `✓` are set by taskrail). Config is refused when a
 key is not a core column, an alias is empty or contains `|`, an alias is another core column's
 name or a custom column, or two columns share an alias. Aliases apply to task tables only, not
 to the `## Epics` table.

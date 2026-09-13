@@ -34,7 +34,7 @@ Done when: backlog conflicts resolve automatically, existing backlogs import, an
 | ⬜ | T012 | feature | 2   | T006       | Flag reopened tasks committed without a Reopens trailer | Have validate read git history and warn when a status went from done to pending without a Reopens: <ID> commit. |
 | ⬜ | T014 | feature | 3   | T001       | Add an edit command for existing task rows | Fix T001 friction F4: change dependencies, points, title, description or custom columns without hand edits. |
 | ⬜ | T024 | feature | 8   | T007, T017 | Implement taskrail's autopilot and install it with the other skills | An agent-agnostic orchestrator skill with CLI support, installed by init; each repository decides whether to use it. |
-| ⬜ | T026 | bug     | 1   | —          | Refuse --column for core columns in new | new --column ID=T9 exits 0 and silently ignores the value; refuse every core column and name the flag to use. |
+| ✅ | T026 | bug     | 1   | —          | Refuse --column for core columns in new | new --column ID=T9 exits 0 and silently ignores the value; refuse every core column and name the flag to use. |
 
 ## E05 — Adoption
 

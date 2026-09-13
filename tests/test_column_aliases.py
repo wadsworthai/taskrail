@@ -171,6 +171,21 @@ def test_new_column_for_an_aliased_core_column_names_the_flag_to_use(aliased, ca
     assert run(aliased.root, "reserve-id", capsys=capsys)[1].strip() == "T004"
 
 
+@pytest.mark.parametrize(("pair", "core", "hint"), [("Kind=feature", "Kind", "--kind"), ("ID=T9", "ID", "taskrail sets it")])
+def test_new_column_for_an_unaliased_core_column_is_refused_when_another_is_aliased(git_repo, capsys, pair, core, hint):
+    configure(git_repo, '{ Pts = "Size" }')
+    git_repo.write("TODO.md", BASE_TODO.replace("| Pts |", "| Size |").replace("|-----|---", "|------|---", 1))
+    git(git_repo.root, "commit", "-q", "-am", "alias Pts")
+    before = todo(git_repo)
+    code, _, err = run(
+        git_repo.root, "new", "--epic", "E01", "--kind", "bug", "--title", "X", "--column", pair, capsys=capsys
+    )
+    assert code == 2
+    assert f"--column cannot set core column {core}; " in err and hint in err
+    assert todo(git_repo) == before
+    assert run(git_repo.root, "reserve-id", capsys=capsys)[1].strip() == "T004"
+
+
 # 6. A new table uses the alias names
 
 
