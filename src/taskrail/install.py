@@ -173,8 +173,17 @@ scale = [1, 2, 3, 5, 8, 13]
 [git]
 worktree = "required"        # "required": one worktree per task; "never": a branch in this checkout
 worktree_dir = ".worktrees"
-push_task_branch = false
+push_task_branch = true      # `taskrail review --publish` pushes the task branch
 claim_remote = ""            # e.g. "origin" to also claim across machines
+
+[review]                     # hand-off after a task is closed
+remote = "origin"
+fetch = true
+rebase = true                # rebase onto the further-ahead of the local and remote mainline
+provider = "auto"            # auto | github | gitlab | gitea | forgejo | none
+web_url = ""                 # web address of a self-hosted git host, e.g. "https://git.example.com"
+url_template = ""            # for other hosts: {{web_url}} {{repo}} {{base}} {{head}} {{title}} {{body}}
+scope = ""                   # default Conventional Commits scope of pull request titles
 
 [checks]                     # commands the task kinds run as quality gates
 # test = "make test"

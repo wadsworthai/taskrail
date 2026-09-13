@@ -25,8 +25,8 @@ Non-goals for v1:
 - The autopilot orchestrator (parallel lanes answering gates on the human's behalf). Phase 2.
 - Importing the source projects' existing backlogs. Phase 2.
 - Any Spec Kit integration in the core. A `spec` kind is an extension, shipped as an example.
-- Pushing, merging or opening pull requests. Handoff stops at a local branch plus a report,
-  unless a repository enables pushing its own task branch.
+- Merging, or creating pull requests through a host's API. Hand-off ends with a pushed branch and
+  a link that opens the pull request with its title filled in (§7.1).
 
 ## 2. Concepts
 
@@ -118,11 +118,20 @@ custom = ["Owner"]
 scale = [1, 2, 3, 5, 8, 13]
 
 [git]
-push_task_branch = false
+push_task_branch = true
 claim_remote = ""                # e.g. "origin" to also claim across machines (§6.2)
 claim_grace_minutes = 15         # how long a claim's branch may be missing before it is stale
 worktree = "required"            # "required": one worktree per task; "never": a branch in this checkout
 worktree_dir = ".worktrees"
+
+[review]                         # hand-off after closing (§7.1)
+remote = "origin"
+fetch = true
+rebase = true
+provider = "auto"                # auto | github | gitlab | gitea | forgejo | none
+web_url = ""
+url_template = ""
+scope = ""
 
 [checks]                         # commands the executors run as quality gates
 test = "pnpm test:all"
@@ -138,6 +147,7 @@ name = "bug"
 summary = "Reproduce, find the root cause, fix under a regression test observed failing."
 skill = "taskrail-bug"               # the executor skill for this kind
 branch = "{id}-{slug}"
+commit_type = "fix"                  # Conventional Commits type of the pull request title
 artifact = "{artifacts}/bugs/{id}-{slug}.md"
 artifact_index = "{artifacts}/bugs/README.md"
 never_edit = ["specs"]           # a needed spec change becomes a follow-up task
@@ -251,9 +261,46 @@ not move the counter.
 | `taskrail new --epic E01 --kind bug --title …` | Allocate an ID and append a row |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
+| `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |
+
+### 7.1 Review hand-off
+
+Closing a task ends in a pull or merge request on whatever host the repository uses. `taskrail
+review` owns the deterministic parts; the agent keeps the rebase and its conflicts.
+
+1. `taskrail review <ID>` runs on the task branch, only once the task is done there. It fetches
+   `[review].remote` (unless `fetch = false` or `--no-fetch`) and picks the rebase base: the
+   backlog's `mainline` or its remote-tracking branch, whichever is further ahead, and whichever
+   exists if only one does. Diverged mainlines exit 5. With `rebase = false` no base is chosen.
+2. The agent rebases onto that base when `rebase.needed` is true, resolving backlog conflicts as
+   the core skill prescribes, and runs `taskrail validate`.
+3. `taskrail review <ID> --publish` refuses a branch that still lacks the base, pushes the task
+   branch when `push_task_branch` is true — a plain push for a new remote branch, otherwise with
+   `--force-with-lease` on the remote's current commit; a rejected push exits 4 — and returns the
+   pull request title, description and link.
+
+Pull requests are expected to be squash-merged, so the title is the commit that reaches the
+mainline. It is rendered as `{type}({scope}): {subject} ({id})`: the type from the kind's
+`commit_type` or `--type`, the scope from `--scope` or `[review].scope` (omitted when empty),
+`!` with `--breaking`, and the task title as subject with its first letter lowercased unless the
+first word is all capitals. The description names the task and its artifact and ends with a
+`Reopens: <ID>` trailer for every task the branch reopened, so the trailer survives the squash.
+
+| Provider | Link | Prefilled | Verified against |
+|---|---|---|---|
+| `github` | `{web}/{repo}/compare/{base}...{head}?quick_pull=1&title=…&body=…` | title, body | GitHub Docs: using query parameters to create a pull request |
+| `gitlab` | `{web}/{repo}/-/merge_requests/new?merge_request[source_branch]=…&merge_request[target_branch]=…&merge_request[title]=…&merge_request[description]=…` | title, description | GitLab `Projects::MergeRequests::CreationsController#new` |
+| `gitea` | `{web}/{repo}/compare/{base}...{head}?title=…&body=…` | title, body | Gitea `routers/web/repo/compare.go` |
+| `forgejo` | `{web}/{repo}/compare/{base}...{head}` | nothing | Forgejo `routers/web/repo/compare.go` reads no such parameters |
+| template | `[review].url_template` with `{web_url}` `{repo}` `{base}` `{head}` `{title}` `{body}` | as written | — (for Bitbucket and other hosts) |
+
+`github.com`, `gitlab.com` and `codeberg.org` are detected from the remote URL (scp-like, `ssh://`
+and `https://` forms); other hosts need `provider`, plus `web_url` when their web address differs
+from the remote's host. The description is dropped from a link longer than 8,000 characters,
+since GitHub answers such URLs with 414.
 
 Write commands follow three rules:
 

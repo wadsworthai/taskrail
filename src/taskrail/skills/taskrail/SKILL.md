@@ -61,16 +61,26 @@ of `taskrail show`) supplies what happens inside each stage.
 8. **Close.** With every check passing:
    - run `taskrail done <ID>` inside the workspace — it marks the row in this branch and
      releases the claim — and commit that change on its own;
-   - `git fetch` and rebase onto the base the branch came from;
-   - resolve backlog conflicts mechanically: rows added on both sides keep both, and a status
-     cell that is `✅` on either side stays `✅`, unless one side has a `Reopens: <ID>` commit the
-     other lacks (`git log --grep='^Reopens: <ID>$' <side>`) — then that side's `⬜` stays.
-     Then run `taskrail validate`;
-   - stop and ask about any other conflict;
-   - push the branch only if `push_branch` is true.
+   - run `taskrail review <ID> --json`. It fetches the review remote and reports in
+     `rebase.onto` the base to rebase onto: the local or the remote mainline, whichever is
+     further ahead. If `rebase.diverged` is true, stop and ask which one to use;
+   - if `rebase.needed` is true, run `git rebase <rebase.onto>`. Resolve backlog conflicts
+     mechanically: rows added on both sides keep both, and a status cell that is `✅` on either
+     side stays `✅`, unless one side has a `Reopens: <ID>` commit the other lacks
+     (`git log --grep='^Reopens: <ID>$' <side>`) — then that side's `⬜` stays. Then run
+     `taskrail validate`, and stop and ask about any other conflict;
+   - choose the pull request title's type and scope. The pull request is squash-merged, so its
+     title is the commit that reaches the mainline and drives the next version: use the
+     Conventional Commits type of the most significant change (`feat`, `fix`, `docs`, `ci`,
+     `refactor`, …; the kind's default fits most tasks) and the affected component as scope, and
+     mark incompatible changes as breaking;
+   - run `taskrail review <ID> --publish --json [--type <type>] [--scope <scope>] [--breaking]`.
+     It pushes the branch when the repository enables it — exit 4 means the push was rejected:
+     stop and report — and returns `pull_request.title`, `body` and `url`.
 9. **Hand off.** Report the branch and its base, each commit on one line, every check with its
-   actual result, the artifact path, and any follow-up tasks. Never merge, never delete the
-   branch, and remove the worktree only when the human asks.
+   actual result, the artifact path, any follow-up tasks, whether the branch was pushed, and the
+   pull request title and link — with its body too when the link cannot carry it. Never merge,
+   never delete the branch, and remove the worktree only when the human asks.
 
 ## Gates
 
@@ -113,9 +123,14 @@ say-so:
 The reason is not stored in the backlog. Commit the status change on its own, using
 `commit_message` from the result — you may adapt its subject line to the repository's
 convention, but keep the reason as the body and the `Reopens: <ID>` trailer as its last line.
+`taskrail review` repeats that trailer in the pull request description, so it survives a
+squash merge.
 Report any `dependents`: they are done or claimed on top of a task that is no longer done.
 
 ## Commit messages
 
-Follow the repository's convention. If it has none, use a one-line Conventional Commit that
-names the task, for example `fix(T012): round totals half-up`.
+Pull requests are squash-merged: the title `taskrail review` generates becomes the single
+commit on the mainline, in Conventional Commits form. Commits on the task branch exist for
+review. Follow the repository's convention for them; if it has none, use one-line Conventional
+Commits with the affected component as scope, for example
+`fix(billing): round totals half-up`.

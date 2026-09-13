@@ -2,6 +2,7 @@ name = "bug"
 summary = "Reproduce, find the root cause, and fix under a regression test observed failing first."
 skill = "taskrail-bug"
 branch = "{id}-{slug}"
+commit_type = "fix"          # Conventional Commits type of the pull request title
 artifact = "{artifacts}/bugs/{id}-{slug}.md"
 artifact_index = "{artifacts}/bugs/README.md"
 never_edit = ["specs"]

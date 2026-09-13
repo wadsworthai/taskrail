@@ -16,8 +16,13 @@ scale = [1, 2, 3, 5, 8, 13]
 [git]
 worktree = "required"        # "required": one worktree per task; "never": a branch in this checkout
 worktree_dir = ".worktrees"
-push_task_branch = false
+push_task_branch = true      # `taskrail review --publish` pushes the task branch
 claim_remote = ""            # e.g. "origin" to also claim across machines
+
+[review]                     # hand-off after a task is closed; github.com is detected from origin
+remote = "origin"
+fetch = true
+rebase = true
 
 [checks]                     # commands the task kinds run as quality gates
 test = "uv run pytest -q"

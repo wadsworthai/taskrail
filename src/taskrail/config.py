@@ -26,6 +26,20 @@ class BacklogConfig:
     id_digits: int = 3
 
 
+PROVIDERS = ("auto", "github", "gitlab", "gitea", "forgejo", "none")
+
+
+@dataclass(frozen=True)
+class ReviewConfig:
+    remote: str = "origin"
+    fetch: bool = True
+    rebase: bool = True
+    provider: str = "auto"
+    web_url: str = ""
+    url_template: str = ""
+    scope: str = ""
+
+
 @dataclass(frozen=True)
 class Config:
     root: Path
@@ -33,12 +47,13 @@ class Config:
     backlogs: tuple[BacklogConfig, ...]
     custom_columns: tuple[str, ...] = ()
     points_scale: tuple[int, ...] = ()
-    push_task_branch: bool = False
+    push_task_branch: bool = True
     claim_remote: str = ""
     claim_grace_minutes: int = 15
     worktree: str = "required"  # "required" | "never"
     worktree_dir: str = ".worktrees"
     checks: dict[str, str] = field(default_factory=dict)
+    review: ReviewConfig = field(default_factory=ReviewConfig)
 
     def backlog(self, name: str) -> BacklogConfig | None:
         return next((b for b in self.backlogs if b.name == name), None)
@@ -154,7 +169,7 @@ def load_config(root: Path) -> Config:
 
     git = data.get("git", {})
     git = git if isinstance(git, dict) else {}
-    push_task_branch = expect(git, "push_task_branch", bool, False)
+    push_task_branch = expect(git, "push_task_branch", bool, True)
     claim_remote = expect(git, "claim_remote", str, "")
     claim_grace_minutes = expect(git, "claim_grace_minutes", int, 15)
     if claim_grace_minutes < 0:
@@ -163,6 +178,20 @@ def load_config(root: Path) -> Config:
     if worktree not in ("required", "never"):
         problems.append('git.worktree must be "required" or "never"')
     worktree_dir = expect(git, "worktree_dir", str, ".worktrees")
+
+    raw_review = data.get("review", {})
+    raw_review = raw_review if isinstance(raw_review, dict) else {}
+    review = ReviewConfig(
+        remote=expect(raw_review, "remote", str, "origin"),
+        fetch=expect(raw_review, "fetch", bool, True),
+        rebase=expect(raw_review, "rebase", bool, True),
+        provider=expect(raw_review, "provider", str, "auto"),
+        web_url=expect(raw_review, "web_url", str, "").rstrip("/"),
+        url_template=expect(raw_review, "url_template", str, ""),
+        scope=expect(raw_review, "scope", str, ""),
+    )
+    if review.provider not in PROVIDERS:
+        problems.append(f"review.provider must be one of {', '.join(PROVIDERS)}")
 
     checks = data.get("checks", {})
     if not isinstance(checks, dict) or not all(isinstance(v, str) for v in checks.values()):
@@ -184,4 +213,5 @@ def load_config(root: Path) -> Config:
         worktree=worktree,
         worktree_dir=worktree_dir,
         checks=dict(checks),
+        review=review,
     )

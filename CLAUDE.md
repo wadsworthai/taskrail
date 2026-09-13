@@ -54,6 +54,18 @@ tasks.
   publishing constraint above applies to task titles, descriptions and write-ups.
 - Claims stay local (`claim_remote` is off), so no refs are pushed for them.
 
+## Merging
+
+Changes reach `main` through pull requests, and every pull request is **squash-merged**: its
+title becomes the only commit on `main`, which is what semantic versioning will read.
+
+- Title in Conventional Commits form, with the affected component as scope and the task ID at
+  the end: `feat(taskrail): add a reopen command for tasks marked done by mistake (T006)`.
+  `taskrail review <ID> --publish --scope <component>` generates it.
+- The type reflects the most significant change in the pull request, not every commit in it.
+- A reopen's `Reopens: <ID>` trailer must be at the end of the pull request description, which
+  `taskrail review` writes, so it survives the squash.
+
 ## Commands
 
 Python, managed with uv, no runtime dependencies. Run from the repository root:

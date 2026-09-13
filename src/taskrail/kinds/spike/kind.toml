@@ -2,6 +2,7 @@ name = "spike"
 summary = "Time-boxed investigation that ends in a documented decision, not in production code."
 skill = "taskrail-spike"
 branch = "{id}-{slug}"
+commit_type = "docs"          # Conventional Commits type of the pull request title
 artifact = "{artifacts}/spikes/{id}-{slug}.md"
 artifact_index = "{artifacts}/spikes/README.md"
 never_edit = ["code", "specs"]

@@ -7,12 +7,13 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, claims, gitutil, ids, install, writer
+from taskrail import __version__, claims, gitutil, ids, install, review, writer
 from taskrail.config import find_root, load_config
 from taskrail.issues import ConfigError, Issue
 from taskrail.model import Project, Status
 from taskrail.project import load_project
 from taskrail.query import STATES, blocked_by, eligible, state, task_dict
+from taskrail.templates import render
 
 EXIT_OK = 0
 EXIT_INVALID = 1
@@ -408,6 +409,118 @@ def cmd_reopen(args) -> int:
     return _write(edits, args.json, result, "\n".join(text))
 
 
+def cmd_review(args) -> int:
+    """Prepare a closed task for review: fetch, pick the rebase base, push, and link a pull request."""
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    task = project.task(args.id)
+    if task is None:
+        print(f"taskrail: no task `{args.id}`", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    config = project.config
+    root = config.root
+    kind = project.kinds.get(task.kind)
+    backlog = config.backlog(task.backlog)
+    head = render(kind.branch, task, config)
+    current = gitutil.current_branch(root)
+    if current != head:
+        print(f"taskrail: run review on the task branch {head} (current: {current or 'detached HEAD'})", file=sys.stderr)
+        return EXIT_REFUSED
+    if task.status is not Status.DONE:
+        print(f"taskrail: {task.id} is {task.status.label} on this branch; run `taskrail done {task.id}` first", file=sys.stderr)
+        return EXIT_REFUSED
+
+    settings = config.review
+    fetched = False
+    if settings.fetch and not args.no_fetch:
+        result = gitutil.run(root, "fetch", "--quiet", settings.remote, check=False)
+        if result.returncode != 0:
+            print(f"taskrail: git fetch {settings.remote} failed: {result.stderr.strip()}", file=sys.stderr)
+            return EXIT_USAGE
+        fetched = True
+
+    target = backlog.mainline
+    if settings.rebase:
+        base = review.choose_base(root, settings.remote, target)
+        rebase = {
+            "enabled": True,
+            "onto": base.onto,
+            "diverged": base.diverged,
+            "needed": bool(base.onto) and not review.contains(root, base.onto),
+            "reason": base.reason,
+        }
+    else:
+        base = None
+        rebase = {"enabled": False, "onto": None, "diverged": False, "needed": False, "reason": "rebase is disabled in [review]"}
+
+    remote_url = gitutil.run(root, "remote", "get-url", settings.remote, check=False).stdout.strip()
+    parsed = review.parse_remote_url(remote_url) if remote_url else None
+    provider = review.detect_provider(settings, parsed)
+    title = review.pr_title(
+        task,
+        args.type or (kind.commit_type if kind and kind.commit_type else "chore"),
+        args.scope if args.scope is not None else settings.scope,
+        args.breaking,
+    )
+    since = base.onto if base and base.onto else None
+    body = review.pr_body(task, render(kind.artifact, task, config) if kind else None, review.reopened_ids(root, since))
+    url = review.pull_request_url(
+        provider, review.web_base(settings, parsed), parsed.path if parsed else None, target, head, title, body, settings.url_template
+    )
+
+    push_info = {"enabled": config.push_task_branch, "pushed": False, "command": None, "error": None}
+    data = {
+        "id": task.id,
+        "head": head,
+        "target": target,
+        "remote": settings.remote,
+        "fetched": fetched,
+        "rebase": rebase,
+        "push": push_info,
+        "pull_request": {"provider": provider, "title": title, "body": body, "url": url},
+        "published": False,
+    }
+
+    if base is not None and base.diverged:
+        _emit(data, args.json, f"{base.reason}; decide which one {head} should be rebased onto")
+        print(f"taskrail: {base.reason}", file=sys.stderr)
+        return EXIT_REFUSED
+
+    if not args.publish:
+        steps = []
+        if rebase["needed"]:
+            steps.append(f"rebase onto {rebase['onto']}: git rebase {rebase['onto']}")
+        steps.append(f"then run: taskrail review {task.id} --publish")
+        _emit(data, args.json, "\n".join([f"{task.id} ready for review against {target}", *steps]))
+        return EXIT_OK
+
+    if rebase["needed"]:
+        print(f"taskrail: {head} does not include {rebase['onto']}; rebase before publishing", file=sys.stderr)
+        _emit(data, args.json, "")
+        return EXIT_REFUSED
+
+    try:
+        if config.push_task_branch and not args.no_push:
+            pushed = review.push(root, settings.remote, head)
+            push_info.update(pushed=pushed.pushed, command=" ".join(pushed.command), error=pushed.error)
+            if not pushed.pushed:
+                print(f"taskrail: push rejected: {pushed.error}", file=sys.stderr)
+                _emit(data, args.json, "")
+                return EXIT_CONFLICT
+        else:
+            push_info["command"] = " ".join(review.push_command(root, settings.remote, head))
+    except gitutil.GitError as exc:
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+
+    data["published"] = True
+    lines = [f"pushed {head} to {settings.remote}" if push_info["pushed"] else f"not pushed; to push: {push_info['command']}", "", title]
+    lines.append(url if url else "no pull request link: set [review].provider (and web_url) for this host")
+    _emit(data, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
 def cmd_epic_add(args) -> int:
     project, issues = _load(args)
     if _refuse_if_invalid(issues, args):
@@ -621,6 +734,15 @@ def build_parser() -> argparse.ArgumentParser:
     reopen = add("reopen", cmd_reopen, "Move a done or discarded task back to pending.")
     reopen.add_argument("id")
     reopen.add_argument("--reason", required=True, help="why it is reopened; returned as the commit message body")
+
+    review_cmd = add("review", cmd_review, "Prepare a closed task for review: fetch, rebase base, push, pull request link.")
+    review_cmd.add_argument("id")
+    review_cmd.add_argument("--publish", action="store_true", help="push the branch and print the pull request link")
+    review_cmd.add_argument("--no-fetch", action="store_true", help="skip fetching the review remote")
+    review_cmd.add_argument("--no-push", action="store_true", help="with --publish, print the push command instead of pushing")
+    review_cmd.add_argument("--type", help="Conventional Commits type of the title (default: the kind's commit_type)")
+    review_cmd.add_argument("--scope", help="Conventional Commits scope of the title (default: [review].scope)")
+    review_cmd.add_argument("--breaking", action="store_true", help="mark the title as a breaking change (!)")
 
     epic = commands.add_parser("epic", help="Manage epics.")
     epic_commands = epic.add_subparsers(dest="epic_command", required=True)

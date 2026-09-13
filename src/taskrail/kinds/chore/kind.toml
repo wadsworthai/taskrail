@@ -2,6 +2,7 @@ name = "chore"
 summary = "Maintenance work whose change set and boundary are approved before anything is edited."
 skill = "taskrail-chore"
 branch = "{id}-{slug}"
+commit_type = "chore"          # Conventional Commits type of the pull request title
 artifact = "{artifacts}/chores/{id}-{slug}.md"
 artifact_index = "{artifacts}/chores/README.md"
 never_edit = ["specs"]

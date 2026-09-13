@@ -2,6 +2,7 @@ name = "feature"
 summary = "New behaviour delivered from a short approved plan, without a separate specification process."
 skill = "taskrail-feature"
 branch = "{id}-{slug}"
+commit_type = "feat"          # Conventional Commits type of the pull request title
 artifact = "{artifacts}/features/{id}-{slug}.md"
 artifact_index = "{artifacts}/features/README.md"
 

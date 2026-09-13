@@ -58,6 +58,7 @@ class Kind:
     artifact: str | None
     artifact_index: str | None
     never_edit: tuple[str, ...]
+    commit_type: str | None
     stages: tuple[Stage, ...]
     routes: tuple[Route, ...]
     source: str  # "core" | "local" | "override"
@@ -78,6 +79,7 @@ class Kind:
             "artifact": self.artifact,
             "artifact_index": self.artifact_index,
             "never_edit": list(self.never_edit),
+            "commit_type": self.commit_type,
             "stages": [
                 {"name": s.name, "summary": s.summary, "gate": s.gate, "commit": s.commit, "checks": list(s.checks)}
                 for s in self.stages
@@ -118,6 +120,9 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
     branch = text("branch") or "{id}-{slug}"
     artifact = text("artifact")
     artifact_index = text("artifact_index")
+    commit_type = text("commit_type")
+    if commit_type is not None and not re.match(r"^[a-z]+$", commit_type):
+        problems.append("`commit_type` must be lowercase letters, such as feat or fix")
     for key, template in (("branch", branch), ("artifact", artifact), ("artifact_index", artifact_index)):
         for placeholder in PLACEHOLDER_RE.findall(template or ""):
             if placeholder not in PLACEHOLDERS:
@@ -193,6 +198,7 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
         artifact=artifact,
         artifact_index=artifact_index,
         never_edit=tuple(never_edit),
+        commit_type=commit_type,
         stages=tuple(stages),
         routes=tuple(routes),
         source=source,
