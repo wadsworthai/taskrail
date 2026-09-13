@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from taskrail.config import BacklogConfig, Config
+from taskrail.predicates import NONE_MARKERS  # noqa: F401  (re-exported: a cell holding one is empty)
 
 
 class Status(str, Enum):
@@ -16,9 +17,6 @@ class Status(str, Enum):
     @property
     def label(self) -> str:
         return self.name.lower()
-
-
-NONE_MARKERS = {"", "—", "-"}
 
 
 @dataclass

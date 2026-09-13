@@ -7,9 +7,10 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from taskrail.config import Config
+from taskrail.config import CORE_TASK_COLUMNS, Config
 from taskrail.issues import Issue, error, warning
 from taskrail.model import NONE_MARKERS, Task
+from taskrail.predicates import ColumnPredicate, parse_column_predicate, resolve_column
 
 CORE_DIR = Path(__file__).parent / "kinds"
 LOCAL_DIR = Path(".taskrail") / "types"
@@ -28,6 +29,27 @@ class Stage:
     gate: str
     commit: bool
     checks: tuple[str, ...]
+    predicate: ColumnPredicate | None = None  # the stage applies only to tasks it matches
+    judgement: bool = False  # the executor decides whether the stage is relevant
+
+    def applies(self, task: Task) -> bool:
+        """The column predicate's result for `task`; true for a stage without one."""
+        return self.predicate is None or self.predicate.matches(task.columns)
+
+    def to_dict(self, task: Task | None = None) -> dict:
+        data = {
+            "name": self.name,
+            "summary": self.summary,
+            "gate": self.gate,
+            "commit": self.commit,
+            "checks": list(self.checks),
+            "column": self.predicate.column if self.predicate else None,
+            "match": list(self.predicate.match) if self.predicate else [],
+            "judgement": self.judgement,
+        }
+        if task is not None:
+            data["applies"] = self.applies(task)
+        return data
 
 
 @dataclass(frozen=True)
@@ -74,7 +96,8 @@ class Kind:
         """Every skill this kind can hand a task to: its `skill` and each route's."""
         return {name for name in (self.skill, *(route.skill for route in self.routes)) if name}
 
-    def to_dict(self) -> dict:
+    def to_dict(self, task: Task | None = None) -> dict:
+        """The descriptor; with a task, each stage also reports whether it `applies` to it."""
         return {
             "name": self.name,
             "summary": self.summary,
@@ -84,10 +107,7 @@ class Kind:
             "artifact_index": self.artifact_index,
             "never_edit": list(self.never_edit),
             "commit_type": self.commit_type,
-            "stages": [
-                {"name": s.name, "summary": s.summary, "gate": s.gate, "commit": s.commit, "checks": list(s.checks)}
-                for s in self.stages
-            ],
+            "stages": [stage.to_dict(task) for stage in self.stages],
             "routes": [{"when": r.when, "skill": r.skill} for r in self.routes],
             "source": self.source,
             "path": self.path,
@@ -168,7 +188,21 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
         if not isinstance(commit, bool):
             problems.append(f"stage `{stage_name}`: `commit` must be true or false")
             commit = False
-        stages.append(Stage(stage_name, str(raw.get("summary", "")), gate, commit, tuple(checks)))
+        judgement = raw.get("judgement", False)
+        if not isinstance(judgement, bool):
+            problems.append(f"stage `{stage_name}`: `judgement` must be true or false")
+            judgement = False
+        try:
+            predicate = parse_column_predicate(raw.get("column"), raw.get("match"))
+        except ValueError as exc:
+            problems.append(f"stage `{stage_name}`: {exc}")
+            predicate = None
+        if predicate is not None:
+            predicate, unknown = resolve_column(predicate, config.custom_columns, config.column_aliases, CORE_TASK_COLUMNS)
+            if unknown:
+                # The kind stays loaded: dropping it would bury this under task-kind-unknown for every task.
+                issues.append(error("stage-column-unknown", f"stage `{stage_name}`: {unknown}", label))
+        stages.append(Stage(stage_name, str(raw.get("summary", "")), gate, commit, tuple(checks), predicate, judgement))
 
     routes: list[Route] = []
     raw_routes = data.get("route", [])

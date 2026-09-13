@@ -111,7 +111,7 @@ def cmd_show(args) -> int:
     claimed = _local_claims(project)
     data = task_dict(task, project, claimed)
     kind = project.kinds.get(task.kind)
-    data["kind_descriptor"] = kind.to_dict() if kind else None
+    data["kind_descriptor"] = kind.to_dict(task) if kind else None
     data["prior_work"] = prior.prior_work(project.config.root, task.id, data["branch"], data["artifact"])
     lines = [
         f"{task.id} — {task.title}",
@@ -131,7 +131,13 @@ def cmd_show(args) -> int:
     lines.extend(prior.text_lines(data["prior_work"], task.id, data["artifact"]))
     if kind:
         for stage in kind.stages:
-            lines.append(f"  · {stage.name} (gate: {stage.gate}{', commit' if stage.commit else ''})")
+            if not stage.applies(task):
+                mark = f" — not applicable ({stage.predicate.column})"
+            elif stage.judgement:
+                mark = " — executor's judgement"
+            else:
+                mark = ""
+            lines.append(f"  · {stage.name} (gate: {stage.gate}{', commit' if stage.commit else ''}){mark}")
     if task.description:
         lines.append(f"  {task.description}")
     lines.append(f"  {task.file}:{task.line}")

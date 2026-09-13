@@ -187,6 +187,8 @@ name = "impact"
 gate = "conditional"             # only if follow-up tasks were opened
 ```
 
+A stage may also apply only to some tasks of its kind (§5.4).
+
 Routing on a column, used by a repository-local `spec` kind:
 
 ```toml
@@ -235,6 +237,55 @@ Shared by every kind, and written once in the core skill rather than copied per 
 worktree and branch per task, commit points, "reject a kind that is not yours and name the
 right one", the gate protocol, rebase onto the mainline the branch came from, marking the
 task done, and the handoff report.
+
+### 5.4 Conditional stages
+
+Every stage applies to every task of its kind unless it says otherwise, so a repository adds or
+drops one stage for some tasks without duplicating the kind:
+
+```toml
+[[stage]]
+name = "visual-check"
+gate = "always"
+column = "Area"                  # a column predicate: only tasks whose Area cell matches
+match = ["ui", "ux"]
+
+[[stage]]
+name = "migration-review"
+gate = "always"
+judgement = true                 # the executor decides whether the stage is relevant
+```
+
+The two combine: with both, the stage is left to the executor's judgement only for tasks the
+predicate matches.
+
+**The column predicate** is `column` plus `match`. It is defined once, in `predicates.py`, for
+every setting with this shape — the autopilot's groups reuse it (§12.7):
+
+- `column` names a custom column from `[columns].custom`, matched case-insensitively. A core
+  column, or a core column's alias (§3.2), is refused: predicates read custom columns only. A
+  task table without the column reads as empty.
+- `match` is a non-empty list of non-empty strings, or a single string. The predicate holds when
+  the cell equals any value.
+- Values are trimmed and compare case-insensitively. `"*"` matches any non-empty cell and `"—"`
+  (or `"-"`) an empty one, as in `[[route]]`. Routes themselves still match exactly.
+
+`validate` reports a malformed predicate or `judgement` as `kind-invalid`, and a `column` that
+`[columns].custom` does not declare as `stage-column-unknown` (error), naming the core column when
+it is one or an alias of one. That error keeps the kind loaded, so its tasks are not also reported
+as `task-kind-unknown`. Predicates behave the same in every layer (§5.2); an override replaces the
+whole descriptor, so a conditional stage is added to a core kind by copying it into
+`.taskrail/overrides/`, and errors name the layer file that declares the stage.
+
+`show --json` resolves the predicate for its task: each stage in `kind_descriptor.stages` carries
+`column` (or `null`), `match`, `judgement` and `applies` — the predicate's result, `true` for a
+stage without one. Both flags are booleans. `kind list --json` has no task, so its stages carry no
+`applies`. Text `show` marks a stage `— not applicable (<column>)` or `— executor's judgement`.
+
+The core skill skips a stage whose `applies` is false. When `applies` and `judgement` are both
+true, the executor decides; a skipped stage and the reason go into the artifact and the next gate
+report, and a stage whose gate is `always` is not skipped without asking. A stage the executor
+skill does not describe, such as one an override adds, is done as its `summary` says.
 
 ## 6. Claims and IDs
 
@@ -700,9 +751,9 @@ reading its worktree, and escalated if it is stuck. An agent that can wait on a 
 - **`max_lanes`** (default 3) caps the lanes running at once.
 - **`[[autopilot.group]]`** has a `name`, a `limit`, and either `column` plus `match` (membership
   computed from the task's column) or neither (membership assigned by the orchestrator's
-  judgement at dispatch, with `autopilot lane --group`). It generalises "at most one UI lane". The
-  column predicate has the same shape as T020's conditional stages, so whichever lands first
-  defines it and the other reuses it.
+  judgement at dispatch, with `autopilot lane --group`). It generalises "at most one UI lane".
+  `column` plus `match` is the column predicate of conditional stages (§5.4), parsed and matched
+  by the same code.
 - **`[[autopilot.resource]]`** has a `name` and `values`. Each lane gets one free value per
   resource, allocated under the common-directory lock and released when the lane ends, and passed
   to the lane in its brief as `TASKRAIL_RESOURCE_<NAME>` — a database name, a port, an emulator.

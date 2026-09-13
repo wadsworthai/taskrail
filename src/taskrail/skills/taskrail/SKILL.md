@@ -59,10 +59,15 @@ of `taskrail show`) supplies what happens inside each stage.
    may have started this task. From here on, work only inside that workspace. A task created with
    `taskrail new --workspace` already has its workspace: skip to claiming.
 4. **Claim.** From inside the workspace, run `taskrail claim <ID>` before any edit.
-5. **Stages.** Take `kind_descriptor.stages` in order. For each stage: do its work, run each of
-   its `checks` with the command from the `checks` map (say so if a check is not configured),
-   commit when `commit` is true, then apply its gate. `commit = false` means a commit is not
-   required at that point, not that one is forbidden.
+5. **Stages.** Take `kind_descriptor.stages` in order. Skip a stage whose `applies` is false:
+   its column does not match this task. When `applies` and `judgement` are both true, decide
+   whether the stage is relevant to this task; to skip it, record the stage and your reason in
+   the artifact and in the next gate report — and if its gate is `always`, stop and ask before
+   skipping it. For each stage you run: do its work (a stage the executor skill does not
+   describe is done as its `summary` says), run each of its `checks` with the command from the
+   `checks` map (say so if a check is not configured), commit when `commit` is true, then apply
+   its gate. `commit = false` means a commit is not required at that point, not that one is
+   forbidden.
 6. **Scope.** Never edit the areas in `never_edit`. Work you discover outside the task's scope
    becomes a follow-up task (see *Creating tasks*); mention it at the next gate. Only fix
    something directly on the way when it is small and inseparable from the task.

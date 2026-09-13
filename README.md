@@ -57,6 +57,18 @@ repository adds its own under `.taskrail/types/<kind>/kind.toml`, or adjusts a c
 `.taskrail/overrides/<kind>/kind.toml`. [examples/spec-kit](examples/spec-kit) shows a `spec`
 kind that routes to a project's own Spec Kit skills.
 
+A stage can apply to only some tasks of its kind, so one extra step does not need a copy of the
+kind. `column` and `match` limit it to tasks whose custom column matches, case-insensitively;
+`judgement = true` leaves it to the executor. `show --json` reports `applies` for each stage:
+
+```toml
+[[stage]]
+name = "visual-check"
+gate = "always"
+column = "Area"
+match = ["ui"]
+```
+
 To accept only a closed set of kinds, list them in `.taskrail/config.toml`; `validate` then
 rejects tasks of any other kind:
 
