@@ -58,7 +58,16 @@ of `taskrail show`) supplies what happens inside each stage.
    `git switch -c <branch> <base.onto>`. If the branch already exists, stop and ask — someone
    may have started this task. From here on, work only inside that workspace. A task created with
    `taskrail new --workspace` already has its workspace: skip to claiming.
-4. **Claim.** From inside the workspace, run `taskrail claim <ID>` before any edit.
+   When the branch needs another name than `branch` — one that depends on what you know only
+   now — run `taskrail branch <ID> <NAME>` before creating the workspace and read `show` again.
+   To rename it later, run the same command inside the workspace, never plain `git branch -m`
+   (if you already did, run it afterwards so taskrail adopts the new name). It renames the local
+   branch, keeps the worktree where it is, and never touches the remote: it exits 5 for a branch
+   already pushed, and renaming one with `--force` is a decision to report at your next gate.
+4. **Claim.** From inside the workspace, run `taskrail claim <ID>` before any edit. On the task's
+   branch it records that name, so a later title edit cannot change it. A `warning` in its
+   result means the workspace is not on the task's branch: switch to that branch, or name it
+   with `taskrail branch`, before any edit.
 5. **Stages.** Take `kind_descriptor.stages` in order. Skip a stage whose `applies` is false:
    its column does not match this task. When `applies` and `judgement` are both true, decide
    whether the stage is relevant to this task; to skip it, record the stage and your reason in
@@ -75,10 +84,11 @@ of `taskrail show`) supplies what happens inside each stage.
    `artifact_index`, creating that index as a heading plus a table if it does not exist.
 8. **Close.** With every check passing:
    - run `taskrail done <ID>` inside the workspace — it marks the row in this branch and
-     releases the claim — and commit that change on its own;
-   - run `taskrail review <ID> --json`. It fetches the mainline's remote (`remote`) and reports
-     in `rebase.onto` the base to rebase onto: the local or the remote mainline, whichever is
-     further ahead — or, while `rebase.dependency` names an unmerged dependency, that
+     releases the claim; the task keeps its recorded branch name — and commit that change on its
+     own;
+   - run `taskrail review <ID> --json` on the task's branch, which it reports as `head`. It
+     fetches the mainline's remote (`remote`) and reports in `rebase.onto` the base to rebase
+     onto: the local or the remote mainline, whichever is further ahead — or, while `rebase.dependency` names an unmerged dependency, that
      dependency's branch; the pull request still targets the mainline. If `rebase.diverged` is
      true, stop and ask which one to use;
    - if `rebase.needed` is true, run `git rebase <rebase.onto>`. Resolve backlog conflicts

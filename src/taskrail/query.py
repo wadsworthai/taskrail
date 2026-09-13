@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from taskrail import gitutil, stack
+from pathlib import Path
+
+from taskrail import branches, gitutil, stack
 from taskrail.model import Project, Status, Task
 from taskrail.templates import render
 
@@ -106,12 +108,35 @@ def base_dict(task: Task, project: Project) -> dict | None:
     }
 
 
+def _checked_out(project: Project) -> dict[str, Path]:
+    if "worktree_branches" not in project.cache:
+        try:
+            project.cache["worktree_branches"] = gitutil.worktree_branches(project.config.root)
+        except gitutil.GitError:
+            project.cache["worktree_branches"] = {}
+    return project.cache["worktree_branches"]
+
+
+def worktree_path(branch: str | None, project: Project) -> str | None:
+    """Where the task's worktree is: the one that has its branch checked out, else where it would go."""
+    config = project.config
+    if not branch or config.worktree != "required":
+        return None
+    path = _checked_out(project).get(branch)
+    if path is None:
+        return f"{config.worktree_dir}/{branch}"
+    root = config.root.resolve()
+    if path != root and path.is_relative_to(root):
+        return str(path.relative_to(root))
+    return str(path)
+
+
 def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict:
     kind = project.kinds.get(task.kind)
     claim = (claimed or {}).get(task.id)
     config = project.config
     backlog = config.backlog(task.backlog)
-    branch = render(kind.branch, task, config) if kind else None
+    branch, branch_source = branches.resolve(task, project)
     return {
         "id": task.id,
         "backlog": task.backlog,
@@ -131,7 +156,8 @@ def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict
         "base": base_dict(task, project),
         "push_branch": config.push_task_branch,
         "branch": branch,
-        "worktree": f"{config.worktree_dir}/{branch}" if branch and config.worktree == "required" else None,
+        "branch_source": branch_source,
+        "worktree": worktree_path(branch, project),
         "artifact": render(kind.artifact, task, config) if kind else None,
         "artifact_index": render(kind.artifact_index, task, config) if kind else None,
         "never_edit": list(kind.never_edit) if kind else [],

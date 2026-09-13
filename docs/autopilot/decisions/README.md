@@ -13,3 +13,4 @@
 | T027 | Stop init and upgrade on an unreadable installed.json | [T027-stop-init-and-upgrade-on-an-unreadable-i.md](T027-stop-init-and-upgrade-on-an-unreadable-i.md) |
 | T017 | Branch a task from its single unmerged dependency | [T017-branch-a-task-from-its-single-unmerged-d.md](T017-branch-a-task-from-its-single-unmerged-d.md) |
 | T020 | Run stages conditionally on a column or the executor's judgement | [T020-run-stages-conditionally-on-a-column-or.md](T020-run-stages-conditionally-on-a-column-or.md) |
+| T019 | Let the executor name or rename a task branch | [T019-let-the-executor-name-or-rename-a-task-b.md](T019-let-the-executor-name-or-rename-a-task-b.md) |

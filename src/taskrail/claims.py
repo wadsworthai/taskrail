@@ -131,10 +131,14 @@ def list_remote(config: Config) -> list[str]:
     return sorted(line.split("\t", 1)[1].rsplit("/", 1)[1] for line in output.splitlines() if "\t" in line)
 
 
+def _claim_commit(config: Config, claim: Claim) -> str:
+    public = {key: value for key, value in claim.to_dict().items() if key not in LOCAL_ONLY_FIELDS}
+    return gitutil.write_claim_commit(config.root, json.dumps(public, indent=2), f"taskrail claim {claim.id}")
+
+
 def _push_remote(config: Config, claim: Claim) -> dict:
     ref = _remote_ref(claim.id)
-    public = {key: value for key, value in claim.to_dict().items() if key not in LOCAL_ONLY_FIELDS}
-    commit = gitutil.write_claim_commit(config.root, json.dumps(public, indent=2), f"taskrail claim {claim.id}")
+    commit = _claim_commit(config, claim)
     result = gitutil.run(
         config.root, "push", "--quiet", "--porcelain", f"--force-with-lease={ref}:", config.claim_remote, f"{commit}:{ref}", check=False
     )
@@ -200,6 +204,28 @@ def claim(
             raise
         path.write_text(json.dumps(new.to_dict(), indent=2), encoding="utf-8")
     return new, True
+
+
+def rename_branch(config: Config, task_id: str, branch: str, local_only: bool = False) -> Claim | None:
+    """Point a claim at the task's renamed branch; its remote copy is re-pushed with a lease on the recorded commit."""
+    path = _path(config, task_id)
+    existing = _load(path)
+    if existing is None:
+        return None
+    existing.branch = branch
+    path.write_text(json.dumps(existing.to_dict(), indent=2), encoding="utf-8")
+    if existing.remote and not local_only:
+        remote = existing.remote
+        ref = remote.get("ref", _remote_ref(task_id))
+        name = remote.get("name", config.claim_remote)
+        commit = _claim_commit(config, existing)
+        lease = f"--force-with-lease={ref}:{remote.get('commit', '')}"
+        result = gitutil.run(config.root, "push", "--quiet", "--porcelain", lease, name, f"{commit}:{ref}", check=False)
+        if result.returncode != 0:
+            raise gitutil.GitError(f"could not update the remote claim {ref} on {name}: {result.stderr.strip() or result.stdout.strip()}")
+        existing.remote = {**remote, "commit": commit}
+        path.write_text(json.dumps(existing.to_dict(), indent=2), encoding="utf-8")
+    return existing
 
 
 def release(config: Config, task_id: str, owner: str, force: bool = False, local_only: bool = False) -> Claim | None:

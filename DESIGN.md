@@ -308,7 +308,12 @@ know, so a later version can add fields without hiding its claims from this one.
 
 `taskrail claim <ID>` fails if another live claim exists, and refuses a task that is not
 pending, is `done-branch`, or is blocked (`--ignore-deps` overrides the last). Claiming again with the same
-owner and branch is a no-op. `taskrail release <ID>` removes a claim; releasing someone
+owner and branch is a no-op. A held claim also settles the task's branch name (§6.4): claimed on
+the name its template renders and with no record yet, `claim` records that name, so a later hand
+edit of the title no longer changes the branch; claimed on any other branch — another name, a
+mainline or a detached `HEAD` — it records nothing and warns on stderr, naming `taskrail branch`.
+`--json` returns `branch_recorded` and the same `warning` (`null` when there is none); the exit
+code stays 0. `taskrail release <ID>` removes a claim; releasing someone
 else's needs `--force`. The owner defaults to `$TASKRAIL_OWNER`, then `user@host`.
 
 A claim is **stale** when its worktree no longer exists, or when its branch does not exist and
@@ -340,6 +345,42 @@ used. This replaces "highest plus one", which two agents can compute identically
 Only IDs in the `ID` column of task tables count, so a description that mentions an ID does
 not move the counter.
 
+### 6.4 Task branches
+
+A task's branch is its **recorded** branch when one exists, otherwise the name its kind's
+`branch` template renders. One resolver answers that for every command — `show`, `list`, `next`,
+`new --workspace`, `review`, `done-branch` detection, a dependent's base and prior work — and
+nothing else renders the template.
+
+A record is a file next to the claims, `$(git rev-parse --git-common-dir)/taskrail/branches/<ID>.json`,
+holding `id`, `branch` and `recorded` (a timestamp). Every worktree of the clone sees it; it is
+never committed or pushed, and holds no owner, host or path. Unlike a claim it is not removed by
+`done`, `discard`, `release`, `reopen` or deleting the branch, so `review` and a dependent still
+find a renamed branch after the claim is gone. Records are written by `claim` (§6.1),
+`new --workspace --branch` and `taskrail branch`. Outside git, or without a record, the template
+applies. Another clone does not see records, so it resolves a renamed task to its template name.
+
+`taskrail branch <ID> <NAME>` names or renames a task's branch. With `OLD` the branch resolved
+before the call:
+
+- `OLD` exists locally → `git branch -m OLD NAME`. Git moves the branch's config, upstream
+  included, and updates the `HEAD` of the worktree that has it checked out. The worktree directory
+  is never moved, since a session may be working inside it.
+- otherwise → nothing is renamed and the name is only recorded: naming a task before its workspace
+  exists, or adopting a branch already renamed with plain `git branch -m`.
+- The record is written, and a claim whose `branch` is `OLD` points to `NAME`; a claim mirrored to
+  `claim_remote` is re-pushed with a lease on its recorded commit (`--local-only` skips it).
+- `--json` returns `id`, `branch`, `previous`, `renamed`, `claim_updated`, `worktree` (where
+  `NAME` is checked out, or `null`) and `remote_copies`.
+
+It refuses, changing nothing: exit 2 for a name `git check-ref-format --branch` rejects or rewrites,
+or the mainline of any backlog; exit 5 for the branch of another task, or for `NAME` existing
+locally while `OLD` does too; exit 5 without `--force` when `<remote>/OLD` exists (a pushed branch,
+and any pull request from it, would stay behind) or `<remote>/NAME` exists without a local `NAME`
+(publishing would overwrite it), `<remote>` being the mainline's remote (§7.1) read from local refs;
+exit 4 without `--force` when someone else holds the claim. taskrail never pushes, deletes or renames
+a remote branch; after `--force`, `remote_copies` names the remote branch left behind.
+
 ## 7. CLI
 
 | Command | Purpose |
@@ -348,12 +389,13 @@ not move the counter.
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks |
 | `taskrail list [--epic E01] [--eligible]` | Tasks, with computed blocked and eligible state |
-| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches), branch, worktree, artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
+| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; `null` unless `worktree = "required"`), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
 | `taskrail next` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` task |
 | `taskrail claim <ID>` / `taskrail release <ID>` | §6.1, §6.2 |
+| `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4) |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
-| `taskrail new --epic E01 --kind bug --title … [--workspace]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch and worktree from the base and append the row there |
+| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch and worktree from the base and append the row there; `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
@@ -366,7 +408,8 @@ not move the counter.
 Closing a task ends in a pull or merge request on whatever host the repository uses. `taskrail
 review` owns the deterministic parts; the agent keeps the rebase and its conflicts.
 
-1. `taskrail review <ID>` runs on the task branch, only once the task is done there. It fetches
+1. `taskrail review <ID>` runs on the task branch (§6.4), only once the task is done there; the
+   branch is `head` in its result, and the one pushed and linked. It fetches
    the mainline's remote (unless `fetch = false` or `--no-fetch`) and picks the rebase base: the
    backlog's `mainline` or its remote-tracking branch, whichever is further ahead, and whichever
    exists if only one does. While the task's single dependency is done only on its unmerged
@@ -442,7 +485,7 @@ Task state, as reported by `list`, `show` and `next`, is one of `pending`, `clai
 consulted, so these commands never need the network.
 
 **Done on its branch.** A task is `done-branch` when its row is `⬜` in the current checkout but
-`✅` at the tip of its task branch — the local branch or `<remote>/<branch>` of its mainline's
+`✅` at the tip of its task branch (§6.4) — the local branch or `<remote>/<branch>` of its mainline's
 remote — and `✅` on neither the local mainline nor `<remote>/<mainline>`. It takes precedence
 over a claim: the work is finished and only waits to be merged, so `next` never offers it and
 `claim` refuses it. "Merged" means `✅` on a mainline ref in every checkout, including a task
@@ -472,7 +515,7 @@ skill asks the agent to look at them and mention them at its first gate.
 
 - `artifact` — where the artifact file exists: `working tree`, then each local and
   remote-tracking branch tip that has it (one `git cat-file --batch` over all tips).
-- `branches` — the task branch as a local branch and as `<remote>/<branch>`.
+- `branches` — the task branch (§6.4) as a local branch and as `<remote>/<branch>`.
 - `commits` — commits reachable from `HEAD`, local and remote-tracking branches (not tags or
   claim refs) whose subject names the task, newest first and capped at 10, with
   `commits_total` for the full count. Each carries the form it matched: `prefix` (the subject

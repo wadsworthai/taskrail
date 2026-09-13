@@ -36,6 +36,7 @@ taskrail validate                      # check the backlog; non-zero on errors
 taskrail next                          # eligible tasks, smallest first
 taskrail show T012 --json              # kind, stages, base, branch, artifact path, blockers, prior work
 taskrail claim T012                    # reserve it; fails if someone else holds it
+taskrail branch T012 fix/rounding      # name or rename the task's branch; claims, show and review follow it
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --pts 2
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --workspace   # …in its own branch and worktree
 taskrail done T012                     # needs your claim; releases it

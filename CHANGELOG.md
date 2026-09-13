@@ -36,6 +36,14 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   custom column matches, case-insensitively, and one with `judgement = true` is left to the
   executor; `show --json` reports `column`, `match`, `judgement` and a boolean `applies` for each
   stage, and `validate` reports an undeclared column as `stage-column-unknown` (T020).
+- **Named and renamed task branches.** `taskrail branch <ID> <NAME>` names a task's branch or
+  renames it with `git branch -m`, and `new --workspace --branch NAME` creates one under a chosen
+  name. The name is recorded in the git common directory and outlives `done`, so `show`, `review`,
+  `done-branch`, a dependent's base, prior work and the claim all follow it; `show` adds
+  `branch_source` and reports the worktree the branch is checked out in. `claim` records the
+  template name it is claimed on, so a hand-edited title no longer moves the branch, and warns
+  when claimed on another branch. A pushed branch is renamed only with `--force`, and the remote
+  is never changed (T019).
 
 ## 0.1.0
 

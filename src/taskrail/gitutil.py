@@ -67,6 +67,19 @@ def worktrees(root: Path) -> set[Path]:
     return {Path(line[len("worktree "):]).resolve() for line in output.splitlines() if line.startswith("worktree ")}
 
 
+def worktree_branches(root: Path) -> dict[str, Path]:
+    """Each local branch checked out in a worktree of this clone, with that worktree's path."""
+    output = run(root, "worktree", "list", "--porcelain").stdout
+    found: dict[str, Path] = {}
+    path = None
+    for line in output.splitlines():
+        if line.startswith("worktree "):
+            path = Path(line[len("worktree "):]).resolve()
+        elif line.startswith("branch refs/heads/") and path is not None:
+            found.setdefault(line[len("branch refs/heads/"):], path)
+    return found
+
+
 def refs(root: Path, pattern: str) -> list[str]:
     output = run(root, "for-each-ref", "--format=%(refname)", pattern).stdout
     return [line for line in output.splitlines() if line and not line.endswith("/HEAD")]

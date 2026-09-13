@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from taskrail import gitutil
+from taskrail import branches, gitutil
 from taskrail.backlog import _index, _is_task_table
 from taskrail.ids import _epic_files
 from taskrail.markdown import parse_sections
 from taskrail.model import Project, Status, Task
 from taskrail.prior import _short
 from taskrail.review import resolve_remote
-from taskrail.templates import render
 
 CACHE_KEY = "done_on_branch"
 
@@ -60,11 +59,6 @@ def _read_statuses(project: Project, backlog_file: str, revisions: list[str]) ->
     return result
 
 
-def task_branch(task: Task, project: Project) -> str | None:
-    kind = project.kinds.get(task.kind)
-    return render(kind.branch, task, project.config) if kind else None
-
-
 def done_on_branch(project: Project) -> dict[str, DoneOnBranch]:
     """Tasks whose row is ✅ at a tip of their task branch and on neither mainline ref. Cached per project."""
     if CACHE_KEY not in project.cache:
@@ -87,7 +81,7 @@ def _find(project: Project) -> dict[str, DoneOnBranch]:
         remote = resolve_remote(root, mainline, config.review.remote).name
         candidates: dict[str, tuple[Task, str, list[str]]] = {}
         for task in backlog.tasks:
-            branch = task_branch(task, project)
+            branch = branches.task_branch(task, project)
             if not branch:
                 continue
             refs = [ref for ref in (f"refs/heads/{branch}", f"refs/remotes/{remote}/{branch}") if ref in existing]

@@ -43,6 +43,7 @@ Done when: backlog conflicts resolve automatically, existing backlogs import, an
 | ⬜ | T032 | feature | 2   | T029       | Add autopilot notify and the escalation flags in autopilot status | Run the configured notify command per event; flag governing files touched, escalate_gates and conflicts outside the known classes. |
 | ⬜ | T033 | spike   | 2   | T024       | Trial the autopilot on a real backlog with each supported agent | Run the autopilot end to end on Claude Code and OpenCode and record what the design got wrong. |
 | ⬜ | T035 | feature | 2   | T020       | Match routes through the shared column predicate | Move [[route]] matching onto predicates.py and decide whether route values become case-insensitive (a behaviour change). |
+| ⬜ | T036 | feature | 3   | T019       | Mirror branch records to a remote ref | Push each task's branch record next to refs/taskrail/claims, so another clone resolves a renamed branch in show, review and done-branch detection. |
 
 ## E05 — Adoption
 
@@ -52,7 +53,7 @@ Done when: a consumer project runs its backlog through taskrail with its own kin
 |----|------|---------|-----|------------|--------------------------------|--------------------------------|
 | ✅ | T017 | feature | 5   | —          | Branch a task from its single unmerged dependency | Stacked base for show, new --workspace and review: one dependency done only on its branch sets the base; two or more make the task ineligible. Add a done-branch state that next never offers, and record the base commit in the claim. |
 | ✅ | T018 | feature | 2   | —          | Restrict the task kinds a repository allows | Let config disable core kinds, so a repository whose rules name a closed set of kinds can reject the rest in validate. |
-| ⬜ | T019 | feature | 3   | —          | Let the executor name or rename a task branch | For branches that depend on facts known only once work starts; claims and review must follow the renamed branch. |
+| ✅ | T019 | feature | 3   | —          | Let the executor name or rename a task branch | For branches that depend on facts known only once work starts; claims and review must follow the renamed branch. |
 | ✅ | T020 | feature | 3   | —          | Run stages conditionally on a column or the executor's judgement | Declare stages that apply only when a column matches or when the executor judges them relevant, instead of duplicating kinds. |
 | ✅ | T021 | feature | 2   | —          | Map a repository's column names onto taskrail's columns | Column aliases in config, such as Size for Pts, so a backlog keeps its established headers. |
 | ✅ | T022 | feature | 2   | —          | Use each mainline's own remote in review | Resolve the remote from branch.<mainline>.remote before [review].remote, for repositories whose mainlines live on different remotes. |

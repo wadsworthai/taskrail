@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, claims, gitutil, ids, install, prior, review, stack, writer
+from taskrail import __version__, branches, claims, gitutil, ids, install, prior, review, stack, writer
 from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
 from taskrail.model import Project, Status
@@ -201,9 +201,31 @@ def cmd_claim(args) -> int:
         _emit({"claimed": False, "reason": str(exc), "claim": exc.claim.to_dict() if exc.claim else None}, args.json, "")
         print(f"taskrail: {exc}", file=sys.stderr)
         return EXIT_CONFLICT
+    recorded, warning = _freeze_branch(task, project, claim.branch)
+    if warning:
+        print(f"taskrail: warning: {warning}", file=sys.stderr)
     verb = "claimed" if created else "already held"
-    _emit({"claimed": True, "created": created, "claim": claim.to_dict()}, args.json, f"{verb} {task.id} as {claim.owner}")
+    _emit(
+        {"claimed": True, "created": created, "claim": claim.to_dict(), "branch_recorded": recorded, "warning": warning},
+        args.json,
+        f"{verb} {task.id} as {claim.owner}",
+    )
     return EXIT_OK
+
+
+def _freeze_branch(task, project: Project, claimed_on: str | None) -> tuple[bool, str | None]:
+    """Record the template branch a task is claimed on, so a later title edit cannot move it; warn on any other branch."""
+    resolved, source = branches.resolve(task, project)
+    if claimed_on and claimed_on == resolved:
+        if source == branches.TEMPLATE:
+            branches.write(project.config, task.id, resolved)
+            return True, None
+        return False, None
+    where = f"branch {claimed_on}" if claimed_on else "a detached HEAD"
+    return False, (
+        f"{task.id} was claimed on {where}, but its branch is {resolved or '—'}; work on that branch, "
+        f"or run `taskrail branch {task.id} <NAME>` to name the branch the task is worked on"
+    )
 
 
 def _claim_base(task, project: Project) -> dict | None:
@@ -348,6 +370,19 @@ def cmd_new(args) -> int:
         values[name.strip()] = value.strip()
 
     config = origin_config = project.config
+    if args.branch is not None:
+        if not args.workspace:
+            print("taskrail: --branch needs --workspace; name an existing task's branch with `taskrail branch <ID> <NAME>`", file=sys.stderr)
+            return EXIT_USAGE
+        gitutil.common_dir(config.root)
+        problem = branches.invalid_name(project, args.branch)
+        if problem:
+            print(f"taskrail: {problem}", file=sys.stderr)
+            return EXIT_USAGE
+        other = branches.owner_of(project, args.branch)
+        if other:
+            print(f"taskrail: {args.branch} is the branch of {other}", file=sys.stderr)
+            return EXIT_REFUSED
     kind = project.kinds.get(args.kind)
     if args.workspace and kind is None:
         from taskrail.kinds import defined_kind_names
@@ -366,7 +401,7 @@ def cmd_new(args) -> int:
     if args.workspace:
         try:
             depends_on = [item.strip() for item in (args.depends_on or "").split(",") if item.strip()]
-            workspace = _open_workspace(project, backlog.config, kind, epic.id, task_id, args.title, depends_on)
+            workspace = _open_workspace(project, backlog.config, kind, epic.id, task_id, args.title, depends_on, args.branch)
         except _WorkspaceRefused as exc:
             ids.cancel_reservation(config, backlog.config, task_id)
             print(f"taskrail: {exc}", file=sys.stderr)
@@ -397,6 +432,8 @@ def cmd_new(args) -> int:
         if workspace:
             _close_workspace(workspace)
         ids.cancel_reservation(origin_config, backlog.config, task_id)
+    elif args.branch is not None:
+        branches.write(origin_config, task_id, args.branch)
     return code
 
 
@@ -407,7 +444,7 @@ class _WorkspaceRefused(Exception):
 
 
 def _open_workspace(
-    project: Project, backlog_config, kind, epic_id: str, task_id: str, title: str, depends_on: list[str]
+    project: Project, backlog_config, kind, epic_id: str, task_id: str, title: str, depends_on: list[str], branch: str | None = None
 ) -> dict:
     """Create the branch (and worktree) a new task will be worked in, from the base `show` would report."""
     from taskrail.model import Task
@@ -418,7 +455,7 @@ def _open_workspace(
         depends_on=depends_on, title=title, description="", columns={}, backlog=backlog_config.name, epic=epic_id,
         file=backlog_config.file, line=0, order=0,
     )
-    branch = render(kind.branch, probe, config)
+    branch = branch or branches.task_branch(probe, project)
     gitutil.common_dir(config.root)
     chosen = base_dict(probe, project)
     if chosen is None:
@@ -541,6 +578,87 @@ def cmd_reopen(args) -> int:
     return _write(edits, args.json, result, "\n".join(text))
 
 
+def cmd_branch(args) -> int:
+    """Name or rename a task's branch: `git branch -m` when the old branch exists here, then record the name."""
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    task = project.task(args.id)
+    if task is None:
+        print(f"taskrail: no task `{args.id}`", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    config = project.config
+    root = config.root
+    gitutil.common_dir(root)
+    name = args.name
+    problem = branches.invalid_name(project, name)
+    if problem:
+        print(f"taskrail: {problem}", file=sys.stderr)
+        return EXIT_USAGE
+    other = branches.owner_of(project, name, except_id=task.id)
+    if other:
+        print(f"taskrail: {name} is the branch of {other}", file=sys.stderr)
+        return EXIT_REFUSED
+    owner = args.owner or claims.default_owner()
+    claim = claims.read(config, task.id)
+    if claim is not None and claim.owner != owner and not args.force:
+        print(f"taskrail: {task.id} is claimed by {claim.owner}; pass --force", file=sys.stderr)
+        return EXIT_CONFLICT
+
+    old = branches.task_branch(task, project)
+    old_local = bool(old) and gitutil.branch_exists(root, old)
+    remote = review.resolve_remote(root, config.backlog(task.backlog).mainline, config.review.remote).name
+    remote_refs = set(gitutil.refs(root, "refs/remotes"))
+    remote_copies: list[str] = []
+    if old != name:
+        if old_local and gitutil.branch_exists(root, name):
+            print(f"taskrail: branch {name} already exists; {old} cannot be renamed to it", file=sys.stderr)
+            return EXIT_REFUSED
+        if old and f"refs/remotes/{remote}/{old}" in remote_refs:
+            remote_copies.append(f"{remote}/{old}")
+        taken = f"refs/remotes/{remote}/{name}" in remote_refs and not gitutil.branch_exists(root, name)
+        if (remote_copies or taken) and not args.force:
+            reasons = []
+            if remote_copies:
+                reasons.append(f"{remote}/{old} exists: the pushed branch and any pull request from it would stay behind")
+            if taken:
+                reasons.append(f"{remote}/{name} exists and publishing would overwrite it")
+            print(f"taskrail: {'; '.join(reasons)}; pass --force to go ahead (the remote is never changed)", file=sys.stderr)
+            return EXIT_REFUSED
+
+    renamed = False
+    if old_local and old != name:
+        result = gitutil.run(root, "branch", "-m", old, name, check=False)
+        if result.returncode != 0:
+            print(f"taskrail: git branch -m {old} {name}: {result.stderr.strip()}", file=sys.stderr)
+            return EXIT_USAGE
+        renamed = True
+    branches.write(config, task.id, name)
+
+    claim_updated = False
+    if claim is not None and old != name and claim.branch == old:
+        claims.rename_branch(config, task.id, name, local_only=args.local_only)
+        claim_updated = True
+
+    checked_out = gitutil.worktree_branches(root).get(name)
+    data = {
+        "id": task.id,
+        "branch": name,
+        "previous": old,
+        "renamed": renamed,
+        "claim_updated": claim_updated,
+        "worktree": str(checked_out) if checked_out else None,
+        "remote_copies": remote_copies,
+    }
+    if renamed:
+        text = f"{task.id} branch renamed from {old} to {name}"
+    else:
+        text = f"{task.id} branch recorded as {name}"
+    text += "".join(f"\nleft on the remote: {copy}" for copy in remote_copies)
+    _emit(data, args.json, text)
+    return EXIT_OK
+
+
 def cmd_review(args) -> int:
     """Prepare a closed task for review: fetch, pick the rebase base, push, and link a pull request."""
     project, issues = _load(args)
@@ -554,7 +672,7 @@ def cmd_review(args) -> int:
     root = config.root
     kind = project.kinds.get(task.kind)
     backlog = config.backlog(task.backlog)
-    head = render(kind.branch, task, config)
+    head = branches.task_branch(task, project)
     current = gitutil.current_branch(root)
     if current != head:
         print(f"taskrail: run review on the task branch {head} (current: {current or 'detached HEAD'})", file=sys.stderr)
@@ -863,6 +981,7 @@ def build_parser() -> argparse.ArgumentParser:
     new.add_argument("--column", action="append", metavar="NAME=VALUE", help="a custom column value; repeatable")
     new.add_argument("--owner")
     new.add_argument("--workspace", action="store_true", help="create the task's branch and worktree from the mainline and add the row there")
+    new.add_argument("--branch", help="with --workspace, the branch name to use instead of the kind's template")
     new.add_argument("--allow-invalid", action="store_true")
 
     done = add("done", cmd_done, "Mark a claimed task done and release its claim.")
@@ -878,6 +997,14 @@ def build_parser() -> argparse.ArgumentParser:
     reopen = add("reopen", cmd_reopen, "Move a done or discarded task back to pending.")
     reopen.add_argument("id")
     reopen.add_argument("--reason", required=True, help="why it is reopened; returned as the commit message body")
+
+    branch_cmd = add("branch", cmd_branch, "Name or rename a task's branch; claims, show and review follow it.")
+    branch_cmd.add_argument("id")
+    branch_cmd.add_argument("name", help="the branch name")
+    branch_cmd.add_argument("--owner", help="who is renaming (default: $TASKRAIL_OWNER or user@host)")
+    branch_cmd.add_argument("--force", action="store_true", help="rename a pushed branch, a name taken on the remote, or a task claimed by someone else")
+    branch_cmd.add_argument("--local-only", action="store_true", help="do not update the claim's remote copy")
+    branch_cmd.add_argument("--allow-invalid", action="store_true")
 
     review_cmd = add("review", cmd_review, "Prepare a closed task for review: fetch, rebase base, push, pull request link.")
     review_cmd.add_argument("id")
