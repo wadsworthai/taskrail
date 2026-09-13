@@ -1,0 +1,32 @@
+# Changelog
+
+Releases are tagged `vX.Y.Z`. Install one with:
+
+```bash
+uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@vX.Y.Z"
+```
+
+## 0.1.0
+
+First release.
+
+- **Backlog format.** `TODO.md` with an `## Epics` table; each epic inline or in its own file;
+  task tables with free column order, custom columns, and `⬜` / `✅` / `❌` statuses. Several
+  backlogs per repository, each with its ID prefix, mainline and allowed dependency directions.
+- **Validation and queries.** `validate` with file and line for every problem; `list`, `show`
+  and `next` with computed `pending`, `claimed`, `blocked`, `done` and `discarded` states, and
+  `--json` throughout.
+- **Task kinds as data.** Core kinds `bug`, `chore`, `feature` and `spike`, each with stages,
+  gates, an artifact and an executor skill; repositories add kinds under `.taskrail/types/` or
+  override them under `.taskrail/overrides/`, including routing on a column.
+- **Claims and IDs.** Exclusive claims shared by every worktree of a clone, optionally mirrored
+  to a remote ref; IDs reserved under a lock across all branches.
+- **Write commands.** `new` (with `--workspace` to start the task on its own branch), `done`,
+  `discard`, `reopen`, `epic add` and `epic split` — one-cell or one-row diffs, validated before
+  anything is written.
+- **Review hand-off.** `review` fetches, picks the rebase base, pushes the task branch and
+  prints a pull or merge request link with a Conventional Commits title for GitHub, GitLab,
+  Gitea, Forgejo or a URL template.
+- **Installation.** Idempotent `init` for Claude Code and OpenCode, a committed wrapper that
+  runs the pinned version (falling back to `uvx`), `upgrade`, `self upgrade`, and optional
+  GitHub workflow and pre-commit hook running `validate`.

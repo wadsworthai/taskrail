@@ -1,6 +1,6 @@
 # taskrail — design
 
-Status: **v1 implemented, not yet released.**
+Status: **v1 released as `v0.1.0`.** See CHANGELOG.md.
 
 An agent-agnostic backlog tool: a deterministic CLI that owns the backlog files, plus thin
 skills that execute tasks by kind. Derived from the task systems of two existing projects,
