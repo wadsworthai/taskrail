@@ -79,6 +79,17 @@ Optional core columns: `Pts`, `Description`.
 Custom columns are declared per backlog in config (for example `Owner` or `Spec`). Kinds may
 route on them; the core never interprets them.
 
+A repository with established headers maps them onto the core columns in `[columns].aliases`
+instead of renaming them — for example `Pts = "Size"`. Each key is a core column, each value
+the header that repository uses; both match case-insensitively. The alias replaces the name:
+every command reads and writes the column by its alias, a task table that still uses the core
+name of an aliased column fails validation (`column-alias`), and a missing required column is
+reported by both names. `--json` output keeps the core field names, and `new` fills an aliased
+column through its usual flag (`--pts`), refusing `--column` for it. Config is refused when a
+key is not a core column, an alias is empty or contains `|`, an alias is another core column's
+name or a custom column, or two columns share an alias. Aliases apply to task tables only, not
+to the `## Epics` table.
+
 ### 3.3 Values
 
 - `✓`: `⬜` pending, `✅` done, `❌` discarded. Nothing else is stored. "Blocked" is computed
@@ -114,6 +125,7 @@ may_depend_on = ["template"]     # A may depend on T; never the reverse
 
 [columns]
 custom = ["Owner"]
+aliases = { Pts = "Size" }       # core column -> this repository's header (§3.2)
 
 [points]
 scale = [1, 2, 3, 5, 8, 13]

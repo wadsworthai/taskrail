@@ -56,14 +56,14 @@ def id_lock(config: Config):
         path.unlink(missing_ok=True)
 
 
-def _task_ids(text: str, prefix: str) -> set[str]:
+def _task_ids(text: str, prefix: str, aliases: dict[str, str] | None = None) -> set[str]:
     id_re = re.compile(rf"^{prefix}\d+$")
     found = set()
     for section in parse_sections(text):
         for table in section.tables:
-            if not _is_task_table(table):
+            if not _is_task_table(table, aliases):
                 continue
-            position = _index(table.header)["ID"]
+            position = _index(table.header, aliases)["ID"]
             for _, cells in table.rows:
                 if position < len(cells) and id_re.match(cells[position]):
                     found.add(cells[position])
@@ -93,11 +93,11 @@ def used_ids(config: Config, backlog: BacklogConfig) -> set[str]:
         main = read(backlog.file)
         if main is None:
             return
-        found.update(_task_ids(main, backlog.prefix))
+        found.update(_task_ids(main, backlog.prefix, config.column_aliases))
         for epic_file in _epic_files(main):
             content = read(epic_file)
             if content is not None:
-                found.update(_task_ids(content, backlog.prefix))
+                found.update(_task_ids(content, backlog.prefix, config.column_aliases))
 
     def read_working(relative: str) -> str | None:
         try:
@@ -116,11 +116,11 @@ def used_ids(config: Config, backlog: BacklogConfig) -> set[str]:
         text = mains.get(f"{rev}:{backlog.file}")
         if text is None:
             continue
-        found.update(_task_ids(text, backlog.prefix))
+        found.update(_task_ids(text, backlog.prefix, config.column_aliases))
         epic_specs += [f"{rev}:{path}" for path in _epic_files(text)]
     for text in gitutil.read_blobs(config.root, epic_specs).values():
         if text is not None:
-            found.update(_task_ids(text, backlog.prefix))
+            found.update(_task_ids(text, backlog.prefix, config.column_aliases))
     return found
 
 

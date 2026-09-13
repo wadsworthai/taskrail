@@ -130,8 +130,8 @@ def set_status(edits: Edits, task: Task, status: Status) -> None:
     for section in parse_sections(text):
         for table in section.tables:
             for number, _ in table.rows:
-                if number == task.line and _is_task_table(table):
-                    column = _index(table.header)["✓"]
+                if number == task.line and _is_task_table(table, edits.config.column_aliases):
+                    column = _index(table.header, edits.config.column_aliases)["✓"]
                     lines[number - 1] = replace_cell(lines[number - 1], column, status.value)
                     edits.set_lines(task.file, lines)
                     return
@@ -146,10 +146,12 @@ def _header_template(edits: Edits, project: Project, backlog: BacklogConfig) -> 
         lines = edits.lines(task.file)
         for section in parse_sections("".join(lines)):
             for table in section.tables:
-                if _is_task_table(table):
+                if _is_task_table(table, project.config.column_aliases):
                     return lines[table.line - 1], lines[table.line]
-    columns = [*DEFAULT_TASK_COLUMNS, *project.config.custom_columns]
-    widths = [max(display_width(c), DEFAULT_WIDTHS.get(c, 3)) for c in columns]
+    aliases = project.config.column_aliases
+    core_and_names = [(c, aliases.get(c, c)) for c in DEFAULT_TASK_COLUMNS] + [(c, c) for c in project.config.custom_columns]
+    columns = [name for _, name in core_and_names]
+    widths = [max(display_width(name), DEFAULT_WIDTHS.get(core, 3)) for core, name in core_and_names]
     header = _row(columns, widths)
     separator = "|" + "|".join("-" * (w + 2) for w in widths) + "|\n"
     return header, separator
@@ -161,7 +163,7 @@ def add_task(edits: Edits, project: Project, epic: Epic, values: dict[str, str])
     relative = epic.section_file
     lines = edits.lines(relative)
     sections, index = _find_epic_section("".join(lines), epic.id)
-    tables = [t for t in sections[index].tables if _is_task_table(t)]
+    tables = [t for t in sections[index].tables if _is_task_table(t, project.config.column_aliases)]
 
     if tables:
         table = tables[-1]
@@ -177,7 +179,7 @@ def add_task(edits: Edits, project: Project, epic: Epic, values: dict[str, str])
             insert_at -= 1
         new_lines = ["\n", header_line, separator_line]
 
-    columns = _index(header)
+    columns = _index(header, project.config.column_aliases)
     unknown = [name for name in values if name not in columns]
     if unknown:
         raise WriteError(f"the task table has no column(s): {', '.join(unknown)}")

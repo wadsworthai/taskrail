@@ -12,6 +12,7 @@ from taskrail.issues import ConfigError
 CONFIG_PATH = Path(".taskrail") / "config.toml"
 PREFIX_RE = re.compile(r"^[A-Z]{1,4}$")
 NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
+CORE_TASK_COLUMNS = ("✓", "ID", "Kind", "Depends On", "Title", "Pts", "Description")
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,7 @@ class Config:
     version: str | None
     backlogs: tuple[BacklogConfig, ...]
     custom_columns: tuple[str, ...] = ()
+    column_aliases: dict[str, str] = field(default_factory=dict)  # core task column -> this repository's header
     points_scale: tuple[int, ...] = ()
     push_task_branch: bool = True
     claim_remote: str = ""
@@ -161,6 +163,7 @@ def load_config(root: Path) -> Config:
     if not all(isinstance(item, str) and item for item in custom):
         problems.append("columns.custom must be a list of non-empty strings")
         custom = []
+    aliases = _column_aliases(expect(columns, "aliases", dict, {}) if isinstance(columns, dict) else {}, custom, problems)
 
     points = data.get("points", {})
     scale = expect(points, "scale", list, []) if isinstance(points, dict) else []
@@ -221,6 +224,7 @@ def load_config(root: Path) -> Config:
         version=version,
         backlogs=tuple(backlogs),
         custom_columns=tuple(custom),
+        column_aliases=aliases,
         points_scale=tuple(scale),
         push_task_branch=push_task_branch,
         claim_remote=claim_remote,
@@ -231,3 +235,36 @@ def load_config(root: Path) -> Config:
         review=review,
         allowed_kinds=tuple(allowed_kinds or ()),
     )
+
+
+def _column_aliases(raw: dict, custom: list, problems: list[str]) -> dict[str, str]:
+    """Check `[columns].aliases` (core task column -> header) and return it keyed by core name."""
+    core_by_lower = {name.lower(): name for name in CORE_TASK_COLUMNS}
+    custom_lower = {name.lower() for name in custom if isinstance(name, str)}
+    aliases: dict[str, str] = {}
+    owners: dict[str, str] = {}
+    for key, value in raw.items():
+        core = core_by_lower.get(key.strip().lower())
+        if core is None:
+            problems.append(f"columns.aliases: `{key}` is not a core task column ({', '.join(CORE_TASK_COLUMNS)})")
+            continue
+        if not isinstance(value, str) or not value.strip() or "|" in value:
+            problems.append(f"columns.aliases.{core} must be a non-empty header name without `|`")
+            continue
+        if core in aliases:
+            problems.append(f"columns.aliases: {core} is aliased more than once")
+            continue
+        alias = value.strip()
+        lower = alias.lower()
+        if lower == core.lower():
+            continue  # its own name: nothing to map
+        if lower in core_by_lower:
+            problems.append(f"columns.aliases: alias `{alias}` for {core} is the name of core column {core_by_lower[lower]}")
+        elif lower in owners:
+            problems.append(f"columns.aliases: alias `{alias}` is given to both {owners[lower]} and {core}")
+        elif lower in custom_lower:
+            problems.append(f"columns.aliases: alias `{alias}` for {core} is also a custom column")
+        else:
+            owners[lower] = core
+            aliases[core] = alias
+    return aliases

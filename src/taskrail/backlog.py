@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from pathlib import Path
 
 from taskrail.config import BacklogConfig, Config
@@ -20,17 +21,24 @@ EPIC_REQUIRED = ("ID", "Epic")
 EPIC_OPTIONAL = ("Objective", "File")
 
 
-def _index(header: list[str]) -> dict[str, int]:
-    """Map canonical column names to positions, matching case-insensitively."""
+def _index(header: list[str], aliases: Mapping[str, str] | None = None) -> dict[str, int]:
+    """Map canonical column names to positions, matching case-insensitively.
+
+    `aliases` (core task column -> header) applies to task tables only: an aliased column is
+    found by its alias, and its core name is no longer recognised.
+    """
     known = {name.lower(): name for name in (*TASK_REQUIRED, *TASK_OPTIONAL, *EPIC_OPTIONAL, "Epic")}
+    for core, alias in (aliases or {}).items():
+        known.pop(core.lower(), None)
+        known[alias.lower()] = core
     result: dict[str, int] = {}
     for position, cell in enumerate(header):
         result[known.get(cell.strip().lower(), cell.strip())] = position
     return result
 
 
-def _is_task_table(table: Table) -> bool:
-    columns = _index(table.header)
+def _is_task_table(table: Table, aliases: Mapping[str, str] | None = None) -> bool:
+    columns = _index(table.header, aliases)
     return "ID" in columns and ("✓" in columns or "Kind" in columns)
 
 
@@ -58,7 +66,9 @@ def _epic_sections(sections: list[Section]) -> dict[str, tuple[Section, str]]:
     return found
 
 
-def _check_stray_tables(sections: list[Section], allowed: set[int], file: str, issues: list[Issue]) -> None:
+def _check_stray_tables(
+    sections: list[Section], allowed: set[int], file: str, issues: list[Issue], aliases: Mapping[str, str] | None = None
+) -> None:
     """Task tables must sit in an epic section; malformed tables are always reported."""
     for index, section in enumerate(sections):
         for line in section.malformed_tables:
@@ -66,7 +76,7 @@ def _check_stray_tables(sections: list[Section], allowed: set[int], file: str, i
         if index in allowed:
             continue
         for table in section.tables:
-            if _is_task_table(table):
+            if _is_task_table(table, aliases):
                 issues.append(
                     error("task-outside-epic", "task table is not inside an epic section", file, table.line)
                 )
@@ -86,11 +96,20 @@ def _parse_tasks(
             epic.done_when = match.group(1).strip() or None
 
     known_columns = {*TASK_REQUIRED, *TASK_OPTIONAL}
+    aliases = config.column_aliases
+    aliased_by_lower = {core.lower(): core for core in aliases}
     for table in section.tables:
-        if not _is_task_table(table):
+        if not _is_task_table(table, aliases):
             continue
-        columns = _index(table.header)
-        missing = [name for name in TASK_REQUIRED if name not in columns]
+        replaced = [aliased_by_lower[c.strip().lower()] for c in table.header if c.strip().lower() in aliased_by_lower]
+        if replaced:
+            expected = ", ".join(f"`{aliases[core]}` instead of `{core}`" for core in replaced)
+            issues.append(
+                error("column-alias", f"[columns].aliases names column(s) differently: use {expected}", file, table.line)
+            )
+            continue
+        columns = _index(table.header, aliases)
+        missing = [f"{aliases[name]} ({name})" if name in aliases else name for name in TASK_REQUIRED if name not in columns]
         if missing:
             issues.append(
                 error("task-columns", f"task table is missing column(s): {', '.join(missing)}", file, table.line)
@@ -176,7 +195,7 @@ def load_backlog(
 
     inline = _epic_sections(sections)
     allowed_main = {index for index, s in enumerate(sections) if s.title and EPIC_HEADING.match(s.title)}
-    _check_stray_tables(sections, allowed_main, main_file, issues)
+    _check_stray_tables(sections, allowed_main, main_file, issues, config.column_aliases)
 
     epic_id_re = re.compile(rf"^{backlog_config.epic_prefix}\d{{2,}}$")
     listed: set[str] = set()
@@ -276,7 +295,7 @@ def load_backlog(
                 issues.append(error("epic-no-section", f"`{epic.file}` has no `## {epic.id} — …` section", epic.file))
                 continue
             allowed = {index for index, s in enumerate(epic_sections) if s.title and EPIC_HEADING.match(s.title)}
-            _check_stray_tables(epic_sections, allowed, epic.file, issues)
+            _check_stray_tables(epic_sections, allowed, epic.file, issues, config.column_aliases)
             section, heading_name = defined[epic.id]
             epic.section_file, epic.section_line = epic.file, section.line
 

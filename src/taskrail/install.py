@@ -166,6 +166,7 @@ artifacts = "docs"
 
 [columns]
 custom = []
+# aliases = {{ Pts = "Size" }}   # core column -> this repository's header for it
 
 [points]
 scale = [1, 2, 3, 5, 8, 13]

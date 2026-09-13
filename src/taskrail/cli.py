@@ -23,6 +23,9 @@ EXIT_NOT_FOUND = 3
 EXIT_CONFLICT = 4
 EXIT_REFUSED = 5
 
+# `new` flags that fill each core task column; ID and ✓ are set by taskrail itself.
+CORE_COLUMN_FLAGS = {"Kind": "--kind", "Title": "--title", "Pts": "--pts", "Depends On": "--depends-on", "Description": "--description"}
+
 
 def _emit(data, as_json: bool, text: str) -> None:
     if as_json:
@@ -309,6 +312,16 @@ def cmd_new(args) -> int:
         name, sep, value = pair.partition("=")
         if not sep:
             print(f"taskrail: --column expects NAME=VALUE, got `{pair}`", file=sys.stderr)
+            return EXIT_USAGE
+        aliased = next(
+            (core for core, alias in project.config.column_aliases.items() if name.strip().lower() in (core.lower(), alias.lower())),
+            None,
+        )
+        if aliased is not None:
+            flag = CORE_COLUMN_FLAGS.get(aliased)
+            how = f"set it with {flag}" if flag else "taskrail sets it"
+            alias = project.config.column_aliases[aliased]
+            print(f"taskrail: --column cannot set core column {aliased} (named `{alias}` here); {how}", file=sys.stderr)
             return EXIT_USAGE
         values[name.strip()] = value.strip()
 
