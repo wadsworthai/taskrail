@@ -5,9 +5,10 @@ import json
 import pytest
 from conftest import git
 
-from taskrail import claims
+from taskrail import claims, stack
 from taskrail.cli import main
 from taskrail.config import load_config
+from taskrail.project import load_project
 
 TODO = """
 # TODO
@@ -316,3 +317,74 @@ def test_review_on_a_mainline_based_branch_has_no_dependency(lanes, capsys):
     capsys.readouterr()
     rebase = data(lane, "review", "T003", capsys=capsys)["rebase"]
     assert (rebase["onto"], rebase["dependency"]) == ("origin/main", None)
+
+
+# A task reopened on its mainline while its old branch still says ✅ (T034)
+
+
+def squash_merge(lanes, task_id):
+    """What a squash merge of the task's pull request leaves on the mainline: its row ✅."""
+    todo = lanes.root / "TODO.md"
+    todo.write_text(mark_done(todo.read_text(), task_id))
+    commit_all(lanes.root, f"feat: merge ({task_id})")
+
+
+def reopen_on_mainline(lanes, task_id, capsys, trailer=None):
+    capsys.readouterr()
+    result = data(lanes.root, "reopen", task_id, "--reason", "Not finished after all", capsys=capsys)
+    message = result["commit_message"]
+    if trailer is not None:
+        message = message.replace(f"Reopens: {task_id}\n", f"{trailer}\n")
+    git(lanes.root, "commit", "-q", "-a", "--cleanup=verbatim", "-m", message)
+
+
+def drop_lane(lanes, task_id, branch):
+    git(lanes.root, "worktree", "remove", "--force", str(lanes.worktrees[task_id]))
+    git(lanes.root, "branch", "-D", branch)
+
+
+@pytest.mark.parametrize("trailer", [None, "Reopens:  T001 \r"], ids=["trailer", "trailer-with-whitespace"])
+def test_a_task_reopened_on_the_mainline_is_pending_despite_its_stale_branch(lanes, capsys, trailer):
+    lanes.finish("T001", T001)
+    push_lane(lanes, T001)
+    squash_merge(lanes, "T001")
+    reopen_on_mainline(lanes, "T001", capsys, trailer)
+    git(lanes.root, "push", "-q", "origin", "main")
+    git(lanes.root, "fetch", "-q", "origin")
+    capsys.readouterr()
+
+    assert data(lanes.root, "show", "T001", capsys=capsys)["state"] == "pending"
+    assert "T001" in ids(data(lanes.root, "next", capsys=capsys))
+    dependent = data(lanes.root, "show", "T002", capsys=capsys)
+    assert (dependent["state"], dependent["blocked_by"], dependent["base"]["dependency"]) == ("blocked", ["T001"], None)
+    code, _, err = run(lanes.root, "claim", "T001", "--owner", "other", capsys=capsys)
+    assert code == 0, err
+
+
+def test_a_second_done_on_a_branch_containing_the_reopen_is_done_branch_again(lanes, capsys):
+    lanes.finish("T001", T001)
+    push_lane(lanes, T001)
+    squash_merge(lanes, "T001")
+    reopen_on_mainline(lanes, "T001", capsys)
+    drop_lane(lanes, "T001", T001)  # origin/T001-base-task stays behind, still ✅ and without the reopen
+
+    capsys.readouterr()
+    lanes.finish("T001", T001, base="main")
+    capsys.readouterr()
+    assert data(lanes.root, "show", "T001", capsys=capsys)["state"] == "done-branch"
+    project, _ = load_project(load_config(lanes.root))
+    assert stack.done_on_branch(project)["T001"].refs == (T001,)
+
+
+def test_a_second_reopen_clears_a_branch_that_contains_only_the_first(lanes, capsys):
+    lanes.finish("T001", T001)
+    squash_merge(lanes, "T001")
+    reopen_on_mainline(lanes, "T001", capsys)
+    drop_lane(lanes, "T001", T001)
+    lanes.finish("T001", T001, base="main")  # contains the first reopen
+    squash_merge(lanes, "T001")
+    reopen_on_mainline(lanes, "T001", capsys)  # the stale tip lacks this one
+    capsys.readouterr()
+
+    assert data(lanes.root, "show", "T001", capsys=capsys)["state"] == "pending"
+    assert "T001" in ids(data(lanes.root, "next", capsys=capsys))

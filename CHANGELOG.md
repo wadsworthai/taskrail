@@ -32,6 +32,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   such task branches from that branch — `show`'s `base` (now with `commit` and `dependency`),
   `new --workspace` and `review`'s `rebase.dependency` — while two or more make it `blocked`.
   Claims record `base` with its fork point, and ignore unknown keys when read (T017).
+- **A reopen clears `done-branch`.** A task reopened on its mainline is no longer `done-branch`
+  because its old branch, or that branch's remote copy, still says `✅`: a tip counts only if it
+  contains every mainline commit with a `Reopens: <ID>` trailer, so `next` offers the task and
+  `claim` accepts it again, while a branch done after the reopen is `done-branch` as before (T034).
 - **Conditional stages.** A `[[stage]]` with `column` and `match` applies only to tasks whose
   custom column matches, case-insensitively, and one with `judgement = true` is left to the
   executor; `show --json` reports `column`, `match`, `judgement` and a boolean `applies` for each

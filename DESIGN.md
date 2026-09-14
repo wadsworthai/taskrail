@@ -541,8 +541,13 @@ consulted, so these commands never need the network.
 remote — and `✅` on neither the local mainline nor `<remote>/<mainline>`. It takes precedence
 over a claim: the work is finished and only waits to be merged, so `next` never offers it and
 `claim` refuses it. "Merged" means `✅` on a mainline ref in every checkout, including a task
-worktree whose own row already says `✅`. The backlog files at those tips are read with one
-`git cat-file --batch` per backlog, only for tasks whose branch exists.
+worktree whose own row already says `✅`. A tip does not count when a mainline ref has a commit with
+a `Reopens: <ID>` trailer (whitespace around the ID tolerated) that the tip lacks: its `✅`
+predates the reopen, so a stale branch left from before `taskrail reopen` does not hide the task,
+while a branch done again after the reopen contains that commit and counts. The backlog files at
+those tips are read with one `git cat-file --batch` per backlog, only for tasks whose branch exists;
+the reopen check is one `git log` per remaining `✅` tip of a task not merged, over the mainline
+commits that tip lacks.
 
 **Dependencies and the base.** A dependency blocks unless it is `done`; one that is done only on
 its unmerged branch does not block, and the dependent is stacked on it. Two or more such

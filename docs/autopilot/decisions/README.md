@@ -16,3 +16,4 @@
 | T019 | Let the executor name or rename a task branch | [T019-let-the-executor-name-or-rename-a-task-b.md](T019-let-the-executor-name-or-rename-a-task-b.md) |
 | T029 | Add the autopilot configuration, runs, and the start, lane and status commands | [T029-add-the-autopilot-configuration-runs-and.md](T029-add-the-autopilot-configuration-runs-and.md) |
 | T035 | Match routes through the shared column predicate | [T035-match-routes-through-the-shared-column-p.md](T035-match-routes-through-the-shared-column-p.md) |
+| T034 | Clear done-branch for a task reopened on its mainline | [T034-clear-done-branch-for-a-task-reopened-on.md](T034-clear-done-branch-for-a-task-reopened-on.md) |

@@ -10,7 +10,7 @@ from taskrail.ids import _epic_files
 from taskrail.markdown import parse_sections
 from taskrail.model import Project, Status, Task
 from taskrail.prior import _short
-from taskrail.review import resolve_remote
+from taskrail.review import REOPENS, resolve_remote
 
 CACHE_KEY = "done_on_branch"
 
@@ -59,8 +59,19 @@ def _read_statuses(project: Project, backlog_file: str, revisions: list[str]) ->
     return result
 
 
+def _reopened_since(root, task_id: str, tip: str, mainline_refs: list[str]) -> bool:
+    """Whether a mainline ref has a `Reopens: <ID>` commit that `tip` lacks, so the ✅ there predates it."""
+    if not mainline_refs:
+        return False
+    log = gitutil.run(root, "log", "--format=%B", "--grep=^Reopens:", *mainline_refs, "--not", tip, check=False).stdout
+    return task_id in REOPENS.findall(log)
+
+
 def done_on_branch(project: Project) -> dict[str, DoneOnBranch]:
-    """Tasks whose row is ✅ at a tip of their task branch and on neither mainline ref. Cached per project."""
+    """Tasks whose row is ✅ at a tip of their task branch and on neither mainline ref. Cached per project.
+
+    A tip whose ✅ predates a reopen on a mainline ref — a `Reopens: <ID>` commit the tip lacks — does not count.
+    """
     if CACHE_KEY not in project.cache:
         project.cache[CACHE_KEY] = _find(project)
     return project.cache[CACHE_KEY]
@@ -96,7 +107,11 @@ def _find(project: Project) -> dict[str, DoneOnBranch]:
         for task_id, (task, branch, refs) in candidates.items():
             if task_id in merged:
                 continue
-            done = tuple(_short(ref) for ref in refs if statuses[ref].get(task_id) == Status.DONE.value)
+            done = tuple(
+                _short(ref)
+                for ref in refs
+                if statuses[ref].get(task_id) == Status.DONE.value and not _reopened_since(root, task_id, ref, mainline_refs)
+            )
             if done:
                 found[task_id] = DoneOnBranch(task_id, branch, remote, done)
     return found
