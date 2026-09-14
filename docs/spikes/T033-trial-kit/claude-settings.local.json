@@ -1,0 +1,53 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.taskrail/bin/taskrail)",
+      "Bash(./.taskrail/bin/taskrail)",
+      "Bash(@REPO@/.taskrail/bin/taskrail)",
+      "Bash(@REPO@/.worktrees/*/.taskrail/bin/taskrail)",
+      "Bash(git)",
+      "Bash(python3 -m unittest)",
+      "Bash(python3 -m compileall)",
+      "Bash(python3 -m wordstat)",
+      "Bash(cd)",
+      "Bash(ls)",
+      "Bash(cat)",
+      "Bash(head)",
+      "Bash(tail)",
+      "Bash(wc)",
+      "Bash(grep)",
+      "Bash(rg)",
+      "Bash(diff)",
+      "Bash(sort)",
+      "Bash(pwd)",
+      "Bash(echo)",
+      "Bash(date)",
+      "Bash(.taskrail/bin/taskrail *)",
+      "Bash(./.taskrail/bin/taskrail *)",
+      "Bash(@REPO@/.taskrail/bin/taskrail *)",
+      "Bash(@REPO@/.worktrees/*/.taskrail/bin/taskrail *)",
+      "Bash(git *)",
+      "Bash(python3 -m unittest *)",
+      "Bash(python3 -m compileall *)",
+      "Bash(python3 -m wordstat *)",
+      "Bash(cd *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(grep *)",
+      "Bash(rg *)",
+      "Bash(diff *)",
+      "Bash(sort *)",
+      "Bash(pwd *)",
+      "Bash(echo *)",
+      "Bash(date *)",
+      "Edit(/**)"
+    ],
+    "ask": [
+      "Bash(git push)",
+      "Bash(git push *)"
+    ]
+  }
+}

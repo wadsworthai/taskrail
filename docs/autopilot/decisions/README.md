@@ -30,3 +30,4 @@
 | T004 | Add a git merge driver for status cells and appended rows | [T004-add-a-git-merge-driver-for-status-cells.md](T004-add-a-git-merge-driver-for-status-cells.md) |
 | T040 | Merge appended changelog bullets without duplicating moved ones | [T040-merge-appended-changelog-bullets-without.md](T040-merge-appended-changelog-bullets-without.md) |
 | T039 | Fetch full history in the generated GitHub workflow | [T039-fetch-full-history-in-the-generated-gith.md](T039-fetch-full-history-in-the-generated-gith.md) |
+| T033 | Trial the autopilot on a real backlog with each supported agent | [T033-trial-the-autopilot-on-a-real-backlog-wi.md](T033-trial-the-autopilot-on-a-real-backlog-wi.md) |
