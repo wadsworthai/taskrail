@@ -22,3 +22,4 @@
 | T024 | Write the taskrail-autopilot skill with Claude Code and OpenCode notes | [T024-write-the-taskrail-autopilot-skill-with.md](T024-write-the-taskrail-autopilot-skill-with.md) |
 | T012 | Flag reopened tasks committed without a Reopens trailer | [T012-flag-reopened-tasks-committed-without-a.md](T012-flag-reopened-tasks-committed-without-a.md) |
 | T014 | Add an edit command for existing task rows | [T014-add-an-edit-command-for-existing-task-ro.md](T014-add-an-edit-command-for-existing-task-ro.md) |
+| T004 | Add a git merge driver for status cells and appended rows | [T004-add-a-git-merge-driver-for-status-cells.md](T004-add-a-git-merge-driver-for-status-cells.md) |

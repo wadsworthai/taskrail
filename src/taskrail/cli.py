@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, branches, claims, gitutil, history, ids, install, prior, review, stack, writer
+from taskrail import __version__, branches, claims, gitutil, history, ids, install, mergedriver, prior, review, stack, writer
 from taskrail.autopilot import runs as autopilot_runs
 from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
@@ -1033,7 +1033,10 @@ def cmd_epic_add(args) -> int:
     except writer.WriteError as exc:
         print(f"taskrail: {exc}", file=sys.stderr)
         return EXIT_USAGE
-    return _write(edits, args.json, {"id": epic_id, "backlog": backlog_config.name, "file": file}, epic_id)
+    return _write(
+        edits, args.json, {"id": epic_id, "backlog": backlog_config.name, "file": file}, epic_id,
+        on_written=lambda _: file and mergedriver.refresh_attributes(config),
+    )
 
 
 def cmd_epic_split(args) -> int:
@@ -1051,7 +1054,10 @@ def cmd_epic_split(args) -> int:
     except writer.WriteError as exc:
         print(f"taskrail: {exc}", file=sys.stderr)
         return EXIT_REFUSED
-    return _write(edits, args.json, {"id": epic.id, "file": file}, f"moved {epic.id} to {file}")
+    return _write(
+        edits, args.json, {"id": epic.id, "file": file}, f"moved {epic.id} to {file}",
+        on_written=lambda _: mergedriver.refresh_attributes(project.config),
+    )
 
 
 def _install_root(args) -> Path:
@@ -1074,6 +1080,7 @@ def cmd_init(args) -> int:
         github_workflow=args.github_workflow,
         pre_commit=args.pre_commit,
         force=args.force,
+        merge_driver=args.merge_driver,
     )
     _emit(report.to_dict(), args.json, report.format())
     return EXIT_OK
@@ -1199,6 +1206,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--github-workflow", action="store_true", help="add a GitHub Actions workflow running validate")
     init.add_argument("--pre-commit", action="store_true", help="add a git pre-commit hook running validate")
     init.add_argument("--force", action="store_true", help="replace files edited locally or not written by taskrail")
+    init.add_argument("--merge-driver", action="store_true", help="resolve backlog table conflicts with taskrail's git merge driver")
 
     upgrade = add("upgrade", cmd_upgrade, "Re-install skills and managed files for this CLI version and pin it.")
     upgrade.add_argument("--force", action="store_true")
@@ -1306,6 +1314,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     register_autopilot(commands)
     register_import(commands)
+    mergedriver.register(commands)
     return parser
 
 

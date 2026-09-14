@@ -386,6 +386,7 @@ def install(
     github_workflow: bool = False,
     pre_commit: bool = False,
     force: bool = False,
+    merge_driver: bool = False,
 ) -> Report:
     """Idempotent install. Integrations and extras add to what is already installed."""
     from taskrail.config import load_config
@@ -396,6 +397,8 @@ def install(
     extras = dict(manifest.get("extras", {}))
     if github_workflow:
         extras["github_workflow"] = True
+    if merge_driver:
+        extras["merge_driver"] = True
 
     try:
         mainline = gitutil.current_branch(root) or "main"
@@ -434,6 +437,11 @@ def install(
         _ensure_gitignore(root, config.worktree_dir, installer.report)
     if pre_commit:
         install_hook(root, installer.report)
+    if extras.get("merge_driver"):
+        from taskrail import mergedriver
+
+        # The .gitattributes block is shared; the driver definition is added only on request.
+        mergedriver.install(root, config, installer.report, add_config=merge_driver)
     changed = [*installer.report.created, *installer.report.updated, *installer.report.removed]
     if any(skill_of(path) is not None for path in changed):
         installer.report.notes.append("skills changed: restart the agent session so it loads them")

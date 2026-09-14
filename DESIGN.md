@@ -489,7 +489,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 
 | Command | Purpose |
 |---|---|
-| `taskrail init [--integration NAME]… [--github-workflow] [--pre-commit] [--force]` | Install into a repository; idempotent (§9) |
+| `taskrail init [--integration NAME]… [--github-workflow] [--pre-commit] [--merge-driver] [--force]` | Install into a repository; idempotent (§9) |
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate [--no-history] [--history-limit N]` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks. Also warns about reopens committed without a trailer (*Reopens in history* below) |
 | `taskrail list [--epic E01] [--eligible] [--fetch]` | Tasks, with computed blocked and eligible state |
@@ -508,6 +508,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
 | `taskrail autopilot start` / `next` / `lane` / `decision` / `status` / `merged` / `notify` | Autopilot runs, dispatch and their lanes, and merge follow-through (§12.1, §12.8) |
+| `taskrail merge-driver <base> <current> <other> […]` | The git merge driver for backlog tables (§7.4); run by git, not by hand |
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |
 
 ### 7.1 Review hand-off
@@ -767,6 +768,78 @@ committed there. Not supported: list-based backlogs, tables without IDs, setext 
 implied by the section, editing the configuration, merging into a backlog that already has tasks,
 and epics in their own files (`epic split` moves them afterwards).
 
+### 7.4 Merge driver
+
+Parallel task branches edit the same backlog tables, and git sees adjacent lines, not rows: two
+branches appending to one epic, a `✓` flipped next to a row appended by the other, or a rebase
+replaying a commit that opens a row already upstream all conflict. `taskrail merge-driver` resolves
+those as a git merge driver.
+
+**Contract.** `taskrail merge-driver <base> <current> <other> [--marker-size N] [--path P]
+[--base-label L] [--current-label L] [--other-label L]` — git's `%O %A %B %L %P %S %X %Y`. The
+result is written over `<current>`; the exit status is 0 for a clean merge and 1 when conflicts are
+left with standard markers of `--marker-size` characters and the given labels. Nothing else is
+read or written, and no other status is returned: any internal failure, including input that is not
+UTF-8, gives exactly what `git merge-file` gives for the same inputs, with a warning on stderr.
+
+**Tables merged row by row.** Pipe tables outside fenced code are identified by their section —
+the epic ID of a `## E## — …` heading, otherwise the heading, or the text before the first level-2
+heading — and their position in it. A table present on both sides with the same header (trimmed,
+case-insensitive), rows of the header's width and unique non-empty keys is merged row by row; the
+base is the same table in the ancestor when its header matches, else empty (a header change on any
+side leaves the table to git). The key column is `ID`, through `[columns].aliases` when the working
+tree's config can be read, else the first column, so the `## Epics` table and artifact indexes
+merge too.
+
+- A key on both sides: each cell is merged three-way against the base row; a cell both sides
+  changed differently leaves the row unresolved, except the `✓` cell below.
+- A key on one side: added when the base lacks it, removed when the base has it and the side keeping
+  it did not change it, unresolved (modify/delete) otherwise. A key only in the base is removed.
+- Order: the current side's rows, each row only the other side has placed after its predecessor
+  there, past rows new on the current side — so both sides appending gives the current side's rows
+  first. A merged row is the current side's line with only the other side's cells replaced.
+
+**`✓` cells.** In a task table, when the sides' statuses differ and neither equals the base's (or
+there is no base row): one `✅` wins, unless the other is `⬜` and its side has a `Reopens: <ID>`
+commit the `✅` side lacks; any other pair is unresolved. The sides are found from the labels,
+since `MERGE_HEAD`, `REBASE_HEAD` and `CHERRY_PICK_HEAD` do not exist yet while a driver runs: the
+first word of `%X` and `%Y` (`HEAD` and the merged name in a merge, `<hash> (<subject>)` in a rebase
+or cherry-pick) resolved with `git rev-parse --verify`. One
+`git log --left-right --cherry-pick --grep=^Reopens: <current>...<other>` then lists the reopens,
+ignoring those patch-equivalent on both sides, as a rebase that already replayed one leaves. When a
+label does not resolve — git before 2.44 passes the placeholders literally; a criss-cross merge's
+virtual base has no commits — a conflict that needs this check stays marked.
+
+**Everything else.** The merged rows replace each such table in all three inputs — identical, so
+they are context — except unresolved rows, which keep each version's own line at their merged
+position. `git merge-file` then merges the result, so prose, headings, new sections and tables not
+merged by row behave as in an ordinary merge, and markers surround only unresolved rows and truly
+conflicting text. Placing the merged table in the base too is what lets a prose edit right after a
+table merge cleanly. The driver never validates, since the other backlog files may not be merged
+yet; rules across tables or files stay with `taskrail validate`, which the core skill runs after a
+rebase.
+
+**Installing.** `init --merge-driver` records the extra and:
+
+- writes a marked block in `.gitattributes`, keeping every other line, with `/<path> merge=taskrail`
+  for each backlog file, epic file and artifact index (each kind's `artifact_index` and
+  `[autopilot].decisions_index` rendered per backlog, skipping per-task templates), quoted or escaped
+  so it matches exactly that path. `upgrade` and `init` refresh it while the extra is recorded, and
+  `epic add --own-file` and `epic split` refresh an existing block when they create an epic file;
+- sets `merge.taskrail.name` and `merge.taskrail.driver` in this clone's local config:
+
+  ```
+  .taskrail/bin/taskrail merge-driver %O %A %B --marker-size %L --path %P --base-label %S --current-label %X --other-label %Y; rc=$?; [ $rc -le 1 ] && exit $rc; git merge-file --marker-size %L -L %X -L %S -L %Y %A %O %B
+  ```
+
+  git runs it from the top of the worktree, so each worktree runs its own pinned taskrail; the tail
+  gives an ordinary merge when taskrail cannot start. `upgrade` rewrites an existing definition and
+  never adds one: running repository code on merges is each clone's choice.
+
+The block is committed and the definition is not. A clone with no `merge.taskrail` section merges
+those files with git's text merge; a section with a `name` but no `driver` makes git fail, so remove
+the whole section (`git config --remove-section merge.taskrail`) to opt out.
+
 ## 8. Skills
 
 - `taskrail` — the core skill: the backlog model, how to call the CLI and read its exit codes,
@@ -838,7 +911,9 @@ session starts.
   `kind-allowed-unknown`, nothing the kind filter would remove is removed, and a note says so:
   bad input never deletes a skill, and the next run after the fix removes what is not wanted.
 - **Extras** — `--github-workflow` is remembered in the manifest; `--pre-commit` writes a
-  marked block into this clone's git hook, keeping an existing shell hook's contents.
+  marked block into this clone's git hook, keeping an existing shell hook's contents;
+  `--merge-driver` is remembered too, keeps a marked block of `.gitattributes` current and defines
+  the driver in this clone's git config (§7.4).
 
 `taskrail upgrade` repeats the install with the recorded integrations and pins the config to
 the running CLI version. `taskrail self upgrade [--tag]` reinstalls the CLI from a release tag.
@@ -872,7 +947,7 @@ taskrail/
    allocation, epics, kind resolution, core kinds and skills, the Claude integration, `init`
    and the wrapper.
 2. **v2** — autopilot orchestrator, import from existing backlogs (§7.3, T005), a git merge driver that
-   resolves `✓` cell conflicts. The autopilot is designed in §12 and delivered by T017 (stacked
+   resolves backlog table conflicts (§7.4, T004). The autopilot is designed in §12 and delivered by T017 (stacked
    base and `done-branch`), T027 (unreadable manifest), T029–T032 (the `autopilot` commands),
    then T024 (the skill), and trialled by T033 (§12.10).
 
@@ -1174,9 +1249,10 @@ procedure (*implemented, T024*); detection and cleanup are the CLI's (*implement
   rewritten after it branched, `merge-base` falls back to the mainline and the dependent reads as
   not stacked; `fork_source` says which source was used.
 - **Known conflict classes,** resolved without a human; anything else escalates:
-  1. backlog rows, united by ID, with ✅ winning unless a `Reopens:` commit exists (the core skill
-     today; T004's merge driver automates it later);
-  2. appended index rows and changelog bullets: keep all;
+  1. backlog rows, united by ID, with ✅ winning unless a `Reopens:` commit exists (the merge
+     driver, §7.4, where a clone installed it; by hand with the core skill's rule otherwise);
+  2. appended index rows and changelog bullets: keep all (index rows by the merge driver when the
+     indexes are in its `.gitattributes` block; changelog bullets by hand until T040);
   3. installed skill copies and `.taskrail/installed.json`: make the manifest valid first, merge
      the sources, then run `taskrail upgrade --force`.
 - **Class 3 needs T027 first:** until `init` and `upgrade` stop on an unreadable manifest, a

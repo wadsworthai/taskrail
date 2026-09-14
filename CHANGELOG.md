@@ -125,6 +125,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   It refuses closed, `done-branch` and someone else's claimed tasks without `--force`, keeps a
   recorded branch name, and records the old template name when a title change would move a branch
   that exists. The core skill points to it instead of hand edits (T014).
+- **A git merge driver for backlog tables.** `init --merge-driver` marks the backlog, epic and
+  artifact index files in `.gitattributes` and defines `taskrail merge-driver` in the clone's git
+  config, so `git merge`, `rebase` and `cherry-pick` unite table rows by ID, merge a row's cells
+  three-way, keep `✅` unless the other side has a `Reopens:` commit, and leave markers only around
+  rows and text that really conflict; everything else merges as git would. `upgrade`, `epic add
+  --own-file` and `epic split` keep the block current (T004).
 
 ## 0.1.0
 

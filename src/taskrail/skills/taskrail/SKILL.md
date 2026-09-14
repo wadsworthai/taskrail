@@ -96,10 +96,12 @@ of `taskrail show`) supplies what happens inside each stage.
      onto: the local or the remote mainline, whichever is further ahead — or, while `rebase.dependency` names an unmerged dependency, that
      dependency's branch; the pull request still targets the mainline. If `rebase.diverged` is
      true, stop and ask which one to use;
-   - if `rebase.needed` is true, run `git rebase <rebase.onto>`. Resolve backlog conflicts
-     mechanically: rows added on both sides keep both, and a status cell that is `✅` on either
-     side stays `✅`, unless one side has a `Reopens: <ID>` commit the other lacks
-     (`git log --grep='^Reopens: <ID>$' <side>`) — then that side's `⬜` stays. Then run
+   - if `rebase.needed` is true, run `git rebase <rebase.onto>`. When the repository's merge
+     driver is installed (`git config merge.taskrail.driver` prints a command), git resolves most
+     backlog conflicts itself, and the markers left in a backlog file are the ones it could not.
+     Resolve backlog conflicts mechanically: rows added on both sides keep both, and a status cell
+     that is `✅` on either side stays `✅`, unless one side has a `Reopens: <ID>` commit the other
+     lacks (`git log --grep='^Reopens: <ID>$' <side>`) — then that side's `⬜` stays. Then run
      `taskrail validate`, and stop and ask about any other conflict;
    - choose the pull request title's type and scope. The pull request is squash-merged, so its
      title is the commit that reaches the mainline and drives the next version: use the
