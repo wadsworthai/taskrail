@@ -1119,8 +1119,10 @@ def build_parser() -> argparse.ArgumentParser:
     kind_list.set_defaults(handler=cmd_kind_list)
 
     from taskrail.autopilot.commands import register as register_autopilot
+    from taskrail.importer import register as register_import
 
     register_autopilot(commands)
+    register_import(commands)
     return parser
 
 

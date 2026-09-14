@@ -59,6 +59,24 @@ taskrail self upgrade                  # update the CLI to the latest release
 
 Every command accepts `--json`. Exit codes are listed in DESIGN.md.
 
+## Adopting an existing backlog
+
+A Markdown backlog made of task tables under headings converts with `taskrail import`. It is a
+dry run until `--write`: read the report, add a flag for each value it cannot map, and run it
+again.
+
+```bash
+taskrail import TODO.md --column "✓=Status" --column Kind=Type --status "in progress=pending" \
+  --kind "tech debt=chore" --default-kind feature          # prints the converted file
+taskrail import TODO.md <the same flags> --write
+taskrail validate
+```
+
+Headings that hold task tables become epics (`--epic-level` picks the heading level), tables
+under no heading go to one `Backlog` epic, and IDs, row order, prose and escaped pipes are kept.
+A table needs an ID and a status column to be imported. To keep a header such as `Status`, add it
+to `[columns].aliases` first; otherwise mapped headers take taskrail's names. See DESIGN.md §7.3.
+
 ## Task kinds
 
 The core kinds are `bug`, `chore`, `feature` and `spike`, each with its executor skill. A

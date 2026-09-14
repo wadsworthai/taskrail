@@ -18,3 +18,4 @@
 | T030 | Dispatch autopilot lanes with autopilot next | [T030-dispatch-autopilot-lanes-with-autopilot.md](T030-dispatch-autopilot-lanes-with-autopilot.md) |
 | T032 | Add autopilot notify and the escalation flags in autopilot status | [T032-add-autopilot-notify-and-the-escalation.md](T032-add-autopilot-notify-and-the-escalation.md) |
 | T031 | Detect squash merges by content and follow through with autopilot merged | [T031-detect-squash-merges-by-content-and-foll.md](T031-detect-squash-merges-by-content-and-foll.md) |
+| T005 | Import tasks from table-based backlogs without epics | [T005-import-tasks-from-table-based-backlogs-w.md](T005-import-tasks-from-table-based-backlogs-w.md) |

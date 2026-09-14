@@ -94,6 +94,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   when the merge is unproven or the worktree has uncommitted or untracked files, is locked, is the
   main worktree or holds the current directory. Stacked dependents are listed with their
   `git rebase --onto` command (T031).
+- **Import a table-based backlog.** `taskrail import <file>` converts a Markdown backlog made of
+  task tables under headings, with no `## Epics` table, into one `validate` accepts: headings
+  become epics, `--column`, `--status`, `--kind` and `--default-kind` map its headers and values,
+  and IDs, row order, prose and escaped pipes are kept byte for byte. It is a dry run printing the
+  result unless `--write`, refuses unmapped values with exit 5, and a second run changes nothing
+  (T005).
 
 ## 0.1.0
 

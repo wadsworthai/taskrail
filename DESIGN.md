@@ -24,7 +24,8 @@ Non-goals for v1:
 
 - The autopilot orchestrator (parallel lanes answering gates on the human's behalf). Phase 2;
   its planned design is §12, not yet implemented.
-- Importing the source projects' existing backlogs. Phase 2.
+- Importing the source projects' existing backlogs. Phase 2; `taskrail import` (§7.3) now
+  converts table-based backlogs.
 - Any Spec Kit integration in the core. A `spec` kind is an extension, shipped as an example.
 - Merging, or creating pull requests through a host's API. Hand-off ends with a pushed branch and
   a link that opens the pull request with its title filled in (§7.1).
@@ -502,6 +503,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
+| `taskrail import <FILE> [--write] [--column CORE=HEADER]… [--status VALUE=STATUS]… [--kind VALUE=KIND]… [--default-kind KIND] [--epic-level N] [--epic-name NAME]` | Convert a table-based Markdown backlog without epics into this backlog; a dry run unless `--write` (§7.3) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
 | `taskrail autopilot start` / `next` / `lane` / `decision` / `status` / `merged` / `notify` | Autopilot runs, dispatch and their lanes, and merge follow-through (§12.1, §12.8) |
@@ -637,6 +639,84 @@ skill asks the agent to look at them and mention them at its first gate.
 The history search is a single `git log --fixed-strings --grep=<ID>` over those refs, so its
 cost grows with the history; `list` and `next` do not run it. Like `base`, it never fetches.
 
+### 7.3 Import
+
+`taskrail import <FILE>` converts an existing Markdown backlog — pipe tables of tasks under
+headings, prose in between, no `## Epics` table, its own headers and status markers — into the
+format of §3, changing as few bytes as possible. `--backlog` picks the target backlog when several
+are configured.
+
+**Dry run by default.** Without `--write` nothing is written: the converted file goes to stdout
+and a summary to stderr; `--json` returns the summary with the file in `content`. `--write`
+replaces the backlog's `file` with the result. The source may be that file (an in-place
+conversion, the usual case once `init` has left an existing `TODO.md` alone) or another file,
+which is left untouched. A target other than the source is replaced only when it is missing or
+holds nothing but headings and empty tables, like the file `init` seeds.
+
+**Task tables.** A table is a task table when, after mapping, its header has an `ID` and a `✓`
+column. Other tables stay as they are; one with an `ID` column but no status column is listed in
+`tables_skipped`. Tables and headings in fenced code are ignored.
+
+**Headings become epics.** Each task table belongs to the nearest heading above it whose level
+lies between 2 and the epic level: `--epic-level N` (2–6), or by default the shallowest level
+among the nearest level-2-or-deeper heading of every task table. Each heading that owns a task
+table becomes an epic, its line rewritten to `## E01 — <text>`; every other heading is kept, and
+level-1 headings never become epics. Task tables under no such heading form one epic named
+`--epic-name` (default `Backlog`), whose heading is inserted before its first table. Epic IDs are
+numbered in order of appearance, except that a heading already shaped `E07 — Name` with the
+backlog's epic prefix keeps its ID. The `## Epics` section, with `—` as objective and file, is
+inserted before the first level-2 heading of the result.
+
+**Mapping.** Every flag is repeatable and matches case-insensitively after trimming.
+
+| Flag | Maps |
+|---|---|
+| `--column CORE=HEADER` | a source header onto a core column, in the direction of `[columns].aliases`; headers equal to a core name or its alias need no flag |
+| `--status VALUE=pending\|done\|discarded` | a status value, besides the built-in `⬜ [ ] todo pending open`, `✅ [x] done closed`, `❌ discarded cancelled` |
+| `--kind VALUE=KIND` | a kind value onto a kind the repository resolves and allows; a kind name in another letter case maps without a flag |
+| `--default-kind KIND` | the kind of rows whose table has no Kind column or whose Kind cell is empty |
+
+- Mapped headers are renamed to the repository's name for the column: its alias, else the core
+  name. Unmapped headers stay as custom columns, reported for `[columns].custom`.
+- A table without `Kind` gains one after `ID`, filled with `--default-kind`; a table without
+  `Depends On` gains one after `Kind`, filled with `—`.
+- Status cells become `⬜`, `✅` or `❌`. A `Depends On` cell of task IDs separated by commas,
+  semicolons or spaces becomes `T001, T002`, and an empty cell, `-` or `–` becomes `—`.
+- IDs are never renumbered, padded or re-prefixed: an ID that does not match the prefix and
+  `id_digits` is refused, with the `id_digits` value that would keep it when only padding differs.
+- Only cells whose value changes are rewritten, keeping the cell's width when the value fits.
+  Every other byte — other cells, escaped pipes, spacing, row order, prose, fenced code, line
+  endings — is kept, and inserted lines use the source's line ending.
+
+There is no default status: a status is never guessed.
+
+**Running it twice.** A source that already has an `## Epics` section and validates converts to
+itself, so a second in-place run, or importing a previous result, reports `unchanged` and writes
+nothing; a target already equal to the result is left alone as well.
+
+**Exit codes.** Every problem is collected before exiting, each with its lines:
+
+| Exit | When |
+|---|---|
+| 0 | converted, written, or nothing to change |
+| 1 | the result fails `validate` in the target file (for example `depends-unknown`); nothing is written |
+| 2 | an unreadable source, several backlogs without `--backlog`, a malformed flag, a `--column` key that is not a core column, a `--kind` or `--default-kind` kind that is not allowed, `--epic-level` outside 2–6 |
+| 4 | with `--write`, an imported ID is reserved by `reserve-id` and not yet used, or the ID lock is busy |
+| 5 | no task table; unmapped statuses, kinds or dependency cells, each distinct value with its count; a missing Title, or a missing Kind without `--default-kind`; an empty title; a row with the wrong number of cells; two columns mapped to one core column; a malformed or duplicated ID; a source with an `## Epics` section that does not validate; with `--write`, a target other than the source that already holds a backlog |
+
+`--json` returns `source`, `target`, `backlog`, `written`, `unchanged`, `already_imported`,
+`epic_level`, `epics` (`id`, `name`, source `line`, `tasks`), `tasks`, `mapped` (`columns`,
+`statuses` and `kinds` with a count per value, `default_kind`), `custom_columns`,
+`tables_skipped`, `problems` (`code`, `message`, `lines`, and `value` and `count` for unmapped
+values), `issues` and `content`.
+
+Once written, imported IDs are in the backlog file, so `reserve-id` counts them (§6.3). `--write`
+holds the ID lock while it checks reservations and replaces the file. Outside git there is no lock
+and no reservation. IDs used on other branches are not checked, since the source itself may be
+committed there. Not supported: list-based backlogs, tables without IDs, setext headings, a status
+implied by the section, editing the configuration, merging into a backlog that already has tasks,
+and epics in their own files (`epic split` moves them afterwards).
+
 ## 8. Skills
 
 - `taskrail` — the core skill: the backlog model, how to call the CLI and read its exit codes,
@@ -734,7 +814,7 @@ taskrail/
 1. **v1** — format, config, `validate`, `list`/`next`/`show`, local and remote claims, ID
    allocation, epics, kind resolution, core kinds and skills, the Claude integration, `init`
    and the wrapper.
-2. **v2** — autopilot orchestrator, import from existing backlogs, a git merge driver that
+2. **v2** — autopilot orchestrator, import from existing backlogs (§7.3, T005), a git merge driver that
    resolves `✓` cell conflicts. The autopilot is designed in §12 and delivered by T017 (stacked
    base and `done-branch`), T027 (unreadable manifest), T029–T032 (the `autopilot` commands),
    then T024 (the skill), and trialled by T033 (§12.10).
