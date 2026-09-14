@@ -89,6 +89,57 @@ def test_lane_records_the_gate_a_lane_is_stopped_at(pilot, capsys):
     assert found["gate"] is None and found["escalation"] == []
 
 
+def test_lane_records_close_for_the_stop_after_done_in_every_kind(pilot, capsys):
+    """T050: `close` names the stop after `taskrail done`, which no kind has as a stage."""
+    configure(pilot, ENABLED + 'escalate_gates = ["feature:close"]\n')
+    run_id = start(pilot.root, capsys)
+    config = load_config(pilot.root)
+    feature = pilot.lane("T001", run_id)
+    pilot.lane("T003", run_id)
+
+    # a bug task, whose stages (diagnose, fix, impact) differ from a feature's
+    result = data(pilot.root, "autopilot", "lane", "T003", "--run", run_id, "--state", "gate", "--gate", "close", capsys=capsys)
+    assert result["task"]["gate"] == "close"
+    assert runs.read(config, run_id)["tasks"]["T003"]["gate"] == "close"
+
+    # the F10 scenario: the feature task is done and committed on its branch, then the stop is recorded
+    pilot.finish(feature, "T001")
+    result = data(pilot.root, "autopilot", "lane", "T001", "--run", run_id, "--state", "gate", "--gate", "close", capsys=capsys)
+    assert result["task"]["gate"] == "close"
+    stored = runs.read(config, run_id)["tasks"]["T001"]
+    assert (stored["state"], stored["gate"]) == ("gate", "close")
+    found = row(status_of(pilot.root, capsys, run_id), "T001")
+    assert (found["state"], found["gate"], found["escalate_gate"], found["escalation"]) == ("done-branch", "close", None, [])
+
+    # the state rules of --gate still hold for close, and a refusal writes nothing
+    runs_file = pilot.root / ".git" / "taskrail" / "runs" / f"{run_id}.json"
+    data(pilot.root, "autopilot", "lane", "T003", "--run", run_id, "--state", "running", capsys=capsys)
+    before = runs_file.read_text()
+    for extra in (["--state", "running"], ["--state", "failed", "--reason", "stuck"], []):
+        code, _, err = run(pilot.root, "autopilot", "lane", "T003", "--run", run_id, *extra, "--gate", "close", capsys=capsys)
+        assert code == 2 and "--gate needs --state gate or escalated" in err, extra
+    assert runs_file.read_text() == before
+
+    # an unknown name still exits 2, naming the kind's stages and close
+    code, _, err = run(pilot.root, "autopilot", "lane", "T003", "--run", run_id, "--state", "gate", "--gate", "nope", capsys=capsys)
+    assert code == 2 and "(diagnose, fix, impact) or `close`" in err
+    assert runs_file.read_text() == before
+
+
+def test_lane_records_close_for_a_task_whose_kind_is_not_defined(pilot, capsys):
+    """T050 D2: close does not depend on the kind's stages, so an undefined kind does not refuse it."""
+    run_id = start(pilot.root, capsys)
+    pilot.lane("T004", run_id)
+    todo = pilot.root / "TODO.md"
+    todo.write_text(todo.read_text().replace("| T004 | chore   |", "| T004 | mystery |"))
+    commit_all(pilot.root, "an undefined kind")
+
+    result = data(pilot.root, "autopilot", "lane", "T004", "--run", run_id, "--state", "gate", "--gate", "close", capsys=capsys)
+    assert result["task"]["gate"] == "close"
+    code, _, err = run(pilot.root, "autopilot", "lane", "T004", "--run", run_id, "--gate", "scope", capsys=capsys)
+    assert code == 2 and "kind `mystery` is not defined" in err
+
+
 # 2
 
 

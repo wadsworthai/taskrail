@@ -141,6 +141,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   checks out with `fetch-depth: 0`, so `validate`'s reopen check examines the history instead of
   a single commit. `upgrade` rewrites an unedited workflow; one edited locally is reported as
   skipped — add `fetch-depth: 0` to its checkout step by hand, or pass `--force` (T039).
+- **`autopilot lane --gate close`.** `close` names the stop after `taskrail done` for a task of any
+  kind, even one whose kind is not defined, so the orchestrator can record the close it reviews;
+  the other `--gate` rules are unchanged, and an unknown stage's message now lists `close` too. The
+  `taskrail-autopilot` skill records the close stop this way (T050).
 
 ## 0.1.0
 

@@ -309,6 +309,13 @@ def test_skill_lists_escalations_conflict_classes_and_hand_off():
         assert name in text, name
 
 
+def test_skill_records_the_close_stop_as_a_gate():
+    """T050: the close section records the stop after done with `lane --gate close` before reviewing it."""
+    text = source("SKILL.md")
+    close = flat(text[text.index("## Close and hand off") : text.index("## After a merge")])
+    assert "taskrail autopilot lane <id> --run <r> --state gate --gate close" in close
+
+
 def test_skill_starts_from_several_unmerged_dependencies_only_on_explicit_instruction():
     text = flat(source("SKILL.md"))
     assert "several unmerged dependencies" in text

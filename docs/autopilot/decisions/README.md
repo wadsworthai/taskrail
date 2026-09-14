@@ -31,3 +31,4 @@
 | T040 | Merge appended changelog bullets without duplicating moved ones | [T040-merge-appended-changelog-bullets-without.md](T040-merge-appended-changelog-bullets-without.md) |
 | T039 | Fetch full history in the generated GitHub workflow | [T039-fetch-full-history-in-the-generated-gith.md](T039-fetch-full-history-in-the-generated-gith.md) |
 | T033 | Trial the autopilot on a real backlog with each supported agent | [T033-trial-the-autopilot-on-a-real-backlog-wi.md](T033-trial-the-autopilot-on-a-real-backlog-wi.md) |
+| T050 | Accept --gate close for the stop after done | [T050-accept-gate-close-for-the-stop-after-don.md](T050-accept-gate-close-for-the-stop-after-don.md) |

@@ -108,16 +108,21 @@ def cmd_lane(args) -> int:
     return EXIT_OK
 
 
+CLOSE_GATE = "close"  # the stop after `taskrail done` that every kind shares (T050)
+
+
 def _gate_problem(project, task, gate: str, state: str | None) -> str | None:
     """Why `lane --gate` cannot record this stage, or None when it can."""
     if state not in runs.GATE_STATES:
         return f"--gate needs --state gate or escalated (the lane is {state or 'being handed off'})"
+    if gate == CLOSE_GATE:
+        return None  # needs no stage of the kind, so an undefined kind does not refuse it
     kind = project.kinds.get(task.kind)
     if kind is None:
         return f"--gate: {task.id}'s kind `{task.kind}` is not defined, so its stages are unknown"
     stages = [stage.name for stage in kind.stages]
     if gate not in stages:
-        return f"--gate: `{gate}` is not a stage of kind {kind.name} ({', '.join(stages)})"
+        return f"--gate: `{gate}` is not a stage of kind {kind.name} ({', '.join(stages)}) or `{CLOSE_GATE}`"
     return None
 
 
@@ -275,7 +280,7 @@ def register(commands) -> None:
     lane.add_argument("--group", help="a group assigned by judgement")
     lane.add_argument("--state", choices=(*runs.LANE_STATES, runs.HANDED_OFF))
     lane.add_argument("--reason", help="required with escalated and failed")
-    lane.add_argument("--gate", help="the stage whose gate the lane is stopped at (with --state gate or escalated)")
+    lane.add_argument("--gate", help="the stage whose gate the lane is stopped at, or close for the stop after done (with --state gate or escalated)")
 
     next_ = add("next", cmd_next, "Tasks to dispatch now within lanes, kinds, groups and the run's count, with their resources.")
     next_.add_argument("--run", help="record the dispatch in this run (default: a preview that records nothing)")

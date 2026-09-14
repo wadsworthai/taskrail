@@ -108,7 +108,9 @@ and worktree as evidence, and its dependents stay blocked.
 ## Close and hand off
 
 Lanes stop after `taskrail done` and `taskrail review <ID> --json`, without rebasing or publishing.
-Review the close by `references/gate-review.md`. Then hand branches off **one branch at a time**:
+Record that stop as a gate named `close`:
+`taskrail autopilot lane <ID> --run <R> --state gate --gate close`. Review the close by
+`references/gate-review.md`. Then hand branches off **one branch at a time**:
 `status` names the next one in `handoff.next`, and none while `handoff.in_review` is set.
 
 1. In the lane's worktree, run `taskrail review <ID> --json`. If `rebase.needed` is true, run
