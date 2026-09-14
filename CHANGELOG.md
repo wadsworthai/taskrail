@@ -62,6 +62,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   a value is `kind-invalid`; and a route on a column `[columns].custom` does not declare, a core
   column or an alias is the error `route-column-unknown`, which replaces the warning
   `route-column-undeclared` (T035).
+- **Forced releases of remote claims.** With `claim_remote` set, `release --force`, `done`, `discard`
+  and `claim --takeover` delete the remote claim with a lease on its recorded commit instead of
+  exiting 2 with `stale info`. When the delete still fails, `done` and `discard` say the row was
+  written and name `taskrail release <ID> --force` as the retry; a claim record without its pushed
+  commit is refused with the ref to delete by hand (T037).
 
 ## 0.1.0
 

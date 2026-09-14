@@ -17,3 +17,4 @@
 | T029 | Add the autopilot configuration, runs, and the start, lane and status commands | [T029-add-the-autopilot-configuration-runs-and.md](T029-add-the-autopilot-configuration-runs-and.md) |
 | T035 | Match routes through the shared column predicate | [T035-match-routes-through-the-shared-column-p.md](T035-match-routes-through-the-shared-column-p.md) |
 | T034 | Clear done-branch for a task reopened on its mainline | [T034-clear-done-branch-for-a-task-reopened-on.md](T034-clear-done-branch-for-a-task-reopened-on.md) |
+| T037 | Delete remote claims with a lease on their recorded commit | [T037-delete-remote-claims-with-a-lease-on-the.md](T037-delete-remote-claims-with-a-lease-on-the.md) |

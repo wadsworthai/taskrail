@@ -151,12 +151,20 @@ def _push_remote(config: Config, claim: Claim) -> dict:
     return {"name": config.claim_remote, "ref": ref, "commit": commit}
 
 
-def _delete_remote(config: Config, claim: Claim, force: bool) -> None:
+def _delete_remote(config: Config, claim: Claim) -> None:
+    """Delete the remote copy with a lease on the commit this clone pushed, so another clone's claim is never deleted."""
     remote = claim.remote or {}
     ref = remote.get("ref", _remote_ref(claim.id))
-    lease = f"--force-with-lease={ref}" if force else f"--force-with-lease={ref}:{remote.get('commit', '')}"
-    result = gitutil.run(config.root, "push", "--quiet", lease, remote.get("name", config.claim_remote), f":{ref}", check=False)
-    if result.returncode != 0 and gitutil.run(config.root, "ls-remote", remote.get("name", config.claim_remote), ref).stdout.strip():
+    name = remote.get("name", config.claim_remote)
+    if not remote.get("commit"):
+        raise gitutil.GitError(
+            f"the local claim for {claim.id} does not record the commit it pushed to {ref} on {name}, so the remote claim "
+            f"cannot be deleted safely; run `taskrail release {claim.id} --local-only` to drop the local claim, then check "
+            f"the remote claim is this one and delete it by hand with `git push {name} :{ref}`"
+        )
+    lease = f"--force-with-lease={ref}:{remote['commit']}"
+    result = gitutil.run(config.root, "push", "--quiet", lease, name, f":{ref}", check=False)
+    if result.returncode != 0 and gitutil.run(config.root, "ls-remote", name, ref).stdout.strip():
         raise gitutil.GitError(f"could not delete remote claim {ref}: {result.stderr.strip()}")
 
 
@@ -221,8 +229,14 @@ def rename_branch(config: Config, task_id: str, branch: str, local_only: bool = 
         remote = existing.remote
         ref = remote.get("ref", _remote_ref(task_id))
         name = remote.get("name", config.claim_remote)
+        if not remote.get("commit"):
+            raise gitutil.GitError(
+                f"the local claim for {task_id} now names branch {branch}, but it does not record the commit it pushed to "
+                f"{ref} on {name}, so the remote claim was not updated; pass --local-only to leave the remote claim alone, "
+                f"or check it is this claim and delete it by hand with `git push {name} :{ref}`"
+            )
         commit = _claim_commit(config, existing)
-        lease = f"--force-with-lease={ref}:{remote.get('commit', '')}"
+        lease = f"--force-with-lease={ref}:{remote['commit']}"
         result = gitutil.run(config.root, "push", "--quiet", "--porcelain", lease, name, f"{commit}:{ref}", check=False)
         if result.returncode != 0:
             raise gitutil.GitError(f"could not update the remote claim {ref} on {name}: {result.stderr.strip() or result.stdout.strip()}")
@@ -239,6 +253,6 @@ def release(config: Config, task_id: str, owner: str, force: bool = False, local
     if existing.owner != owner and not force:
         raise ClaimConflict(f"{task_id} is claimed by {existing.owner}; pass --force to release someone else's claim", existing)
     if existing.remote and not local_only:
-        _delete_remote(config, existing, force)
+        _delete_remote(config, existing)
     path.unlink(missing_ok=True)
     return existing

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from conftest import BASE_CONFIG, git
 
-from taskrail import claims
+from taskrail import claims, gitutil
 from taskrail.cli import main
 from taskrail.config import load_config
 
@@ -155,3 +155,97 @@ def test_local_only_claim_skips_the_remote(remote_pair, capsys):
     first, _, bare = remote_pair
     assert run(first, "claim", "T002", "--local-only", capsys=capsys)[0] == 0
     assert git(bare, "for-each-ref", "refs/taskrail/claims") == ""
+
+
+def claim_refs(bare):
+    return git(bare, "for-each-ref", "--format=%(refname)", "refs/taskrail/claims")
+
+
+def drop_remote_commit(root, task_id):
+    """Damage a local claim record the way no taskrail version writes it: without the pushed commit."""
+    path = claims.claims_dir(load_config(root)) / f"{task_id}.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    del data["remote"]["commit"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+
+@pytest.mark.parametrize("owner", ["alice", "bob"])
+def test_forced_release_deletes_the_remote_claim(remote_pair, capsys, owner):
+    first, _, bare = remote_pair
+    run(first, "claim", "T002", "--owner", "alice", capsys=capsys)
+    code, _, err = run(first, "release", "T002", "--owner", owner, "--force", capsys=capsys)
+    assert code == 0, err
+    assert claim_refs(bare) == ""
+    assert claims.read(load_config(first), "T002") is None
+
+
+@pytest.mark.parametrize("command", ["done", "discard"])
+def test_closing_a_task_deletes_its_remote_claim(remote_pair, capsys, command):
+    first, _, bare = remote_pair
+    run(first, "claim", "T002", "--owner", "alice", capsys=capsys)
+    code, _, err = run(first, command, "T002", "--owner", "alice", capsys=capsys)
+    assert code == 0, err
+    assert claim_refs(bare) == ""
+    assert claims.read(load_config(first), "T002") is None
+
+
+def test_takeover_replaces_a_stale_remote_claim(remote_pair, tmp_path, capsys):
+    first, _, bare = remote_pair
+    other = tmp_path.parent / (tmp_path.name + "-gone")
+    git(first, "worktree", "add", "-q", "-b", "T002-repricing", str(other))
+    run(other, "claim", "T002", "--owner", "lane-1", capsys=capsys)
+    shutil.rmtree(other)
+    git(first, "worktree", "prune")
+    code, _, err = run(first, "claim", "T002", "--owner", "lane-2", "--takeover", capsys=capsys)
+    assert code == 0, err
+    assert json.loads(git(bare, "show", "refs/taskrail/claims/T002:claim.json"))["owner"] == "lane-2"
+
+
+def test_forced_release_keeps_a_remote_claim_holding_another_commit(remote_pair, capsys):
+    first, _, bare = remote_pair
+    run(first, "claim", "T002", "--owner", "alice", capsys=capsys)
+    git(bare, "update-ref", "refs/taskrail/claims/T002", git(bare, "rev-parse", "main"))
+    assert run(first, "release", "T002", "--owner", "alice", "--force", capsys=capsys)[0] == 2
+    assert claim_refs(bare) == "refs/taskrail/claims/T002"
+    assert claims.read(load_config(first), "T002") is not None
+
+
+@pytest.mark.parametrize(("command", "label"), [("done", "done"), ("discard", "discarded")])
+def test_a_close_that_cannot_delete_the_remote_claim_says_the_row_was_written(remote_pair, capsys, command, label):
+    first, _, bare = remote_pair
+    run(first, "claim", "T002", "--owner", "alice", capsys=capsys)
+    git(bare, "update-ref", "refs/taskrail/claims/T002", git(bare, "rev-parse", "main"))
+    code, _, err = run(first, command, "T002", "--owner", "alice", capsys=capsys)
+    assert code == 2
+    assert f"T002 is marked {label}, but its claim was not released" in err
+    assert "taskrail release T002 --force" in err
+    assert "| T002 |" in (first / "TODO.md").read_text(encoding="utf-8")
+    assert "| ⬜ | T002 |" not in (first / "TODO.md").read_text(encoding="utf-8")
+    assert claims.read(load_config(first), "T002") is not None
+    assert claim_refs(bare) == "refs/taskrail/claims/T002"
+
+
+@pytest.mark.parametrize("force", [[], ["--force"]])
+def test_release_refuses_a_remote_claim_without_its_commit(remote_pair, capsys, force):
+    first, _, bare = remote_pair
+    run(first, "claim", "T002", "--owner", "alice", capsys=capsys)
+    drop_remote_commit(first, "T002")
+    code, _, err = run(first, "release", "T002", "--owner", "alice", *force, capsys=capsys)
+    assert code == 2
+    assert "does not record the commit" in err
+    assert "taskrail release T002 --local-only" in err and "git push origin :refs/taskrail/claims/T002" in err
+    assert claim_refs(bare) == "refs/taskrail/claims/T002"
+    assert claims.read(load_config(first), "T002") is not None
+    assert run(first, "release", "T002", "--owner", "alice", "--local-only", capsys=capsys)[0] == 0
+
+
+def test_rename_refuses_to_re_push_a_remote_claim_without_its_commit(remote_pair, capsys):
+    first, _, bare = remote_pair
+    run(first, "claim", "T002", "--owner", "alice", capsys=capsys)
+    drop_remote_commit(first, "T002")
+    published = git(bare, "rev-parse", "refs/taskrail/claims/T002")
+    with pytest.raises(gitutil.GitError, match="does not record the commit") as raised:
+        claims.rename_branch(load_config(first), "T002", "T002-renamed")
+    assert "--local-only" in str(raised.value) and "git push origin :refs/taskrail/claims/T002" in str(raised.value)
+    assert git(bare, "rev-parse", "refs/taskrail/claims/T002") == published
+    assert claims.read(load_config(first), "T002").branch == "T002-renamed"

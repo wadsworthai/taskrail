@@ -539,7 +539,15 @@ def _change_status(args, status: Status) -> int:
     writer.set_status(edits, task, status)
     code = _write(edits, args.json, {"id": task.id, "status": status.label}, f"{task.id} {status.label}")
     if code == EXIT_OK and claim is not None:
-        claims.release(config, task.id, owner, force=True)
+        try:
+            claims.release(config, task.id, owner, force=True)
+        except gitutil.GitError as exc:  # the row is written; keep the claim so the release can be retried
+            print(
+                f"taskrail: {task.id} is marked {status.label}, but its claim was not released: {exc}; "
+                f"run `taskrail release {task.id} --force` to retry",
+                file=sys.stderr,
+            )
+            return EXIT_USAGE
     return code
 
 
