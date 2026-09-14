@@ -45,6 +45,9 @@ def done_on_mainline(project: Project) -> set[str]:
             continue
         statuses = stack._read_statuses(project, backlog.config.file, refs)
         merged |= {task_id for ref in refs for task_id, cell in statuses[ref].items() if cell == Status.DONE.value}
+    from taskrail.autopilot.merged import recorded_merges  # imported here: merged imports this module
+
+    merged |= recorded_merges(project)  # a merge `autopilot merged` proved, while its commit stays on a mainline
     project.cache[MERGED_KEY] = merged
     return merged
 

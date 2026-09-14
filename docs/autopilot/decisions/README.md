@@ -21,3 +21,4 @@
 | T036 | Mirror branch records to a remote ref | [T036-mirror-branch-records-to-a-remote-ref.md](T036-mirror-branch-records-to-a-remote-ref.md) |
 | T030 | Dispatch autopilot lanes with autopilot next | [T030-dispatch-autopilot-lanes-with-autopilot.md](T030-dispatch-autopilot-lanes-with-autopilot.md) |
 | T032 | Add autopilot notify and the escalation flags in autopilot status | [T032-add-autopilot-notify-and-the-escalation.md](T032-add-autopilot-notify-and-the-escalation.md) |
+| T031 | Detect squash merges by content and follow through with autopilot merged | [T031-detect-squash-merges-by-content-and-foll.md](T031-detect-squash-merges-by-content-and-foll.md) |

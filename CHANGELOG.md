@@ -85,6 +85,15 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   stage a lane is stopped at, and `autopilot status` flags each lane with `governing_touched` (files
   matching `[autopilot].governing` paths or globs), `escalate_gate` (a `kind:stage` listed in
   `escalate_gates`) and `escalation` (T032).
+- **Merge detection by content.** `autopilot merged <ID>` runs `git fetch --prune`, then proves a
+  finished task branch is in its mainline by ancestry, a first-parent commit with the same tree,
+  the same patch-id, or a no-op `git merge-tree`, so squash merges are found; the `✅` row and an
+  `(ID)` title are reported only as confirmations. A proven merge is recorded in the runs holding
+  the task, and `autopilot status` counts it as `done-merged` while its commit stays on the
+  mainline. `--cleanup` then removes the task's worktree and local branch, refusing with exit 5
+  when the merge is unproven or the worktree has uncommitted or untracked files, is locked, is the
+  main worktree or holds the current directory. Stacked dependents are listed with their
+  `git rebase --onto` command (T031).
 
 ## 0.1.0
 

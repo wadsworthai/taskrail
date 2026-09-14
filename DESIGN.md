@@ -504,7 +504,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
-| `taskrail autopilot start` / `next` / `lane` / `decision` / `status` / `notify` | Autopilot runs, dispatch and their lanes (§12.1) |
+| `taskrail autopilot start` / `next` / `lane` / `decision` / `status` / `merged` / `notify` | Autopilot runs, dispatch and their lanes, and merge follow-through (§12.1, §12.8) |
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |
 
 ### 7.1 Review hand-off
@@ -747,8 +747,9 @@ human's decisions in its
 [decision record](../../docs/autopilot/decisions/T007-design-taskrail-s-autopilot-from-existin.md).
 T029 implemented the configuration (§12.9, now in §4), run files and `run` in the claim (§12.4),
 and `autopilot start`, `lane`, `decision` and `status` (§12.1); T030 implemented `autopilot next`
-with groups and resource pools (§12.7); T032 added `autopilot notify`, `lane --gate` and the
-computed escalation reasons in `status` (§12.6). Each part is marked *implemented*. Every
+with groups and resource pools (§12.7); T031 implemented `autopilot merged` (§12.1, §12.8) and
+recorded merges (§12.4); T032 added `autopilot notify`, `lane --gate` and the computed escalation
+reasons in `status` (§12.6). Each part is marked *implemented*. Every
 other part is still planned and names the task that will build it (§12.10). The evidence (E1–E7) and the full comparison of options stay in the spike.
 
 The autopilot runs several tasks at once, one lane per task, and answers their gates on the
@@ -777,7 +778,7 @@ disabled autopilot:
 | `autopilot lane <ID> --run R [--handle H] [--group G] [--state running\|gate\|escalated\|failed\|handed-off] [--reason …] [--gate STAGE]` | *Implemented (T029; `--gate` T032).* Records the agent-specific lane handle, a group membership assigned by judgement (§12.7; exit 2 unless `[[autopilot.group]]` has a group of that name without `column` and `match`) and the orchestrator's view of the lane. `--reason` is required with `escalated` and `failed`, optional with `gate`, and cleared by `running`. `failed` keeps the claim, so the task stays ineligible and its dependents stay blocked. `handed-off` appends the task to the run's hand-off order once, and exits 5 unless the task is `done-branch`. `--gate` records the stage whose gate the lane is stopped at, as `gate`: it must be a stage of the task's kind and the lane must be (or be set) `gate` or `escalated`, otherwise exit 2; a move to `gate` or `escalated` keeps it, `running` and `failed` clear it. An unknown run or task exits 3. |
 | `autopilot decision --run R --question … --decision … --reason …` | *Implemented (T029).* Appends a numbered run-level decision (touch map, conflict classes, order) to the run file, so run state is written only by the CLI. |
 | `autopilot status [--run R] [--fetch]` | *Implemented (T029; `dispatched` T030; escalation flags T032).* Every run, newest first, with `complete` once `count` of its tasks are `done-merged`, its run-level decisions, and every run task with its state: `pending` (with `blocked_by`), `dispatched` (by `next`, not yet claimed, for less than `[git].claim_grace_minutes`; T030), `running`, `gate`, `escalated`, `failed`, `done-branch`, `handed-off`, `done-merged`, `discarded`. Precedence: `done-merged`, `discarded`, `handed-off` or `done-branch`, the recorded `failed`, `escalated` or `gate`, `running` (a claim, stale or not, with its stale reason), `dispatched`, `pending`. Also each lane's handle, group, reason and resources, branch and worktree; `idle_minutes` since the latest of the branch tip's commit, a change in its worktree, the claim and the last `lane` update, and `silent` when a `running` lane is idle past `silent_minutes`; `touched`, the files changed since the fork point plus uncommitted ones, with `overlaps` between lanes across the runs listed; the decision-record paths; and `handoff`: `in_review`, `queue` (dependencies first, then by the branch tip's commit time) and `next`, `null` while a branch is in review. Per task, the escalation reasons of §12.6: `gate` (the recorded stage), `governing_touched` (the `touched` files a `governing` entry matches), `escalate_gate` (`kind:stage` when the task is `gate` or `escalated` at a stage `escalate_gates` lists, else `null`) and `escalation` (`governing`, `escalate-gate`, or empty); the text form adds `ESCALATE: …` to a flagged lane. Never runs the notify command. Reads git and never fetches unless `--fetch`; exit 3 for an unknown run. |
-| `autopilot merged <ID> [--cleanup]` | *Planned (T031).* Runs `git fetch --prune`, then the merge detection of §12.8. Reports `merged`, `via` and the mainline commit, and marks the task `done-merged` in the run. With `--cleanup`, removes the worktree and deletes the local branch, refusing when the merge is unverified or the worktree is dirty. Lists stacked dependents with `git rebase --onto <base.onto> <recorded base.commit>`. |
+| `autopilot merged <ID> [--run R] [--cleanup] [--no-fetch] [--owner O]` | *Implemented (T031).* Runs `git fetch --prune` on the mainline's remote (skipped with `--no-fetch` or when that remote is not configured; a failing fetch exits 2), then the merge detection of §12.8 on the task's branch — the live claim's, else the one §6.4 resolves — checking the local branch when it exists, else `<remote>/<branch>`. Reports `merged`, `via` (`ancestor`, `tree`, `patch-id`, `merge-tree`), the mainline `commit`, each check in `checks`, the `confirmations`, and both heads. A proven merge is recorded as `merged` in the lane of every run holding the task, or only in `--run R` (exit 3 for an unknown run or one that does not hold the task); needs no run and no `enabled`. With no branch left, it reports a merge a run recorded (`recorded: true`), else exits 3. With `--cleanup`, removes the worktree and deletes the local branch with a lease on the checked SHA, and releases the caller's leftover claim; it exits 5 when the merge is unproven or the worktree has modified or untracked files, is locked, is the main worktree, or contains the current directory or `--root`; exit 4 for another owner's claim; the remote branch and the branch record (§6.4) are kept. Lists stacked dependents (§12.8) with `git rebase --onto <onto> <fork>`, run in the dependent's worktree. Exit 0 when the check ran, merged or not. |
 | `autopilot notify --event escalation\|lane-done\|lane-failed --run R [--task ID] [--message TEXT]` | *Implemented (T032).* Runs `[autopilot].notify` when it is set and the event is in `notify_on` (§12.6), otherwise reports `skipped`. `--task` is required for `lane-done` and `lane-failed`; an unknown run, an unknown task or a task outside the run exits 3. Needs neither `enabled` nor a valid backlog. A notify command that exits non-zero, times out or cannot start is reported (`sent: false`, `exit_code`, `timed_out`, `error`, and a warning on stderr) and never blocks: `notify` still exits 0. |
 
 The autopilot runs only when the human asks for it and gives a task count. The skill states
@@ -838,8 +839,11 @@ lanes must not do, and answering gates needs an agent anyway.
   - `dispatched`, recorded by `autopilot next` less than `[git].claim_grace_minutes` ago with no
     claim yet (*implemented, T030*); once the grace passes without a claim it is `pending` again;
   - `done-branch`, ✅ at the task branch tip but not on the mainline (T017);
-  - `done-merged`, detected as in §12.8, or ✅ on the mainline — until T031, only ✅ on the local
-    mainline or `<remote>/<mainline>`;
+  - `done-merged`, ✅ on the local mainline or `<remote>/<mainline>`, or a merge `autopilot merged`
+    proved as in §12.8 and recorded in a run, while its mainline commit is still an ancestor of either
+    ref. The record — `merged: {via, commit, head, mainline, detected}` in the lane — is evidence, not
+    a state: the lane's recorded `state` is left as it was, and a record whose commit left the
+    mainline counts for nothing (*implemented, T031*);
   - `discarded`, ❌ in the checkout, so a discarded run task stays visible.
 
   Any session sees them, and with `claim_remote` any machine.
@@ -990,15 +994,33 @@ reading its worktree, and escalated if it is stuck. An agent that can wait on a 
   dependent onto the new mainline with `git rebase --onto <mainline> <base.commit>`. It resolves
   the known classes, re-runs the checks, and publishes again with a lease push.
 - **Merge detection** is by content, since pull requests are squash-merged and ancestry alone
-  sees nothing. After one `git fetch --prune`, in this order:
-  1. the task branch head is an ancestor of the mainline;
-  2. a commit on `git log --first-parent <mainline>` since the merge-base has the head's tree;
+  sees nothing (*implemented, T031*). After one `git fetch --prune`, and only for a head whose
+  task row is ✅ — an unstarted branch is an ancestor of the mainline and its `merge-tree` is a
+  no-op, so without that guard checks 1 and 4 would call it merged — in this order, stopping at
+  the first that holds:
+  1. the task branch head is an ancestor of the mainline; the reported commit is the oldest
+     first-parent commit containing it (the merge commit, or the head after a fast-forward);
+  2. a commit on `git log --first-parent <mainline>` since the merge-base has the head's tree (the
+     oldest such commit is reported);
   3. the patch-id of `git diff <merge-base> <head>` equals that of a first-parent commit since the
-     merge-base;
-  4. `git merge-tree` of the head into the current mainline is a no-op.
+     merge-base. The range is bounded by the merge-base, read as one `git log -p | git patch-id`
+     stream newest first and stopped at the first match, so an old merge is never missed and a
+     recent squash costs little;
+  4. `git merge-tree --write-tree` of the head into the current mainline writes the mainline's own
+     tree (git 2.38 or later; reported as skipped otherwise).
 
-  The ✅ row on the mainline and an `(ID)` pull request title confirm a merge but never prove it,
-  since a row can be edited by hand.
+  The mainline ref is the further-ahead of `<mainline>` and `<remote>/<mainline>`; when they have
+  diverged, the remote one is tried first. The ✅ row on the mainline and an `(ID)` pull request
+  title confirm a merge but never prove it, since a row can be edited by hand.
+- **Stacked dependents** are the tasks listing the merged task in `Depends On`, not ✅ on the
+  mainline, with a local or remote branch. Their fork point is the live claim's `base.commit` when
+  its `base.dependency` is the merged task and the dependent's head still contains it (a dependent
+  already rebased does not, so no second rebase is offered); else `git merge-base <dependent> <dependency head>`
+  with the head this call checked, so deleting the dependency's branch afterwards loses nothing
+  (§6.1); else the `head` a run recorded. A fork point already on the mainline means the dependent
+  branched from the mainline and needs no `--onto`. When a released dependent's dependency was
+  rewritten after it branched, `merge-base` falls back to the mainline and the dependent reads as
+  not stacked; `fork_source` says which source was used.
 - **Known conflict classes,** resolved without a human; anything else escalates:
   1. backlog rows, united by ID, with ✅ winning unless a `Reopens:` commit exists (the core skill
      today; T004's merge driver automates it later);
@@ -1047,7 +1069,7 @@ values = ["5433", "5434", "5435"]
 | T028 | chore | — | this section |
 | T029 | feature | T017, T028 | `[autopilot]` configuration (§12.9), run files and `run` in the claim (§12.4), `autopilot start` with its exit-5 refusal (§12.2), `lane`, `decision` and `status` (§12.1) — implemented |
 | T030 | feature | T029 | `autopilot next`: kinds, group limits, resource pools (§12.7) — implemented |
-| T031 | feature | T029 | `autopilot merged`: merge detection and cleanup (§12.8) |
+| T031 | feature | T029 | `autopilot merged`: merge detection and cleanup (§12.8) — implemented |
 | T032 | feature | T029 | `autopilot notify` and the escalation flags in `status` (§12.6) — implemented |
 | T024 | feature | T030, T031, T032 | the `taskrail-autopilot` skill with Claude Code and OpenCode notes, installed in every repository (§12.2, §12.3, §12.5, §12.8) |
 | T033 | spike | T024 | an end-to-end trial on a real backlog with each supported agent |

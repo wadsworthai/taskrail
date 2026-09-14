@@ -6,6 +6,8 @@ import sys
 
 from taskrail import claims, gitutil, ids, stack
 from taskrail.autopilot import dispatch, notify, runs
+from taskrail.autopilot.merged import add_arguments as merged_arguments
+from taskrail.autopilot.merged import cmd_merged
 from taskrail.autopilot.status import status as compute_status
 from taskrail.cli import (
     EXIT_CONFLICT,
@@ -294,3 +296,5 @@ def register(commands) -> None:
     status.add_argument("--run", help="only this run (default: every run, newest first)")
     status.add_argument("--fetch", action="store_true", help="fetch each mainline's remote first")
     status.add_argument("--allow-invalid", action="store_true")
+
+    merged_arguments(add("merged", cmd_merged, "Check by content whether a task branch was merged; optionally remove its worktree and branch."))

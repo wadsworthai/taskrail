@@ -51,6 +51,7 @@ taskrail autopilot next --run 20260913-1   # tasks to dispatch now, with each la
 taskrail claim T012 --run 20260913-1   # …a lane claims inside the run
 taskrail autopilot lane T012 --run 20260913-1 --handle <agent-id> --state gate --gate plan
 taskrail autopilot status              # run tasks' states, idle lanes, overlaps, escalation flags, hand-off queue
+taskrail autopilot merged T012 --cleanup # prove the squash merge by content, remove worktree and branch, list rebases
 taskrail autopilot notify --event escalation --run 20260913-1 --task T012   # run [autopilot].notify; never blocks
 taskrail upgrade                       # re-install skills for this CLI version and pin it
 taskrail self upgrade                  # update the CLI to the latest release
