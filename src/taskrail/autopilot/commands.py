@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from taskrail import claims, gitutil, ids, stack
-from taskrail.autopilot import runs
+from taskrail.autopilot import dispatch, runs
 from taskrail.autopilot.status import status as compute_status
 from taskrail.cli import (
     EXIT_CONFLICT,
@@ -65,6 +65,13 @@ def cmd_lane(args) -> int:
     task = project.task(args.id)
     if task is None:
         return _fail(f"no task `{args.id}`", EXIT_NOT_FOUND)
+    if args.group is not None:
+        group = config.autopilot.group(args.group)
+        if group is None:
+            judgement = [g.name for g in config.autopilot.groups if g.predicate is None]
+            return _fail(f"no judgement group `{args.group}` in [[autopilot.group]] (judgement groups: {', '.join(judgement) or 'none'})", EXIT_USAGE)
+        if group.predicate is not None:
+            return _fail(f"group `{group.name}` is computed from column {group.predicate.column}; --group assigns only a group without column and match", EXIT_USAGE)
     handed_off = args.state == runs.HANDED_OFF
     state = None if handed_off else args.state
     if state in runs.REASON_REQUIRED and not (args.reason or "").strip():
@@ -107,6 +114,25 @@ def cmd_decision(args) -> int:
     except ids.LockTimeout as exc:
         return _fail(str(exc), EXIT_CONFLICT)
     _emit({"run": args.run, "decision": entry}, args.json, f"decision {entry['number']} recorded in run {args.run}")
+    return EXIT_OK
+
+
+def cmd_next(args) -> int:
+    project, issues = _load(args)
+    config = project.config
+    if not config.autopilot.enabled:
+        return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot next`", EXIT_REFUSED)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    if args.run is not None and runs.read(config, args.run) is None:
+        return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
+    try:
+        report = dispatch.next_lanes(project, args.run, _local_claims(project))
+    except runs.RunNotFound as exc:
+        return _fail(str(exc), EXIT_NOT_FOUND)
+    except ids.LockTimeout as exc:
+        return _fail(str(exc), EXIT_CONFLICT)
+    _emit(report, args.json, dispatch.text(report))
     return EXIT_OK
 
 
@@ -190,6 +216,9 @@ def register(commands) -> None:
     lane.add_argument("--group", help="a group assigned by judgement")
     lane.add_argument("--state", choices=(*runs.LANE_STATES, runs.HANDED_OFF))
     lane.add_argument("--reason", help="required with escalated and failed")
+
+    next_ = add("next", cmd_next, "Tasks to dispatch now within lanes, kinds, groups and the run's count, with their resources.")
+    next_.add_argument("--run", help="record the dispatch in this run (default: a preview that records nothing)")
 
     decision = add("decision", cmd_decision, "Record a run-level decision in a run.")
     decision.add_argument("--run", required=True)

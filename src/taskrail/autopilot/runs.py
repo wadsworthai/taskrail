@@ -13,7 +13,7 @@ import os
 import re
 import tempfile
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from taskrail import gitutil, ids
@@ -23,6 +23,7 @@ RUN_ID_RE = re.compile(r"^(\d{8})-([1-9]\d*)$")
 LANE_STATES = ("running", "gate", "escalated", "failed")  # what `autopilot lane --state` records
 REASON_REQUIRED = ("escalated", "failed")
 HANDED_OFF = "handed-off"
+DISPATCHED = "dispatched"  # recorded by `autopilot next` until the lane claims or the dispatch expires
 
 
 class RunNotFound(Exception):
@@ -60,7 +61,7 @@ def _normalize(data) -> dict | None:
 
 def _lane(entry: dict) -> dict:
     lane = dict(entry)
-    for key, default in (("handle", None), ("group", None), ("state", "running"), ("reason", None), ("updated", None)):
+    for key, default in (("handle", None), ("group", None), ("state", "running"), ("reason", None), ("updated", None), ("dispatched", None)):
         lane.setdefault(key, default)
     if not isinstance(lane.get("resources"), dict):
         lane["resources"] = {}
@@ -139,6 +140,39 @@ def update(config: Config, run_id: str):
         yield run
         temporary = _temporary(path.parent, _serialize(run))
         os.replace(temporary, path)
+
+
+@contextmanager
+def update_all(config: Config):
+    """Yield every run, newest first and keyed by ID, under one hold of the lock.
+
+    For a change that reads or writes several runs at once, such as `autopilot next`: the lock is
+    not re-entrant, so `update` cannot be nested. Each run that changed is replaced atomically when
+    the block ends; nothing is written when it raises.
+    """
+    with ids.id_lock(config):
+        loaded = {run["id"]: run for run in read_all(config)}
+        before = {run_id: _serialize(run) for run_id, run in loaded.items()}
+        yield loaded
+        for run_id, run in loaded.items():
+            content = _serialize(run)
+            if content != before[run_id]:
+                path = runs_dir(config) / f"{run_id}.json"
+                os.replace(_temporary(path.parent, content), path)
+
+
+def dispatch_live(entry: dict, grace_minutes: int, now: datetime | None = None) -> bool:
+    """Whether a lane's dispatch still holds its place: recorded less than `grace_minutes` ago."""
+    value = entry.get(DISPATCHED)
+    if not isinstance(value, str):
+        return False
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError:
+        return False
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return (now or datetime.now(timezone.utc)) - moment < timedelta(minutes=grace_minutes)
 
 
 def lane(run: dict, task_id: str) -> dict:

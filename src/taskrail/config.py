@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from taskrail.issues import ConfigError
+from taskrail.predicates import ColumnPredicate, parse_column_predicate, resolve_column
 
 CONFIG_PATH = Path(".taskrail") / "config.toml"
 PREFIX_RE = re.compile(r"^[A-Z]{1,4}$")
@@ -46,11 +47,29 @@ NOTIFY_EVENTS = ("escalation", "lane-done", "lane-failed")
 HANDOFF_MODES = ("sequential",)
 GATE_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$")
 TEMPLATE_VALUES = {"id": "T001", "slug": "slug", "artifacts": "docs", "backlog": "main", "epic": "E01"}
+RESOURCE_NAME_RE = re.compile(r"^[A-Z][A-Z0-9_]*$")
+
+
+@dataclass(frozen=True)
+class GroupConfig:
+    """`[[autopilot.group]]`: at most `limit` lanes at once from the group (DESIGN.md §12.7)."""
+
+    name: str
+    limit: int
+    predicate: ColumnPredicate | None = None  # None: membership assigned by judgement with `autopilot lane --group`
+
+
+@dataclass(frozen=True)
+class ResourceConfig:
+    """`[[autopilot.resource]]`: a pool of values, one per lane (DESIGN.md §12.7)."""
+
+    name: str
+    values: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class AutopilotConfig:
-    """`[autopilot]` (DESIGN.md §12.9). The group and resource tables are not read here yet."""
+    """`[autopilot]` (DESIGN.md §12.9)."""
 
     enabled: bool = False
     max_lanes: int = 3
@@ -63,6 +82,11 @@ class AutopilotConfig:
     handoff: str = "sequential"
     notify: str = ""
     notify_on: tuple[str, ...] = ("escalation", "lane-done")
+    groups: tuple[GroupConfig, ...] = ()
+    resources: tuple[ResourceConfig, ...] = ()
+
+    def group(self, name: str) -> GroupConfig | None:
+        return next((group for group in self.groups if group.name == name), None)
 
 
 @dataclass(frozen=True)
@@ -243,7 +267,7 @@ def load_config(root: Path) -> Config:
         problems.append("[checks] must map names to command strings")
         checks = {}
 
-    autopilot = _autopilot(data.get("autopilot", {}), problems)
+    autopilot = _autopilot(data.get("autopilot", {}), problems, custom, aliases)
 
     if problems:
         raise ConfigError(f"{CONFIG_PATH}: " + "; ".join(problems))
@@ -268,7 +292,7 @@ def load_config(root: Path) -> Config:
     )
 
 
-def _autopilot(raw, problems: list[str]) -> AutopilotConfig:
+def _autopilot(raw, problems: list[str], custom_columns=(), aliases=None) -> AutopilotConfig:
     """Check `[autopilot]` and return it with the defaults of DESIGN.md §12.9 filled in."""
     defaults = AutopilotConfig()
     if not isinstance(raw, dict):
@@ -324,7 +348,75 @@ def _autopilot(raw, problems: list[str]) -> AutopilotConfig:
                 values[key].format(**TEMPLATE_VALUES)
             except (KeyError, IndexError, ValueError) as exc:
                 problems.append(f"autopilot.{key}: invalid template ({exc!r}); placeholders are {', '.join(f'{{{k}}}' for k in TEMPLATE_VALUES)}")
+    if "group" in raw:
+        values["groups"] = _autopilot_groups(raw["group"], problems, custom_columns, aliases or {})
+    if "resource" in raw:
+        values["resources"] = _autopilot_resources(raw["resource"], problems)
     return dataclasses.replace(defaults, **values)
+
+
+def _entries(raw, table: str, problems: list[str]) -> list[tuple[str, dict]]:
+    """The tables of `[[autopilot.<table>]]`, each with the label its errors use."""
+    if not isinstance(raw, list) or not all(isinstance(entry, dict) for entry in raw):
+        problems.append(f"autopilot.{table} must be an array of tables ([[autopilot.{table}]])")
+        return []
+    found = []
+    for index, entry in enumerate(raw, start=1):
+        name = entry.get("name")
+        if not isinstance(name, str) or not name:
+            problems.append(f"autopilot.{table} #{index}: missing `name`")
+            continue
+        found.append((f"autopilot.{table} `{name}`", entry))
+    names = [entry["name"] for _, entry in found]
+    for name in sorted({n for n in names if names.count(n) > 1}):
+        problems.append(f"autopilot.{table}: `{name}` is used more than once")
+    return found
+
+
+def _autopilot_groups(raw, problems: list[str], custom_columns, aliases: dict) -> tuple[GroupConfig, ...]:
+    groups = []
+    for label, entry in _entries(raw, "group", problems):
+        name = entry["name"]
+        if not NAME_RE.match(name):
+            problems.append(f"{label}: name must be lowercase letters, digits and dashes")
+        limit = entry.get("limit")
+        if "limit" not in entry:
+            problems.append(f"{label}: missing `limit`")
+        elif not isinstance(limit, int) or isinstance(limit, bool):
+            problems.append(f"{label}: `limit` must be int, got {type(limit).__name__}")
+        elif limit < 1:
+            problems.append(f"{label}: `limit` must be at least 1")
+        try:
+            predicate = parse_column_predicate(entry.get("column"), entry.get("match"))
+        except ValueError as exc:
+            problems.append(f"{label}: {exc}")
+            continue
+        if predicate is not None:
+            predicate, problem = resolve_column(predicate, custom_columns, aliases, CORE_TASK_COLUMNS)
+            if problem:
+                problems.append(f"{label}: {problem}")
+        if isinstance(limit, int) and not isinstance(limit, bool):
+            groups.append(GroupConfig(name, limit, predicate))
+    return tuple(groups)
+
+
+def _autopilot_resources(raw, problems: list[str]) -> tuple[ResourceConfig, ...]:
+    resources = []
+    for label, entry in _entries(raw, "resource", problems):
+        name = entry["name"]
+        if not RESOURCE_NAME_RE.match(name):
+            problems.append(f"{label}: name must be uppercase letters, digits and underscores, starting with a letter")
+        if "values" not in entry:
+            problems.append(f"{label}: missing `values`")
+            continue
+        values = entry["values"]
+        if not isinstance(values, list) or not values or not all(isinstance(value, str) and value for value in values):
+            problems.append(f"{label}: `values` must be a non-empty list of strings")
+            continue
+        for value in sorted({v for v in values if values.count(v) > 1}):
+            problems.append(f"{label}: value `{value}` is listed more than once")
+        resources.append(ResourceConfig(name, tuple(values)))
+    return tuple(resources)
 
 
 def _column_aliases(raw: dict, custom: list, problems: list[str]) -> dict[str, str]:

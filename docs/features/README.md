@@ -15,3 +15,4 @@
 | T029 | Add the autopilot configuration, runs, and the start, lane and status commands | [T029-add-the-autopilot-configuration-runs-and.md](T029-add-the-autopilot-configuration-runs-and.md) |
 | T035 | Match routes through the shared column predicate | [T035-match-routes-through-the-shared-column-p.md](T035-match-routes-through-the-shared-column-p.md) |
 | T036 | Mirror branch records to a remote ref | [T036-mirror-branch-records-to-a-remote-ref.md](T036-mirror-branch-records-to-a-remote-ref.md) |
+| T030 | Dispatch autopilot lanes with autopilot next | [T030-dispatch-autopilot-lanes-with-autopilot.md](T030-dispatch-autopilot-lanes-with-autopilot.md) |

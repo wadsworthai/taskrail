@@ -19,3 +19,4 @@
 | T034 | Clear done-branch for a task reopened on its mainline | [T034-clear-done-branch-for-a-task-reopened-on.md](T034-clear-done-branch-for-a-task-reopened-on.md) |
 | T037 | Delete remote claims with a lease on their recorded commit | [T037-delete-remote-claims-with-a-lease-on-the.md](T037-delete-remote-claims-with-a-lease-on-the.md) |
 | T036 | Mirror branch records to a remote ref | [T036-mirror-branch-records-to-a-remote-ref.md](T036-mirror-branch-records-to-a-remote-ref.md) |
+| T030 | Dispatch autopilot lanes with autopilot next | [T030-dispatch-autopilot-lanes-with-autopilot.md](T030-dispatch-autopilot-lanes-with-autopilot.md) |

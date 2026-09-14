@@ -330,6 +330,7 @@ def test_claim_files_without_a_run_still_load(pilot):
 
 
 def test_lane_records_handle_state_reason_and_group(pilot, capsys):
+    configure(pilot, ENABLED + '[[autopilot.group]]\nname = "ui"\nlimit = 1\n')  # a judgement group (T030 checks the name)
     run_id = start(pilot.root, capsys)
     config = load_config(pilot.root)
     claim_file = pilot.lane("T001", run_id) and (pilot.root / ".git" / "taskrail" / "claims" / "T001.json")

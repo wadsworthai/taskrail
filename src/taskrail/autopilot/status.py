@@ -8,13 +8,14 @@ from pathlib import Path
 
 from taskrail import claims as claims_module
 from taskrail import branches, gitutil, stack
+from taskrail.autopilot import runs as runs_module
 from taskrail.claims import Claim
 from taskrail.model import Project, Status, Task
 from taskrail.query import base_dict, blocked_by
 from taskrail.review import resolve_remote
 from taskrail.templates import render
 
-STATES = ("pending", "running", "gate", "escalated", "failed", "done-branch", "handed-off", "done-merged", "discarded")
+STATES = ("pending", "dispatched", "running", "gate", "escalated", "failed", "done-branch", "handed-off", "done-merged", "discarded")
 RECORDED = ("failed", "escalated", "gate")  # lane states only the run file knows
 WITH_BRANCH = ("running", "gate", "escalated", "failed", "done-branch", "handed-off")  # states whose files count
 MERGED_KEY = "autopilot_done_on_mainline"
@@ -47,7 +48,7 @@ def done_on_mainline(project: Project) -> set[str]:
     return merged
 
 
-def task_state(task: Task, project: Project, run: dict, claim: Claim | None) -> str:
+def task_state(task: Task, project: Project, run: dict, claim: Claim | None, now: datetime | None = None) -> str:
     if task.id in done_on_mainline(project):
         return "done-merged"
     if task.status is Status.DISCARDED:
@@ -59,6 +60,8 @@ def task_state(task: Task, project: Project, run: dict, claim: Claim | None) -> 
         return lane["state"]
     if claim is not None:
         return "running"
+    if lane and runs_module.dispatch_live(lane, project.config.claim_grace_minutes, now):
+        return "dispatched"  # `autopilot next` sent it to a lane that has not claimed yet
     return "pending"
 
 
@@ -215,7 +218,7 @@ def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: date
             rows.append({"id": task_id, "title": None, "kind": None, "state": None, "problem": "not in the backlog"})
             continue
         claim = claimed.get(task_id)
-        state = task_state(task, project, run, claim)
+        state = task_state(task, project, run, claim, now)
         rows.append(
             {
                 "id": task.id,
