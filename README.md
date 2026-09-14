@@ -41,6 +41,7 @@ taskrail claim T012                    # reserve it; fails if someone else holds
 taskrail branch T012 fix/rounding      # name or rename the task's branch; claims, show and review follow it
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --pts 2
 taskrail new --epic E01 --kind bug --title "Round totals half-up" --workspace   # …in its own branch and worktree
+taskrail edit T012 --depends-on T010,T011 --pts 3   # change cells of an existing row; validated first
 taskrail done T012                     # needs your claim; releases it
 taskrail review T012                   # fetch the mainline's remote and pick the rebase base
 taskrail review T012 --publish --scope billing   # push and print the PR/MR title and link

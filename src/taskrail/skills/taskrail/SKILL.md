@@ -14,8 +14,9 @@ epic may live in its own file instead. Each task is a table row with a status (`
 
 **The CLI owns IDs and statuses.** Never invent an ID, never type a status emoji into a row,
 and never reformat a table. Create tasks with `taskrail new`, close them with `taskrail done`
-or `taskrail discard`, and bring a closed one back with `taskrail reopen`. Editing a title or
-description by hand is fine; run `taskrail validate` afterwards.
+or `taskrail discard`, and bring a closed one back with `taskrail reopen`. Change an existing
+task's title, points, dependencies, description, kind or custom columns with `taskrail edit`,
+never by editing the row.
 
 ## Running the CLI
 
@@ -147,6 +148,22 @@ than being committed to the mainline first. Commit the row inside that workspace
 the task. It refuses when the mainlines have diverged or the branch already exists. Add epics with
 `taskrail epic add --name … --objective … [--done-when …] [--own-file]`, and move a large
 inline epic to its own file with `taskrail epic split E01`.
+
+## Editing tasks
+
+```bash
+.taskrail/bin/taskrail edit T012 [--title "…"] [--pts 5] [--depends-on T010,T011] \
+  [--description "…"] [--kind bug] [--column Owner=api] --json
+```
+
+Each flag replaces the whole cell, so `--depends-on` takes the complete list (read it from
+`taskrail show`), and an empty value clears a cell. The edit is validated before anything is
+written: exit 1 means it would leave the backlog invalid — an unknown or cyclic dependency, for
+example — and nothing changed. Edit a task you are working on inside its workspace, so the change
+travels with the task. `edit` refuses a closed or `done-branch` task (exit 5) and one claimed by
+someone else (exit 4); `--force` overrides both, and is a decision to report at your next gate.
+A task's recorded branch keeps its name when its title changes; if `branch.recorded` is true in
+the result, `edit` has just recorded the existing branch for that reason.
 
 ## Reopening a task
 

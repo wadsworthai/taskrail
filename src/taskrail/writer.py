@@ -125,14 +125,25 @@ def _epics_table(text: str):
 
 
 def set_status(edits: Edits, task: Task, status: Status) -> None:
+    set_cells(edits, task, {"✓": status.value})
+
+
+def set_cells(edits: Edits, task: Task, values: dict[str, str]) -> None:
+    """Replace cells of a task's row, keyed by core column name or custom header; other cells stay as they are."""
+    aliases = edits.config.column_aliases
     lines = edits.lines(task.file)
-    text = "".join(lines)
-    for section in parse_sections(text):
+    for section in parse_sections("".join(lines)):
         for table in section.tables:
             for number, _ in table.rows:
-                if number == task.line and _is_task_table(table, edits.config.column_aliases):
-                    column = _index(table.header, edits.config.column_aliases)["✓"]
-                    lines[number - 1] = replace_cell(lines[number - 1], column, status.value)
+                if number == task.line and _is_task_table(table, aliases):
+                    columns = _index(table.header, aliases)
+                    unknown = [aliases.get(name, name) for name in values if name not in columns]
+                    if unknown:
+                        raise WriteError(f"the task table has no column(s): {', '.join(unknown)}")
+                    line = lines[number - 1]
+                    for name, value in values.items():
+                        line = replace_cell(line, columns[name], escape_cell(value))
+                    lines[number - 1] = line
                     edits.set_lines(task.file, lines)
                     return
     raise WriteError(f"could not locate the row for {task.id} at {task.file}:{task.line}")

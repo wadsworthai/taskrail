@@ -12,7 +12,7 @@ from taskrail import __version__, branches, claims, gitutil, history, ids, insta
 from taskrail.autopilot import runs as autopilot_runs
 from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
-from taskrail.model import Project, Status
+from taskrail.model import NONE_MARKERS, Project, Status
 from taskrail.project import load_project
 from taskrail.query import STATES, base_dict, blocked_by, eligible, state, task_dict, unmerged_dependencies
 from taskrail.templates import render
@@ -394,6 +394,28 @@ def _find_epic(project: Project, epic_id: str, backlog_name: str | None):
     return matches[0]
 
 
+def _custom_columns(project: Project, pairs: list[str] | None) -> dict[str, str] | None:
+    """`--column NAME=VALUE` pairs as a dict; None, after printing why, for a malformed pair or a core column."""
+    aliases = project.config.column_aliases
+    core_names = {core.lower(): core for core in CORE_TASK_COLUMNS}
+    core_names.update({alias.lower(): core for core, alias in aliases.items()})
+    values: dict[str, str] = {}
+    for pair in pairs or []:
+        name, sep, value = pair.partition("=")
+        if not sep:
+            print(f"taskrail: --column expects NAME=VALUE, got `{pair}`", file=sys.stderr)
+            return None
+        core = core_names.get(name.strip().lower())
+        if core is not None:
+            flag = CORE_COLUMN_FLAGS.get(core)
+            how = f"set it with {flag}" if flag else "taskrail sets it"
+            named = f" (named `{aliases[core]}` here)" if core in aliases else ""
+            print(f"taskrail: --column cannot set core column {core}{named}; {how}", file=sys.stderr)
+            return None
+        values[name.strip()] = value.strip()
+    return values
+
+
 def cmd_new(args) -> int:
     project, issues = _load(args)
     if _refuse_if_invalid(issues, args):
@@ -409,22 +431,10 @@ def cmd_new(args) -> int:
         values["Depends On"] = ", ".join(item.strip() for item in args.depends_on.split(",") if item.strip())
     if args.description:
         values["Description"] = args.description
-    aliases = project.config.column_aliases
-    core_names = {core.lower(): core for core in CORE_TASK_COLUMNS}
-    core_names.update({alias.lower(): core for core, alias in aliases.items()})
-    for pair in args.column or []:
-        name, sep, value = pair.partition("=")
-        if not sep:
-            print(f"taskrail: --column expects NAME=VALUE, got `{pair}`", file=sys.stderr)
-            return EXIT_USAGE
-        core = core_names.get(name.strip().lower())
-        if core is not None:
-            flag = CORE_COLUMN_FLAGS.get(core)
-            how = f"set it with {flag}" if flag else "taskrail sets it"
-            named = f" (named `{aliases[core]}` here)" if core in aliases else ""
-            print(f"taskrail: --column cannot set core column {core}{named}; {how}", file=sys.stderr)
-            return EXIT_USAGE
-        values[name.strip()] = value.strip()
+    custom = _custom_columns(project, args.column)
+    if custom is None:
+        return EXIT_USAGE
+    values.update(custom)
 
     config = origin_config = project.config
     if args.workspace:
@@ -647,6 +657,144 @@ def cmd_reopen(args) -> int:
         "commit_message": message,
     }
     return _write(edits, args.json, result, "\n".join(text))
+
+
+def _empty(value: str) -> str:
+    return "" if value in NONE_MARKERS else value
+
+
+def _points(raw: str):
+    """A points cell as JSON: its number, None when empty, else the raw text."""
+    return int(raw) if raw.isdigit() else None if raw in NONE_MARKERS else raw
+
+
+def cmd_edit(args) -> int:
+    """Change cells of an existing task row; the status and the ID stay with their own commands."""
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    fields = (args.title, args.pts, args.depends_on, args.description, args.kind)
+    if all(value is None for value in fields) and not args.column:
+        print("taskrail: nothing to edit; pass --title, --pts, --depends-on, --description, --kind or --column", file=sys.stderr)
+        return EXIT_USAGE
+    pts = None if args.pts is None else args.pts.strip()
+    if pts and not pts.isdigit():
+        print(f"taskrail: --pts expects a whole number or an empty value, got `{args.pts}`", file=sys.stderr)
+        return EXIT_USAGE
+    custom = _custom_columns(project, args.column)
+    if custom is None:
+        return EXIT_USAGE
+
+    task = project.task(args.id)
+    if task is None:
+        print(f"taskrail: no task `{args.id}`", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    config = project.config
+    if not args.force:
+        if task.status is not Status.PENDING:
+            label = task.status.label if task.status else f"`{task.status_raw}`"
+            print(f"taskrail: {task.id} is {label}, not pending; pass --force to edit it anyway", file=sys.stderr)
+            return EXIT_REFUSED
+        try:
+            finished = stack.done_on_branch(project).get(task.id)
+        except gitutil.GitError:
+            finished = None
+        if finished is not None:
+            print(f"taskrail: {task.id} is done on branch {', '.join(finished.refs)}; pass --force to edit it anyway", file=sys.stderr)
+            return EXIT_REFUSED
+        try:
+            claim = claims.read(config, task.id)
+        except gitutil.GitError:
+            claim = None
+        owner = args.owner or claims.default_owner()
+        if claim is not None and claim.owner != owner:
+            print(f"taskrail: {task.id} is claimed by {claim.owner}; pass --force", file=sys.stderr)
+            return EXIT_CONFLICT
+
+    # Each changed field: the cell to write, and its JSON `from` and `to`.
+    values: dict[str, str] = {}
+    changes: dict = {}
+
+    def change(field: str, column: str, cell: str, before, after) -> None:
+        if before != after:
+            values[column] = cell
+            changes[field] = {"from": before, "to": after}
+
+    if args.title is not None:
+        change("title", "Title", args.title.strip(), task.title, args.title.strip())
+    if pts is not None:
+        change("points", "Pts", pts or "—", _points(task.points_raw), _points(pts))
+    if args.depends_on is not None:
+        depends = [item.strip() for item in args.depends_on.split(",") if item.strip()]
+        change("depends_on", "Depends On", ", ".join(depends) or "—", task.depends_on, depends)
+    if args.description is not None:
+        description = args.description.strip()
+        change("description", "Description", description, _empty(task.description), description)
+    if args.kind is not None:
+        change("kind", "Kind", args.kind.strip(), task.kind, args.kind.strip())
+    columns = {}
+    for name, value in custom.items():
+        header = next((h for h in task.columns if h.lower() == name.lower()), None)
+        if header is None:
+            print(f"taskrail: the task table has no column(s): {name}", file=sys.stderr)
+            return EXIT_USAGE
+        if _empty(task.columns[header]) != value:
+            values[header] = value or "—"
+            columns[header] = {"from": task.columns[header], "to": value or "—"}
+    if columns:
+        changes["columns"] = columns
+
+    edits = writer.Edits(config)
+    try:
+        writer.set_cells(edits, task, values)
+    except writer.WriteError as exc:
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+
+    renames = "title" in changes or "kind" in changes
+    if renames and not args.local_only:
+        _fetch_records(project)
+    try:
+        previous, source = branches.resolve(task, project)
+    except gitutil.GitError:
+        previous, source = branches.template_branch(task, project), branches.TEMPLATE
+    edited = dataclasses.replace(task, title=values.get("Title", task.title), kind=values.get("Kind", task.kind))
+    branch = {"name": previous, "source": source, "previous": None, "recorded": False}
+    if source == branches.TEMPLATE and renames:
+        current = branches.template_branch(edited, project)
+        if current != previous:
+            try:
+                keep = previous is not None and gitutil.branch_exists(config.root, previous)
+            except gitutil.GitError:
+                keep = False
+            if keep:
+                branch.update(source=branches.RECORDED, recorded=True)
+            else:
+                branch.update(name=current, previous=previous)
+    result = {"id": task.id, "changes": changes, "branch": branch, "record_remote": None}
+
+    text = [f"{task.id} {field}: {_shown(change['from'])} → {_shown(change['to'])}" for field, change in changes.items() if field != "columns"]
+    text += [f"{task.id} {name}: {_shown(change['from'])} → {_shown(change['to'])}" for name, change in columns.items()]
+    if branch["recorded"]:
+        text.append(f"{task.id} branch: {branch['name']} (recorded, so the title change does not move it)")
+    elif branch["previous"]:
+        text.append(f"{task.id} branch: {branch['previous']} → {branch['name']}")
+    if not values:
+        _emit({**result, "files": []}, args.json, f"{task.id} unchanged")
+        return EXIT_OK
+
+    def record_branch(result: dict) -> None:
+        if branch["recorded"]:
+            written = branches.write(config, task.id, branch["name"])
+            result["record_remote"] = _mirror_record(config, written, args.local_only)
+
+    return _write(edits, args.json, result, "\n".join(text), on_written=record_branch)
+
+
+def _shown(value) -> str:
+    if isinstance(value, list):
+        return ", ".join(value) or "—"
+    return "—" if value is None or value == "" else str(value)
 
 
 def cmd_branch(args) -> int:
@@ -1096,6 +1244,19 @@ def build_parser() -> argparse.ArgumentParser:
     reopen = add("reopen", cmd_reopen, "Move a done or discarded task back to pending.")
     reopen.add_argument("id")
     reopen.add_argument("--reason", required=True, help="why it is reopened; returned as the commit message body")
+
+    edit = add("edit", cmd_edit, "Change cells of an existing task row: title, points, dependencies, description, kind or custom columns.")
+    edit.add_argument("id")
+    edit.add_argument("--title")
+    edit.add_argument("--pts", help="a whole number; an empty value clears it")
+    edit.add_argument("--depends-on", help="comma-separated task IDs, replacing the current ones; an empty value clears them")
+    edit.add_argument("--description", help="an empty value clears it")
+    edit.add_argument("--kind")
+    edit.add_argument("--column", action="append", metavar="NAME=VALUE", help="a custom column value; an empty value clears it; repeatable")
+    edit.add_argument("--owner", help="who is editing, checked against an existing claim (default: $TASKRAIL_OWNER or user@host)")
+    edit.add_argument("--force", action="store_true", help="edit a task that is not pending or is claimed by someone else")
+    edit.add_argument("--local-only", action="store_true", help="do not fetch or mirror branch records")
+    edit.add_argument("--allow-invalid", action="store_true", help="edit an invalid backlog; the result is still written only if it is valid")
 
     branch_cmd = add("branch", cmd_branch, "Name or rename a task's branch; claims, show and review follow it.")
     branch_cmd.add_argument("id")

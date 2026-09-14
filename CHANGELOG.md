@@ -120,6 +120,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   rule and `done-branch` detection cannot see such a reopen. The exit code is unchanged;
   `--history-limit N` and `--no-history` bound or skip the check, and `--json` reports what was
   examined in `history` (T012).
+- **Edit existing task rows.** `taskrail edit <ID>` changes a task's title, points, dependencies,
+  description, kind or custom columns, one cell each and validated before anything is written.
+  It refuses closed, `done-branch` and someone else's claimed tasks without `--force`, keeps a
+  recorded branch name, and records the old template name when a title change would move a branch
+  that exists. The core skill points to it instead of hand edits (T014).
 
 ## 0.1.0
 

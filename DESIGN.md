@@ -87,9 +87,9 @@ the header that repository uses; both match case-insensitively. The alias replac
 every command reads and writes the column by its alias, a task table that still uses the core
 name of an aliased column fails validation (`column-alias`), and a missing required column is
 reported by both names. `--json` output keeps the core field names, and `new` fills an aliased
-column through its usual flag (`--pts`). `new --column` is for custom columns only: it refuses
+column through its usual flag (`--pts`). `new --column` and `edit --column` are for custom columns only: they refuse
 every core column, by core name or alias and in any letter case, naming the flag that fills it
-(`ID` and `✓` are set by taskrail). Config is refused when a
+(`ID` and `✓` are set by taskrail). A custom column named by `edit --column` matches the header in any letter case. Config is refused when a
 key is not a core column, an alias is empty or contains `|`, an alias is another core column's
 name or a custom column, or two columns share an alias. Aliases apply to task tables only, not
 to the `## Epics` table.
@@ -500,6 +500,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
 | `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there; `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved |
+| `taskrail edit <ID> [--title] [--pts] [--depends-on] [--description] [--kind] [--column NAME=VALUE]… [--force] [--local-only]` | Change cells of an existing task row (see the rules below) |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
@@ -559,9 +560,9 @@ and `https://` forms); other hosts need `provider`, plus `web_url` when their we
 from the remote's host. The description is dropped from a link longer than 8,000 characters,
 since GitHub answers such URLs with 414.
 
-Write commands follow three rules:
+Write commands follow these rules:
 
-- **Minimal diffs.** A status change rewrites one cell; `new` appends one row. Tables are never
+- **Minimal diffs.** A status change rewrites one cell; `edit` rewrites only the cells it changes; `new` appends one row. Tables are never
   reformatted, because re-aligning a table turns every change into a conflict with every open
   branch. A row whose values are wider than its columns is left unaligned.
 - **Validate before writing.** Every edit is applied in memory and the whole project is
@@ -574,6 +575,27 @@ Write commands follow three rules:
   history, so `reopen` changes only the status cell. It requires `--reason` and returns a
   suggested commit message: the reason as the body and a `Reopens: <ID>` trailer. It needs no
   claim, and lists tasks that depend on the reopened one and are already done or claimed.
+- **`edit` changes cells, never the status or the ID.** It edits `Title`, `Pts`, `Depends On`,
+  `Description`, `Kind` and custom columns (`--column NAME=VALUE`) of one row in the current
+  checkout. Each flag replaces the whole cell; `--depends-on` replaces the list. An empty value
+  clears the cell, writing what `new` writes for an omitted value (`—`, or an empty
+  `Description`); `--pts` takes a whole number or an empty value. Values equal to the current
+  ones write nothing and still exit 0. Everything else — unknown or cyclic dependencies, points
+  off the scale, an undefined or disallowed kind, an empty title — is left to validation, so it
+  exits 1 and writes nothing. Exit 2 for no field flag, a malformed `--column`, a core column
+  given to `--column`, a column the task's table lacks, or a line break; exit 3 for an unknown
+  ID. It needs no claim, but refuses a task claimed by someone else (exit 4) and one that is
+  `done`, `discarded` or `done-branch` (exit 5); `--force` overrides both. `--allow-invalid`
+  lets it run on an invalid backlog, and it still writes only a result with no errors, so an
+  edit can repair a cycle a merge left behind. A recorded branch (§6.4) keeps its name. When a
+  new title or kind changes the name a template-named task resolves to and a local branch with
+  the old name exists, `edit` records the old name — mirrored as `claim` mirrors, unless
+  `--local-only` — so the work on it stays the task's branch; otherwise the task resolves to the
+  new name. It never renames a git branch. `--json` returns `id`; `changes`, holding `from` and
+  `to` for each changed field under `show`'s names (`title`, `points`, `depends_on`,
+  `description`, `kind`, and `columns` by header); `branch` with `name`, `source`, `previous`
+  (the name before the edit when it changed, else `null`) and `recorded`; `record_remote`; and
+  `files`.
 
 **Reopens in history.** The rebase rule of the core skill and `done-branch` detection find a reopen
 only through its `Reopens: <ID>` trailer, so `validate` — and no other command — also reads git
