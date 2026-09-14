@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from taskrail import claims, gitutil, ids, stack
-from taskrail.autopilot import dispatch, runs
+from taskrail.autopilot import dispatch, notify, runs
 from taskrail.autopilot.status import status as compute_status
 from taskrail.cli import (
     EXIT_CONFLICT,
@@ -19,6 +19,7 @@ from taskrail.cli import (
     _local_claims,
     _refuse_if_invalid,
 )
+from taskrail.config import NOTIFY_EVENTS
 from taskrail.review import resolve_remote
 
 
@@ -81,10 +82,14 @@ def cmd_lane(args) -> int:
     current = runs.read(config, args.run)["tasks"].get(task.id, {}).get("state", "running")
     if args.reason is not None and (state or current) == "running":
         return _fail("a running lane has no reason; pass --state gate, escalated or failed with --reason", EXIT_USAGE)
+    if args.gate is not None:
+        problem = _gate_problem(project, task, args.gate, None if handed_off else (state or current))
+        if problem:
+            return _fail(problem, EXIT_USAGE)
     try:
         with runs.update(config, args.run) as run:
             lane = runs.record_lane(
-                run, task.id, handle=args.handle, group=args.group, state=state, reason=args.reason.strip() if args.reason else None
+                run, task.id, handle=args.handle, group=args.group, state=state, reason=args.reason.strip() if args.reason else None, gate=args.gate
             )
             if handed_off:
                 runs.hand_off(run, task.id)
@@ -93,10 +98,52 @@ def cmd_lane(args) -> int:
         return _fail(str(exc), EXIT_NOT_FOUND)
     except ids.LockTimeout as exc:
         return _fail(str(exc), EXIT_CONFLICT)
-    text = f"{task.id} in run {args.run}: {lane['state']}" + (f" ({lane['reason']})" if lane["reason"] else "")
+    text = f"{task.id} in run {args.run}: {lane['state']}" + (f" at {lane['gate']}" if lane.get("gate") else "")
+    text += f" ({lane['reason']})" if lane["reason"] else ""
     if handed_off:
         text += f"; handed off ({order.index(task.id) + 1} of {len(order)})"
-    _emit({"run": args.run, "task": {"id": task.id, **lane}, "handed_off": order}, args.json, text)
+    _emit({"run": args.run, "task": {"id": task.id, "gate": None, **lane}, "handed_off": order}, args.json, text)
+    return EXIT_OK
+
+
+def _gate_problem(project, task, gate: str, state: str | None) -> str | None:
+    """Why `lane --gate` cannot record this stage, or None when it can."""
+    if state not in runs.GATE_STATES:
+        return f"--gate needs --state gate or escalated (the lane is {state or 'being handed off'})"
+    kind = project.kinds.get(task.kind)
+    if kind is None:
+        return f"--gate: {task.id}'s kind `{task.kind}` is not defined, so its stages are unknown"
+    stages = [stage.name for stage in kind.stages]
+    if gate not in stages:
+        return f"--gate: `{gate}` is not a stage of kind {kind.name} ({', '.join(stages)})"
+    return None
+
+
+def cmd_notify(args) -> int:
+    project, _ = _load(args)  # a notification about a broken backlog must still go out
+    config = project.config
+    run = runs.read(config, args.run)
+    if run is None:
+        return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
+    if args.event in notify.TASK_EVENTS and args.task is None:
+        return _fail(f"--event {args.event} needs --task", EXIT_USAGE)
+    task = None
+    if args.task is not None:
+        task = project.task(args.task)
+        if task is None:
+            return _fail(f"no task `{args.task}`", EXIT_NOT_FOUND)
+        claim = _local_claims(project).get(task.id)
+        if task.id not in run["tasks"] and not (claim and claim.run == run["id"]):
+            return _fail(f"{task.id} is not a task of run {run['id']}", EXIT_NOT_FOUND)
+    result = notify.notify(config, args.event, run, task, args.message)
+    if result["error"]:
+        detail = result["stderr"].strip().splitlines()[-1:] if result["stderr"].strip() else []
+        print(f"taskrail: warning: {result['error']}" + (f": {detail[0]}" if detail else ""), file=sys.stderr)
+    if result["sent"]:
+        text = f"notified: {args.event}"
+    else:
+        text = f"not sent: {result['skipped'] or result['error']}"
+    _emit(result, args.json, text)
     return EXIT_OK
 
 
@@ -185,6 +232,7 @@ def _status_text(report: dict) -> str:
                 parts.append(f"stale claim: {row['claim']['stale']}")
             if row["reason"]:
                 parts.append(f"— {row['reason']}")
+            parts += _escalation_text(row)
             lines.append("  ".join(parts))
         handoff = run["handoff"]
         lines.append(f"  hand-off: next {handoff['next'] or '—'} · in review {handoff['in_review'] or '—'} · queue {', '.join(handoff['queue']) or '—'}")
@@ -192,6 +240,15 @@ def _status_text(report: dict) -> str:
         lines.append("files touched by more than one lane:")
         lines += [f"  {path}: {', '.join(task_ids)}" for path, task_ids in report["overlaps"].items()]
     return "\n".join(lines)
+
+
+def _escalation_text(row: dict) -> list[str]:
+    reasons = []
+    if row.get("governing_touched"):
+        reasons.append(f"governing {', '.join(row['governing_touched'])}")
+    if row.get("escalate_gate"):
+        reasons.append(f"gate {row['escalate_gate']}")
+    return [f"ESCALATE: {'; '.join(reasons)}"] if reasons else []
 
 
 def register(commands) -> None:
@@ -216,6 +273,7 @@ def register(commands) -> None:
     lane.add_argument("--group", help="a group assigned by judgement")
     lane.add_argument("--state", choices=(*runs.LANE_STATES, runs.HANDED_OFF))
     lane.add_argument("--reason", help="required with escalated and failed")
+    lane.add_argument("--gate", help="the stage whose gate the lane is stopped at (with --state gate or escalated)")
 
     next_ = add("next", cmd_next, "Tasks to dispatch now within lanes, kinds, groups and the run's count, with their resources.")
     next_.add_argument("--run", help="record the dispatch in this run (default: a preview that records nothing)")
@@ -225,6 +283,12 @@ def register(commands) -> None:
     decision.add_argument("--question", required=True)
     decision.add_argument("--decision", required=True)
     decision.add_argument("--reason", required=True)
+
+    notify_ = add("notify", cmd_notify, "Run [autopilot].notify for an event in notify_on; a failing command is reported and never blocks.")
+    notify_.add_argument("--event", required=True, choices=NOTIFY_EVENTS)
+    notify_.add_argument("--run", required=True)
+    notify_.add_argument("--task", help="the lane's task (required for lane-done and lane-failed)")
+    notify_.add_argument("--message", help="text appended to the message on the command's stdin")
 
     status = add("status", cmd_status, "Every run task with its state, lane activity, touched files and hand-off queue.")
     status.add_argument("--run", help="only this run (default: every run, newest first)")

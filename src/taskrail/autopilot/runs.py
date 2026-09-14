@@ -24,6 +24,8 @@ LANE_STATES = ("running", "gate", "escalated", "failed")  # what `autopilot lane
 REASON_REQUIRED = ("escalated", "failed")
 HANDED_OFF = "handed-off"
 DISPATCHED = "dispatched"  # recorded by `autopilot next` until the lane claims or the dispatch expires
+GATE_STATES = ("gate", "escalated")  # states `lane --gate` records a stage for
+GATE_CLEARING = ("running", "failed")
 
 
 class RunNotFound(Exception):
@@ -188,6 +190,7 @@ def record_lane(
     group: str | None = None,
     state: str | None = None,
     reason: str | None = None,
+    gate: str | None = None,
     now: datetime | None = None,
 ) -> dict:
     entry = lane(run, task_id)
@@ -200,6 +203,10 @@ def record_lane(
         entry["reason"] = None
     if reason is not None:
         entry["reason"] = reason
+    if state in GATE_CLEARING:
+        entry["gate"] = None  # the lane has left its gate
+    if gate is not None:
+        entry["gate"] = gate
     entry["updated"] = now_iso(now)
     return entry
 

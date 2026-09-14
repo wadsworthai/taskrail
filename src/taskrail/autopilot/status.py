@@ -8,6 +8,7 @@ from pathlib import Path
 
 from taskrail import claims as claims_module
 from taskrail import branches, gitutil, stack
+from taskrail.autopilot import escalation
 from taskrail.autopilot import runs as runs_module
 from taskrail.claims import Claim
 from taskrail.model import Project, Status, Task
@@ -164,6 +165,7 @@ def _lane_details(task: Task, project: Project, run: dict, claim: Claim | None, 
         "handle": lane.get("handle"),
         "group": lane.get("group"),
         "reason": lane.get("reason"),
+        "gate": lane.get("gate"),
         "resources": lane.get("resources") or {},
         "branch": branch,
         "worktree": worktree,
@@ -204,6 +206,13 @@ def _handoff(run: dict, rows: list[dict], project: Project) -> dict:
     }
 
 
+def _flag_escalations(rows: list[dict], config) -> None:
+    """Add the computed escalation reasons of §12.6 to each task row (T032)."""
+    for row in rows:
+        if row["state"] is not None:
+            row.update(escalation.flags(row["kind"], row["state"], row["gate"], row["touched"], config.autopilot))
+
+
 def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: datetime | None = None, worktrees: dict | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     config = project.config
@@ -231,6 +240,7 @@ def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: date
                 "decisions_index": render(config.autopilot.decisions_index, task, config),
             }
         )
+    _flag_escalations(rows, config)
     merged = sum(1 for row in rows if row["state"] == "done-merged")
     return {
         "id": run["id"],

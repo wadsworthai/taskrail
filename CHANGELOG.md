@@ -78,6 +78,13 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   `--run` it is a preview. `autopilot status` reports a dispatched, unclaimed task as `dispatched`.
   Behaviour change: `autopilot lane --group` exits 2 unless the name is a configured judgement
   group (T030).
+- **Autopilot notifications and escalation flags.** `autopilot notify --event … --run R [--task ID]
+  [--message …]` runs `[autopilot].notify` through the shell for the events in `notify_on`, with a
+  message on stdin and `TASKRAIL_EVENT`, `TASKRAIL_RUN` and `TASKRAIL_TASK` set; a failing or
+  hanging command is reported and never blocks (exit 0). `autopilot lane --gate STAGE` records the
+  stage a lane is stopped at, and `autopilot status` flags each lane with `governing_touched` (files
+  matching `[autopilot].governing` paths or globs), `escalate_gate` (a `kind:stage` listed in
+  `escalate_gates`) and `escalation` (T032).
 
 ## 0.1.0
 

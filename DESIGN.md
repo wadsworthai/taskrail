@@ -504,7 +504,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
-| `taskrail autopilot start` / `next` / `lane` / `decision` / `status` | Autopilot runs, dispatch and their lanes (§12.1) |
+| `taskrail autopilot start` / `next` / `lane` / `decision` / `status` / `notify` | Autopilot runs, dispatch and their lanes (§12.1) |
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |
 
 ### 7.1 Review hand-off
@@ -747,7 +747,8 @@ human's decisions in its
 [decision record](../../docs/autopilot/decisions/T007-design-taskrail-s-autopilot-from-existin.md).
 T029 implemented the configuration (§12.9, now in §4), run files and `run` in the claim (§12.4),
 and `autopilot start`, `lane`, `decision` and `status` (§12.1); T030 implemented `autopilot next`
-with groups and resource pools (§12.7). Each part is marked *implemented*. Every
+with groups and resource pools (§12.7); T032 added `autopilot notify`, `lane --gate` and the
+computed escalation reasons in `status` (§12.6). Each part is marked *implemented*. Every
 other part is still planned and names the task that will build it (§12.10). The evidence (E1–E7) and the full comparison of options stay in the spike.
 
 The autopilot runs several tasks at once, one lane per task, and answers their gates on the
@@ -773,11 +774,11 @@ disabled autopilot:
 |---|---|
 | `autopilot start --count N [--kinds …]` | *Implemented (T029).* Exit 5, naming `[autopilot].enabled`, unless it is true — checked first, so the refusal comes even without `--count`; then exit 2 without `--count` or with a count below 1, exit 1 for an invalid backlog, and exit 2 for a kind the project does not define or allow. `--kinds` defaults to `[autopilot].kinds`. Creates a run file (§12.4) with the target count, kinds, owner and start time, and prints the run ID. |
 | `autopilot next [--run R]` | *Implemented (T030).* Exit 5, naming `[autopilot].enabled`, unless it is true — checked first, preview included; then exit 1 for an invalid backlog, 3 for an unknown run, 4 when the lock cannot be taken, and 0 otherwise, even when nothing is dispatched. Tasks to dispatch now: `taskrail next`'s eligible tasks in its order (so a single unmerged dependency is a stacked base, and claimed or blocked tasks are not candidates), of the kinds the run drives — the run's `kinds` and `[autopilot].kinds` intersected when both are set, whichever is set otherwise, every allowed kind when neither is. A candidate is skipped, with its reason, when it is recorded `failed` in the run, dispatched in any run, in a group at its limit, or when its base is diverged or missing. Candidates are taken in order while a lane is free (`max_lanes`), the run's count allows more (§12.7) and every resource has a free value; `limited_by` names the limit that stopped it. For each task: `show --json`'s fields (its `base` already carries `commit`), the allocated `resources`, `environment` (`TASKRAIL_RESOURCE_<NAME>`), `groups`, and the decision-record paths; also `lanes`, `remaining`, `groups`, `resources`, `released` and `skipped`. Under the common-directory lock, in one step, it releases the resources of lanes that ended and records `dispatched` and `resources` for each dispatched task in run R. Without `--run` it is a preview for `[autopilot].kinds` with no count, and writes nothing. Claiming stays the lane's job. |
-| `autopilot lane <ID> --run R [--handle H] [--group G] [--state running\|gate\|escalated\|failed\|handed-off] [--reason …]` | *Implemented (T029).* Records the agent-specific lane handle, a group membership assigned by judgement (§12.7; exit 2 unless `[[autopilot.group]]` has a group of that name without `column` and `match`) and the orchestrator's view of the lane. `--reason` is required with `escalated` and `failed`, optional with `gate`, and cleared by `running`. `failed` keeps the claim, so the task stays ineligible and its dependents stay blocked. `handed-off` appends the task to the run's hand-off order once, and exits 5 unless the task is `done-branch`. An unknown run or task exits 3. |
+| `autopilot lane <ID> --run R [--handle H] [--group G] [--state running\|gate\|escalated\|failed\|handed-off] [--reason …] [--gate STAGE]` | *Implemented (T029; `--gate` T032).* Records the agent-specific lane handle, a group membership assigned by judgement (§12.7; exit 2 unless `[[autopilot.group]]` has a group of that name without `column` and `match`) and the orchestrator's view of the lane. `--reason` is required with `escalated` and `failed`, optional with `gate`, and cleared by `running`. `failed` keeps the claim, so the task stays ineligible and its dependents stay blocked. `handed-off` appends the task to the run's hand-off order once, and exits 5 unless the task is `done-branch`. `--gate` records the stage whose gate the lane is stopped at, as `gate`: it must be a stage of the task's kind and the lane must be (or be set) `gate` or `escalated`, otherwise exit 2; a move to `gate` or `escalated` keeps it, `running` and `failed` clear it. An unknown run or task exits 3. |
 | `autopilot decision --run R --question … --decision … --reason …` | *Implemented (T029).* Appends a numbered run-level decision (touch map, conflict classes, order) to the run file, so run state is written only by the CLI. |
-| `autopilot status [--run R] [--fetch]` | *Implemented (T029), except the escalation flags (T032).* Every run, newest first, with `complete` once `count` of its tasks are `done-merged`, its run-level decisions, and every run task with its state: `pending` (with `blocked_by`), `dispatched` (by `next`, not yet claimed, for less than `[git].claim_grace_minutes`; T030), `running`, `gate`, `escalated`, `failed`, `done-branch`, `handed-off`, `done-merged`, `discarded`. Precedence: `done-merged`, `discarded`, `handed-off` or `done-branch`, the recorded `failed`, `escalated` or `gate`, `running` (a claim, stale or not, with its stale reason), `dispatched`, `pending`. Also each lane's handle, group, reason and resources, branch and worktree; `idle_minutes` since the latest of the branch tip's commit, a change in its worktree, the claim and the last `lane` update, and `silent` when a `running` lane is idle past `silent_minutes`; `touched`, the files changed since the fork point plus uncommitted ones, with `overlaps` between lanes across the runs listed; the decision-record paths; and `handoff`: `in_review`, `queue` (dependencies first, then by the branch tip's commit time) and `next`, `null` while a branch is in review. Governing files touched: planned (T032). Reads git and never fetches unless `--fetch`; exit 3 for an unknown run. |
+| `autopilot status [--run R] [--fetch]` | *Implemented (T029; `dispatched` T030; escalation flags T032).* Every run, newest first, with `complete` once `count` of its tasks are `done-merged`, its run-level decisions, and every run task with its state: `pending` (with `blocked_by`), `dispatched` (by `next`, not yet claimed, for less than `[git].claim_grace_minutes`; T030), `running`, `gate`, `escalated`, `failed`, `done-branch`, `handed-off`, `done-merged`, `discarded`. Precedence: `done-merged`, `discarded`, `handed-off` or `done-branch`, the recorded `failed`, `escalated` or `gate`, `running` (a claim, stale or not, with its stale reason), `dispatched`, `pending`. Also each lane's handle, group, reason and resources, branch and worktree; `idle_minutes` since the latest of the branch tip's commit, a change in its worktree, the claim and the last `lane` update, and `silent` when a `running` lane is idle past `silent_minutes`; `touched`, the files changed since the fork point plus uncommitted ones, with `overlaps` between lanes across the runs listed; the decision-record paths; and `handoff`: `in_review`, `queue` (dependencies first, then by the branch tip's commit time) and `next`, `null` while a branch is in review. Per task, the escalation reasons of §12.6: `gate` (the recorded stage), `governing_touched` (the `touched` files a `governing` entry matches), `escalate_gate` (`kind:stage` when the task is `gate` or `escalated` at a stage `escalate_gates` lists, else `null`) and `escalation` (`governing`, `escalate-gate`, or empty); the text form adds `ESCALATE: …` to a flagged lane. Never runs the notify command. Reads git and never fetches unless `--fetch`; exit 3 for an unknown run. |
 | `autopilot merged <ID> [--cleanup]` | *Planned (T031).* Runs `git fetch --prune`, then the merge detection of §12.8. Reports `merged`, `via` and the mainline commit, and marks the task `done-merged` in the run. With `--cleanup`, removes the worktree and deletes the local branch, refusing when the merge is unverified or the worktree is dirty. Lists stacked dependents with `git rebase --onto <base.onto> <recorded base.commit>`. |
-| `autopilot notify --event escalation\|lane-done\|lane-failed --run R [--task ID]` | *Planned (T032).* Runs `[autopilot].notify` when the event is in `notify_on` (§12.6). A failing notify command is reported and never blocks. |
+| `autopilot notify --event escalation\|lane-done\|lane-failed --run R [--task ID] [--message TEXT]` | *Implemented (T032).* Runs `[autopilot].notify` when it is set and the event is in `notify_on` (§12.6), otherwise reports `skipped`. `--task` is required for `lane-done` and `lane-failed`; an unknown run, an unknown task or a task outside the run exits 3. Needs neither `enabled` nor a valid backlog. A notify command that exits non-zero, times out or cannot start is reported (`sent: false`, `exit_code`, `timed_out`, `error`, and a warning on stderr) and never blocks: `notify` still exits 0. |
 
 The autopilot runs only when the human asks for it and gives a task count. The skill states
 this in its prose, not only in frontmatter, so the rule holds on agents that ignore
@@ -862,7 +863,7 @@ lanes must not do, and answering gates needs an agent anyway.
   file is created exclusively (a fully written temporary file hard-linked into place), changed
   under the common-directory lock `reserve-id` uses, replaced atomically, and read keeping keys
   this version does not know. Its keys are `id`, `started`, `owner`, `count`, `kinds`, `tasks`
-  (per task: `handle`, `group`, `state`, `reason`, `updated`, `dispatched`, `resources`), `handed_off` and
+  (per task: `handle`, `group`, `state`, `reason`, `gate`, `updated`, `dispatched`, `resources`), `handed_off` and
   `decisions` (each `number`, `question`, `decision`, `reason`, `recorded`). A task belongs to a
   run when the run file lists it or its claim names the run. Runs are never removed.
 - **Two orchestrator sessions** may run at once. They never dispatch the same task twice, since
@@ -902,14 +903,41 @@ The orchestrator stops and asks the human when:
 6. a task row rests on a false premise;
 7. the base has diverged, as `show` and `review` already report.
 
-`autopilot status` computes the first two; the rest are judgement. T032's backlog description
-also mentions flagging conflicts outside the known classes; whether a computed flag helps there
-is settled at T032's own gate, and until then conflict classification stays judgement.
+`autopilot status` computes the first two (*implemented, T032*); the rest are judgement.
+
+- **Governing paths.** Each `governing` entry is a repository-relative path or shell-style glob
+  that matches a file or any of its leading directories: `docs/adr` and `docs/adr/` cover
+  `docs/adr/0001.md`, `*` and `?` stay within one path segment, `**` crosses segments (`**/` also
+  matches none), `[…]` is a character class (`[!…]` negated), letter case counts, and a leading
+  `./` is ignored. They are matched against the lane's `touched` files, so uncommitted changes
+  count. An entry as broad as the backlog file or `docs` flags every lane; that is the
+  configuration's choice.
+- **Escalated gates.** A lane records the stage it is stopped at with `autopilot lane --gate`;
+  `status` flags it when the task is `gate` or `escalated` and `<kind>:<stage>` is in
+  `escalate_gates`. A task that has moved on (`done-branch` and later) is not flagged.
+- **Conflicts outside the known classes get no computed flag** (decided at T032's plan gate). A
+  merge conflict exists only during the rebase the orchestrator itself runs, where git already
+  names the files; and the known classes of §12.8 are defined by content — rows added on both
+  sides, appended bullets — not by path, so a path-based flag would call a real edit inside a
+  backlog file or changelog "known". Predicting conflicts with `git merge-tree` for every lane
+  would also cost a merge per lane on every `status`. The end-to-end trial (T033) may reopen this
+  with evidence.
 
 **Notification** is a command contract, not an agent hook: hooks such as Claude Code's
 `Notification` are agent-specific and fire on the agent's own events. `autopilot notify` runs
 `[autopilot].notify` for the events in `notify_on` (default `["escalation", "lane-done"]`), with
-the message on stdin and `TASKRAIL_EVENT`, `TASKRAIL_RUN` and `TASKRAIL_TASK` in the environment.
+the message on stdin and `TASKRAIL_EVENT`, `TASKRAIL_RUN` and `TASKRAIL_TASK` (empty without
+`--task`) in the environment (*implemented, T032*):
+
+- the command runs through the platform shell, in the repository root, with a 30-second timeout
+  that kills its process group (on POSIX); its stdin, stdout and stderr are temporary files, so a
+  command that never reads its input or leaves a child running cannot make taskrail wait, and the
+  last 2000 characters of its output are reported;
+- the message is plain text: `taskrail autopilot: <event> in run <R>`, then `<ID> <title>` and
+  `lane: <state>[ at <gate>][ — <reason>]` for a task, then a blank line and the `--message` text
+  when given; taskrail's own stdin is never passed through;
+- only `autopilot notify` runs the command: not `status`, which runs on every wake-up and would
+  repeat notifications, and not `lane`. Nothing records which notifications were sent.
 
 **Supervision** is event-driven, since neither agent wakes on a timer. Whenever the orchestrator
 wakes, it runs `autopilot status`. A lane silent past `silent_minutes` (default 20) is checked by
@@ -1020,7 +1048,7 @@ values = ["5433", "5434", "5435"]
 | T029 | feature | T017, T028 | `[autopilot]` configuration (§12.9), run files and `run` in the claim (§12.4), `autopilot start` with its exit-5 refusal (§12.2), `lane`, `decision` and `status` (§12.1) — implemented |
 | T030 | feature | T029 | `autopilot next`: kinds, group limits, resource pools (§12.7) — implemented |
 | T031 | feature | T029 | `autopilot merged`: merge detection and cleanup (§12.8) |
-| T032 | feature | T029 | `autopilot notify` and the escalation flags in `status` (§12.6) |
+| T032 | feature | T029 | `autopilot notify` and the escalation flags in `status` (§12.6) — implemented |
 | T024 | feature | T030, T031, T032 | the `taskrail-autopilot` skill with Claude Code and OpenCode notes, installed in every repository (§12.2, §12.3, §12.5, §12.8) |
 | T033 | spike | T024 | an end-to-end trial on a real backlog with each supported agent |
 
