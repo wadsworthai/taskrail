@@ -55,10 +55,13 @@ of `taskrail show`) supplies what happens inside each stage.
    `base.dependency` names a dependency finished only on its unmerged branch, that branch.
    If `base.diverged` is true, stop and ask which one to use; if `base.onto` is null, stop and
    report `base.reason`. If `worktree` is set, create it:
-   `git worktree add <worktree> -b <branch> <base.onto>`; otherwise
-   `git switch -c <branch> <base.onto>`. If the branch already exists, stop and ask — someone
-   may have started this task. From here on, work only inside that workspace. A task created with
-   `taskrail new --workspace` already has its workspace: skip to claiming.
+   `git worktree add --no-track <worktree> -b <branch> <base.onto>`; otherwise
+   `git switch --no-track -c <branch> <base.onto>`. `--no-track` keeps the base from becoming the
+   branch's upstream, so a plain `git push` cannot land on the mainline or a dependency's branch;
+   `taskrail review --publish` sets the task's own remote branch as upstream. If the branch
+   already exists, stop and ask — someone may have started this task. From here on, work only
+   inside that workspace. A task created with `taskrail new --workspace` already has its
+   workspace: skip to claiming.
    When the branch needs another name than `branch` — one that depends on what you know only
    now — run `taskrail branch <ID> <NAME>` before creating the workspace and read `show` again.
    To rename it later, run the same command inside the workspace, never plain `git branch -m`

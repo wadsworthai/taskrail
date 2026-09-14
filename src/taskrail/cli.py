@@ -532,12 +532,12 @@ def _open_workspace(
         path = (config.root / config.worktree_dir / branch).resolve()
         if path.exists():
             raise _WorkspaceRefused(f"{path} already exists")
-        gitutil.run(config.root, "worktree", "add", "--quiet", str(path), "-b", branch, base.onto)
+        gitutil.run(config.root, "worktree", "add", "--quiet", "--no-track", str(path), "-b", branch, base.onto)
         return {"path": path, "branch": branch, "base": base.onto, "worktree": True, "origin": config.root}
     if gitutil.run(config.root, "status", "--porcelain").stdout.strip():
         raise _WorkspaceRefused("this checkout has uncommitted changes; commit or set them aside before switching branch")
     previous = gitutil.current_branch(config.root)
-    gitutil.run(config.root, "switch", "--quiet", "-c", branch, base.onto)
+    gitutil.run(config.root, "switch", "--quiet", "--no-track", "-c", branch, base.onto)
     return {"path": config.root, "branch": branch, "base": base.onto, "worktree": False, "origin": config.root, "previous": previous}
 
 

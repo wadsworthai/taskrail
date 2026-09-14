@@ -499,7 +499,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4) |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
-| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch and worktree from the base and append the row there; `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved |
+| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there; `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
@@ -525,8 +525,9 @@ review` owns the deterministic parts; the agent keeps the rebase and its conflic
    the core skill prescribes, and runs `taskrail validate`.
 3. `taskrail review <ID> --publish` refuses a branch that still lacks the base, pushes the task
    branch when `push_task_branch` is true — a plain push for a new remote branch, otherwise with
-   `--force-with-lease` on the remote's current commit; a rejected push exits 4 — and returns the
-   pull request title, description and link.
+   `--force-with-lease` on the remote's current commit, and always with `--set-upstream`, so the
+   task's own remote branch becomes its upstream; a rejected push exits 4 — and returns the pull
+   request title, description and link.
 
 **The mainline's remote.** Each mainline uses one remote for its base, fetch, push and link:
 `branch.<mainline>.remote` from git config when it names a configured remote, otherwise

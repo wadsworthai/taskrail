@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -101,6 +102,27 @@ def test_workspace_in_this_checkout_when_worktrees_are_off(git_repo, capsys):
     assert Path(data["workspace"]) == git_repo.root
     assert git(git_repo.root, "branch", "--show-current") == BRANCH
     assert "| T004 |" in (git_repo.root / "TODO.md").read_text()
+
+
+@pytest.mark.parametrize("worktree", ["required", "never"])
+@pytest.mark.parametrize("start", ["remote", "local"])
+def test_workspace_branch_has_no_upstream(remote_repo, worktree, start, capsys):
+    """A task branch never tracks its base, so a plain `git push` cannot land on the mainline (T038)."""
+    config = remote_repo.root / ".taskrail/config.toml"
+    config.write_text(config.read_text() + f'\n[git]\nworktree = "{worktree}"\n')
+    commit_all(remote_repo.root, "worktree mode")
+    if start == "remote":
+        git(remote_repo.root, "push", "-q", "origin", "main")
+        git(remote_repo.root, "fetch", "-q", "origin")
+    else:
+        # The local mainline is ahead, and git tracks even a local start point under `always`.
+        git(remote_repo.root, "config", "branch.autoSetupMerge", "always")
+    data, _ = new_in_workspace(remote_repo.root, capsys=capsys)
+    assert data["base"] == ("origin/main" if start == "remote" else "main")
+    upstream = subprocess.run(
+        ["git", "config", "--get-regexp", rf"^branch\.{BRANCH}\."], cwd=remote_repo.root, capture_output=True, text=True
+    )
+    assert upstream.stdout == ""
 
 
 def test_workspace_refuses_a_dirty_checkout_when_worktrees_are_off(git_repo, capsys):

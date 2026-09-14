@@ -100,6 +100,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   and IDs, row order, prose and escaped pipes are kept byte for byte. It is a dry run printing the
   result unless `--write`, refuses unmapped values with exit 5, and a second run changes nothing
   (T005).
+- **Task branches without an upstream.** `new --workspace` and the core skill's workspace step
+  create the task branch with `--no-track`, so it no longer tracks the mainline or a dependency's
+  branch it started from, and a plain `git push` cannot land on them; `review --publish` still
+  sets the task's own remote branch as upstream. A branch created earlier keeps tracking its base
+  until `git branch --unset-upstream` is run on it (T038).
 
 ## 0.1.0
 
