@@ -20,3 +20,4 @@
 | T031 | Detect squash merges by content and follow through with autopilot merged | [T031-detect-squash-merges-by-content-and-foll.md](T031-detect-squash-merges-by-content-and-foll.md) |
 | T005 | Import tasks from table-based backlogs without epics | [T005-import-tasks-from-table-based-backlogs-w.md](T005-import-tasks-from-table-based-backlogs-w.md) |
 | T024 | Write the taskrail-autopilot skill with Claude Code and OpenCode notes | [T024-write-the-taskrail-autopilot-skill-with.md](T024-write-the-taskrail-autopilot-skill-with.md) |
+| T012 | Flag reopened tasks committed without a Reopens trailer | [T012-flag-reopened-tasks-committed-without-a.md](T012-flag-reopened-tasks-committed-without-a.md) |

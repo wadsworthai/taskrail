@@ -33,6 +33,7 @@ never overwritten silently; `--force` replaces them.
 
 ```bash
 taskrail validate                      # check the backlog; non-zero on errors
+taskrail validate --no-history         # …without reading git history for reopens lacking a Reopens trailer
 taskrail next                          # eligible tasks, smallest first
 taskrail show T012 --json              # kind, stages, base, branch, artifact path, blockers, prior work
 taskrail show T012 --json --fetch      # …after fetching branch names other clones recorded

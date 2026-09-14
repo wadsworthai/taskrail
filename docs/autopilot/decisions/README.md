@@ -25,3 +25,4 @@
 | T005 | Import tasks from table-based backlogs without epics | [T005-import-tasks-from-table-based-backlogs-w.md](T005-import-tasks-from-table-based-backlogs-w.md) |
 | T038 | Create task branches without tracking the mainline | [T038-create-task-branches-without-tracking-th.md](T038-create-task-branches-without-tracking-th.md) |
 | T024 | Write the taskrail-autopilot skill with Claude Code and OpenCode notes | [T024-write-the-taskrail-autopilot-skill-with.md](T024-write-the-taskrail-autopilot-skill-with.md) |
+| T012 | Flag reopened tasks committed without a Reopens trailer | [T012-flag-reopened-tasks-committed-without-a.md](T012-flag-reopened-tasks-committed-without-a.md) |

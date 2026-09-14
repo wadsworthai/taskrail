@@ -31,7 +31,7 @@ Done when: backlog conflicts resolve automatically, existing backlogs import, an
 | ✅ | T005 | feature | 5   | —          | Import tasks from table-based backlogs without epics | Convert an existing backlog into epics and rows taskrail validates, keeping IDs, row order, prose and escaped pipes. |
 | ✅ | T006 | feature | 2   | —          | Add a reopen command for tasks marked done by mistake | Move a task from done back to pending, leaving a trace of why. |
 | ✅ | T007 | spike   | 3   | —          | Design taskrail's autopilot from existing orchestrators | Turn [the reference behaviour](docs/research/autopilot-reference-behaviour.md) into an agnostic design and a task breakdown. |
-| ⬜ | T012 | feature | 2   | T006       | Flag reopened tasks committed without a Reopens trailer | Have validate read git history and warn when a status went from done to pending without a Reopens: <ID> commit. |
+| ✅ | T012 | feature | 2   | T006       | Flag reopened tasks committed without a Reopens trailer | Have validate read git history and warn when a status went from done to pending without a Reopens: <ID> commit. |
 | ⬜ | T014 | feature | 3   | T001       | Add an edit command for existing task rows | Fix T001 friction F4: change dependencies, points, title, description or custom columns without hand edits. |
 | ✅ | T024 | feature | 5   | T030, T031, T032 | Write the taskrail-autopilot skill with Claude Code and OpenCode notes | Orchestrator procedure, lane brief, gate criteria, decision records and conflict classes per [T007](docs/spikes/T007-design-taskrail-s-autopilot-from-existin.md); init and upgrade install it in every repository, and it stops when autopilot start refuses. |
 | ✅ | T026 | bug     | 1   | —          | Refuse --column for core columns in new | new --column ID=T9 exits 0 and silently ignores the value; refuse every core column and name the flag to use. |
@@ -46,6 +46,7 @@ Done when: backlog conflicts resolve automatically, existing backlogs import, an
 | ✅ | T036 | feature | 3   | T019       | Mirror branch records to a remote ref | Push each task's branch record next to refs/taskrail/claims, so another clone resolves a renamed branch in show, review and done-branch detection. |
 | ✅ | T037 | bug     | 1   | —          | Delete remote claims with a lease on their recorded commit | release --force and done exit 2 when claim_remote is set: _delete_remote leases without an expected commit, so git finds no tracking ref and rejects the delete. |
 | ✅ | T038 | chore   | 1   | —          | Create task branches without tracking the mainline | git worktree add -b <branch> origin/<mainline> sets the task branch to track the mainline, so a plain git push can target it; branch with --no-track in the skill and in new --workspace. |
+| ⬜ | T039 | chore   | 1   | —          | Fetch full history in the generated GitHub workflow | The workflow init --github-workflow writes checks out one commit, so validate's reopen history check (T012) examines nothing; set fetch-depth: 0. |
 
 ## E05 — Adoption
 

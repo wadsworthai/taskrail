@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, branches, claims, gitutil, ids, install, prior, review, stack, writer
+from taskrail import __version__, branches, claims, gitutil, history, ids, install, prior, review, stack, writer
 from taskrail.autopilot import runs as autopilot_runs
 from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
@@ -94,13 +94,17 @@ def _line(task, project: Project, claimed: dict | None = None) -> str:
 
 def cmd_validate(args) -> int:
     project, issues = _load(args)
+    # Only validate reads history (§7): write commands, list, show and next never pay for it.
+    report = history.check_reopens(project, limit=args.history_limit, enabled=not args.no_history)
+    issues = [*issues, *report.issues]
     errors = [i for i in issues if i.severity == "error"]
     warnings = [i for i in issues if i.severity == "warning"]
     summary = f"{len(project.tasks)} task(s) in {len(project.backlogs)} backlog(s): {len(errors)} error(s), {len(warnings)} warning(s)"
+    note = report.note()
     _emit(
-        {"valid": not errors, "tasks": len(project.tasks), "issues": [i.to_dict() for i in issues]},
+        {"valid": not errors, "tasks": len(project.tasks), "issues": [i.to_dict() for i in issues], "history": report.to_dict()},
         args.json,
-        "\n".join([*(i.format() for i in issues), summary]),
+        "\n".join([*(i.format() for i in issues), *([note] if note else []), summary]),
     )
     return EXIT_INVALID if errors else EXIT_OK
 
@@ -965,6 +969,16 @@ def cmd_kind_list(args) -> int:
     return EXIT_OK
 
 
+def _positive_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        number = 0
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"expected a whole number of at least 1, got `{value}`")
+    return number
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="taskrail", description="Agent-agnostic backlog tool.")
     parser.add_argument("--version", action="version", version=f"taskrail {__version__}")
@@ -977,7 +991,15 @@ def build_parser() -> argparse.ArgumentParser:
         sub.set_defaults(handler=handler)
         return sub
 
-    add("validate", cmd_validate, "Check the configuration, kinds and every backlog.")
+    validate = add("validate", cmd_validate, "Check the configuration, kinds and every backlog.")
+    validate.add_argument("--no-history", action="store_true", help="do not read git history for reopens without a Reopens trailer")
+    validate.add_argument(
+        "--history-limit",
+        type=_positive_int,
+        default=history.DEFAULT_LIMIT,
+        metavar="N",
+        help=f"examine at most N commits changing backlog files (default {history.DEFAULT_LIMIT})",
+    )
 
     listing = add("list", cmd_list, "List tasks with their computed state.")
     listing.add_argument("--fetch", action="store_true", help="first fetch branch records mirrored to [git].branch_record_remote")

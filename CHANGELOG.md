@@ -114,6 +114,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   files, and the agent notes in `integrations/<agent>.md` are split per skill by
   `<!-- taskrail:skill <name> -->`, so the core skill's notes are unchanged and the autopilot skill
   gets its own Claude Code and OpenCode notes (T024).
+- **Reopens without a trailer.** `validate` reads the latest 500 commits that change backlog files
+  and warns with `reopen-untraced` for a task pending in the working tree whose latest move from
+  `✅` or `❌` back to `⬜` no commit since records with a `Reopens: <ID>` trailer, since the rebase
+  rule and `done-branch` detection cannot see such a reopen. The exit code is unchanged;
+  `--history-limit N` and `--no-history` bound or skip the check, and `--json` reports what was
+  examined in `history` (T012).
 
 ## 0.1.0
 

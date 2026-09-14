@@ -491,7 +491,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 |---|---|
 | `taskrail init [--integration NAME]… [--github-workflow] [--pre-commit] [--force]` | Install into a repository; idempotent (§9) |
 | `taskrail integration list` | Available agent integrations |
-| `taskrail validate` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks |
+| `taskrail validate [--no-history] [--history-limit N]` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks. Also warns about reopens committed without a trailer (*Reopens in history* below) |
 | `taskrail list [--epic E01] [--eligible] [--fetch]` | Tasks, with computed blocked and eligible state |
 | `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; `null` unless `worktree = "required"`), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
 | `taskrail next [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` task |
@@ -574,6 +574,33 @@ Write commands follow three rules:
   history, so `reopen` changes only the status cell. It requires `--reason` and returns a
   suggested commit message: the reason as the body and a `Reopens: <ID>` trailer. It needs no
   claim, and lists tasks that depend on the reopened one and are already done or claimed.
+
+**Reopens in history.** The rebase rule of the core skill and `done-branch` detection find a reopen
+only through its `Reopens: <ID>` trailer, so `validate` — and no other command — also reads git
+history for reopens committed without one:
+
+- *Window.* The commits reachable from `HEAD` that change a backlog's main file or an epic file the
+  working tree names, newest first, at most `--history-limit N` (default 500). The window is the
+  same on a task branch and on a mainline. `--no-history` skips the check; so does a directory
+  outside git or a repository without commits.
+- *Transition.* A commit reopens a task when the task is `⬜` there and `✅` or `❌` at every parent,
+  with statuses read across all of the backlog's files at each revision, so a row moved into an
+  epic file is no change and a merge counts only when its resolution flipped the cell. Only tasks
+  pending in the working tree are considered, and an uncommitted reopen is not reported: the
+  pre-commit hook runs before the message exists. The files are read with one
+  `git cat-file --batch`, and a revision pair is parsed only when a line holding `✅` or `❌` and a
+  pending task's ID disappears.
+- *Recorded.* A reopen at `C` is recorded when a commit reachable from `HEAD` but not from every
+  parent of `C` carries the trailer (whitespace around the ID tolerated): the reopen commit, a
+  squash commit whose message kept the trailer from the pull request description, or any later
+  commit — including an empty one written to acknowledge a reopen that can no longer be reworded.
+  A trailer older than `C` does not count. This is the test the rebase rule and `done-branch` apply.
+- *Output.* One `reopen-untraced` warning per task, for its latest unrecorded reopen, at the task's
+  row, naming the commit; the exit code is unchanged. `--json` adds `history`: `examined`, `limit`,
+  `truncated`, `shallow` and `skipped` (`null`, `--no-history`, `not a git repository` or
+  `no commits`). The text output adds a `history:` line when the check was skipped for a reason
+  other than `--no-history`, ran in a shallow clone — where commits past the boundary have no
+  parents and reopen nothing — or was truncated.
 
 Output is human-readable by default and JSON with `--json`, so skills parse results rather
 than prose. Exit codes are stable:
