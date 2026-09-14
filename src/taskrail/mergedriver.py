@@ -1,8 +1,9 @@
-"""A git merge driver for backlog tables (DESIGN.md §7.4).
+"""A git merge driver for backlog tables and bullet lists (DESIGN.md §7.4).
 
 Pipe tables present on both sides are merged row by row, keyed by their `ID` column (or their first
-column); the merged rows are then placed identically into all three inputs, so `git merge-file`
-treats them as context and merges everything else — prose, headings, other tables — as git would.
+column), and bullet lists item by item, keyed by their text; the merged rows and bullets are then
+placed identically into all three inputs, so `git merge-file` treats them as context and merges
+everything else — prose, headings, other tables — as git would.
 """
 
 from __future__ import annotations
@@ -12,12 +13,13 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from taskrail import gitutil
 from taskrail.backlog import EPIC_HEADING, _index
-from taskrail.markdown import parse_sections
+from taskrail.markdown import FENCE, parse_sections
 from taskrail.review import REOPENS
 from taskrail.writer import _cell_spans, replace_cell
 
@@ -239,6 +241,202 @@ def merge_tables(
     return results[0], results[1], results[2]
 
 
+# --- bullet lists ----------------------------------------------------------------------------------
+
+HEADING = re.compile(r"^(#{1,6})[ \t]+(\S.*?)(?:[ \t]+#+)?[ \t]*$")
+BULLET = re.compile(r"^[-*+][ \t]+\S")
+THEMATIC_BREAK = re.compile(r"^([-*_])([ \t]*\1){2,}[ \t]*$")
+
+
+@dataclass
+class _Bullet:
+    lines: list[str] = field(default_factory=list)
+
+    @property
+    def text(self) -> str:
+        return "".join(self.lines)
+
+    @property
+    def key(self) -> str:
+        return _key(self.text)
+
+
+@dataclass
+class _List:
+    start: int  # 0-based index of the first bullet line
+    end: int  # exclusive
+    bullets: list[_Bullet]
+
+
+def _key(text: str) -> str:
+    return "\n".join(line.rstrip() for line in text.splitlines())
+
+
+def _lists(lines: list[str]) -> tuple[dict[tuple, list[_List]], set[tuple]]:
+    """Tight bullet lists outside fenced code by heading path, and the paths whose lists cannot be read.
+
+    Every heading path seen is a key, so a path with no lists maps to an empty list.
+    """
+    found: dict[tuple, list[_List]] = {(): []}
+    unreadable: set[tuple] = set()
+    path: tuple = ()
+    in_fence = False
+    open_list: _List | None = None
+    for index, line in enumerate(lines):
+        raw = line.rstrip("\r\n")
+        if FENCE.match(raw):
+            if open_list is not None and raw[:1] in (" ", "\t"):
+                unreadable.add(path)  # a fence inside a bullet: its extent is not a plain line run
+            open_list = None
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if open_list is not None and raw.strip() and raw[0] in (" ", "\t"):
+            open_list.bullets[-1].lines.append(line)
+            open_list.end = index + 1
+            continue
+        if BULLET.match(raw) and not THEMATIC_BREAK.match(raw):
+            if open_list is None:
+                open_list = _List(index, index, [])
+                found[path].append(open_list)
+            open_list.bullets.append(_Bullet([line]))
+            open_list.end = index + 1
+            continue
+        open_list = None
+        heading = HEADING.match(raw)
+        if heading:
+            level = len(heading.group(1))
+            path = tuple(entry for entry in path if entry[0] < level) + ((level, heading.group(2)),)
+            found.setdefault(path, [])
+    return found, unreadable
+
+
+def _edits(base: list[str], side: list[str]) -> dict[str, str] | None:
+    """A side's edited bullets as {side key: base key}, or None when a replaced block cannot be paired."""
+    base_keys, side_keys = set(base), set(side)
+    pairs: dict[str, str] = {}
+    for tag, i1, i2, j1, j2 in SequenceMatcher(None, base, side, autojunk=False).get_opcodes():
+        if tag != "replace":
+            continue
+        removed = [key for key in base[i1:i2] if key not in side_keys]
+        added = [key for key in side[j1:j2] if key not in base_keys]
+        if removed and added:
+            if len(removed) != len(added):
+                return None
+            pairs.update(zip(added, removed))
+    return pairs
+
+
+def _moved(base: list[str], side: list[str], common: set[str]) -> set[str]:
+    """Bullets present everywhere that a side placed out of the base's order."""
+    original = [key for key in base if key in common]
+    placed = [key for key in side if key in common]
+    kept: set[str] = set()
+    for block in SequenceMatcher(None, original, placed, autojunk=False).get_matching_blocks():
+        kept.update(original[block.a : block.a + block.size])
+    return common - kept
+
+
+def _merge_bullets(base: list[_Bullet], current: list[_Bullet], other: list[_Bullet]) -> list[tuple] | None:
+    """(base, current, other) text per merged position, or None when the list is left to git."""
+    keys = [[bullet.key for bullet in bullets] for bullets in (base, current, other)]
+    if any(len(set(version)) != len(version) for version in keys):
+        return None
+    texts = [{bullet.key: bullet.text for bullet in bullets} for bullets in (base, current, other)]
+    identities = [keys[0]]
+    by_identity: list[dict[str, str]] = [texts[0]]
+    for version in (1, 2):
+        pairs = _edits(keys[0], keys[version])
+        if pairs is None:
+            return None
+        identities.append([pairs.get(key, key) for key in keys[version]])
+        by_identity.append({pairs.get(key, key): text for key, text in texts[version].items()})
+
+    entries: dict[str, tuple] = {}
+    for identity in dict.fromkeys(identities[0] + identities[1] + identities[2]):
+        original, mine, theirs = (texts.get(identity) for texts in by_identity)
+        if mine is not None and theirs is not None:
+            if _key(mine) == _key(theirs):
+                entries[identity] = (mine, mine, mine)
+            elif original is not None and _key(mine) == _key(original):
+                entries[identity] = (theirs, theirs, theirs)
+            elif original is not None and _key(theirs) == _key(original):
+                entries[identity] = (mine, mine, mine)
+            else:
+                entries[identity] = (original, mine, theirs)
+        elif mine is not None or theirs is not None:
+            kept = mine if mine is not None else theirs
+            if original is None:
+                entries[identity] = (kept, kept, kept)
+            elif _key(kept) != _key(original):
+                entries[identity] = (original, mine, theirs)
+            # else: removed by the other side
+        # else: removed by both sides
+
+    common = set(identities[0]) & set(identities[1]) & set(identities[2])
+    moved_current = _moved(identities[0], identities[1], common)
+    moved_other = _moved(identities[0], identities[2], common) - moved_current
+    new_on_current = {key for key in identities[1] if key not in identities[0] and key not in identities[2]}
+    order = [key for key in identities[1] if key in entries and key not in moved_other]
+    previous = None
+    for key in identities[2]:
+        if key not in entries:
+            continue
+        if key in order:
+            previous = key
+            continue
+        position = 0 if previous is None else order.index(previous) + 1
+        while position < len(order) and order[position] in new_on_current:
+            position += 1
+        order.insert(position, key)
+        previous = key
+
+    merged = [entries[key] for key in order]
+    for version in range(3):
+        present = [_key(entry[version]) for entry in merged if entry[version] is not None]
+        if len(set(present)) != len(present):
+            return None  # the same text twice: never duplicate a bullet
+    return merged
+
+
+def _list_region(entries: list[tuple], version: int, lines: list[str], found: _List) -> list[str]:
+    default = next((_eol(line) for bullet in found.bullets for line in bullet.lines if _eol(line)), None) or "\n"
+    region = [text if _eol(text) else text + default for text in (entry[version] for entry in entries) if text is not None]
+    if region and found.end == len(lines) and not _eol(lines[-1]):
+        region[-1] = region[-1].rstrip("\r\n")
+    return region
+
+
+def merge_lists(base: str, current: str, other: str) -> tuple[str, str, str]:
+    """The three inputs with every bullet list mergeable item by item replaced by its merged bullets."""
+    texts = (base, current, other)
+    lines = [text.splitlines(keepends=True) for text in texts]
+    scanned = [_lists(version_lines) for version_lines in lines]
+    replacements: list[list[tuple[int, int, list[str]]]] = [[], [], []]
+    for path, mine in scanned[1][0].items():
+        theirs = scanned[2][0].get(path)
+        if theirs is None or len(theirs) != len(mine) or any(path in unreadable for _, unreadable in scanned):
+            continue
+        original = scanned[0][0].get(path) or []
+        if original and len(original) != len(mine):
+            continue
+        for position, (my_list, their_list) in enumerate(zip(mine, theirs)):
+            base_list = original[position] if original else None
+            entries = _merge_bullets(base_list.bullets if base_list else [], my_list.bullets, their_list.bullets)
+            if entries is None:
+                continue
+            for version, found in enumerate((base_list, my_list, their_list)):
+                if found is not None:
+                    replacements[version].append((found.start, found.end, _list_region(entries, version, lines[version], found)))
+    results = []
+    for version_lines, version_replacements in zip(lines, replacements):
+        for start, end, region in sorted(version_replacements, reverse=True):
+            version_lines[start:end] = region
+        results.append("".join(version_lines))
+    return results[0], results[1], results[2]
+
+
 def _merge_file(base: str, current: str, other: str, labels: tuple[str, str, str], marker_size: int) -> tuple[str, bool]:
     with tempfile.TemporaryDirectory(prefix="taskrail-merge-") as directory:
         paths = {}
@@ -270,6 +468,7 @@ def merge_text(
     `labels` are the current, base and other labels of the conflict markers, in `git merge-file` order.
     """
     merged = merge_tables(base, current, other, aliases=aliases, reopened=reopened)
+    merged = merge_lists(*merged)
     return _merge_file(*merged, labels, marker_size)
 
 
@@ -391,7 +590,7 @@ def attribute_line(path: str) -> str:
 
 
 def attribute_paths(config) -> list[str]:
-    """Backlog files, epic files and artifact indexes the driver applies to."""
+    """Backlog files, epic files, artifact indexes and changelogs the driver applies to."""
     from taskrail.kinds import PLACEHOLDER_RE
     from taskrail.project import load_project
 
@@ -408,8 +607,25 @@ def attribute_paths(config) -> list[str]:
             epics = [epic.id for epic in backlog.epics] if "epic" in placeholders else [""]
             for epic_id in epics:
                 paths.add(template.format(artifacts=backlog.config.artifacts, backlog=backlog.config.name, epic=epic_id))
+    paths.update(changelog_paths(config.root, config.worktree_dir))
     normal = {Path(path).as_posix().removeprefix("./") for path in paths if path}
     return sorted(path for path in normal if path != "." and not path.startswith("../"))
+
+
+def changelog_paths(root: Path, worktree_dir: str = "") -> list[str]:
+    """Files named CHANGELOG.md in any letter case that git tracks or would track, outside the worktrees."""
+    try:
+        listed = gitutil.run(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", check=False)
+    except gitutil.GitError:
+        return []
+    if listed.returncode != 0:
+        return []
+    skip = Path(worktree_dir).as_posix().strip("/") + "/" if worktree_dir.strip("./") else None
+    found = {
+        path for path in listed.stdout.split("\0")
+        if path and Path(path).name.lower() == "changelog.md" and not (skip and path.startswith(skip))
+    }
+    return sorted(found)
 
 
 def _record(report, bucket: str, label: str) -> None:

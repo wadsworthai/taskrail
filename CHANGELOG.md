@@ -131,6 +131,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   three-way, keep `✅` unless the other side has a `Reopens:` commit, and leave markers only around
   rows and text that really conflict; everything else merges as git would. `upgrade`, `epic add
   --own-file` and `epic split` keep the block current (T004).
+- **Changelog bullets in the merge driver.** The driver also merges tight bullet lists under the
+  same heading bullet by bullet: bullets both sides add are all kept, current side first; a bullet
+  one side moved appears once, where it moved; markers remain only around a bullet edited
+  differently on both sides, or edited on one and deleted on the other; lists it cannot match are
+  left to git. `init --merge-driver` and `upgrade` add every `CHANGELOG.md` to the `.gitattributes`
+  block, and any file with its own `merge=taskrail` line gets the same merge (T040).
 
 ## 0.1.0
 

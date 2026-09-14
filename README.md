@@ -25,8 +25,9 @@ pinned in the config — through `uvx` if the installed CLI differs. Two optiona
   pull requests.
 - `--pre-commit` adds a git hook that runs `taskrail validate` before commits that touch
   Markdown or `.taskrail/`.
-- `--merge-driver` lets git resolve the conflicts parallel branches make in backlog tables: rows
-  both sides add are kept, and a `✅` wins unless the other side reopened the task. It writes a
+- `--merge-driver` lets git resolve the conflicts parallel branches make in backlog tables and
+  in bullets appended to changelogs: rows and bullets both sides add are kept, a bullet one side
+  moved is not duplicated, and a `✅` wins unless the other side reopened the task. It writes a
   block of `.gitattributes` to commit, and defines the driver in this clone's git config, which
   each clone opts into by running `taskrail init --merge-driver` once.
 

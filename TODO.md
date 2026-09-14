@@ -47,7 +47,7 @@ Done when: backlog conflicts resolve automatically, existing backlogs import, an
 | ✅ | T037 | bug     | 1   | —          | Delete remote claims with a lease on their recorded commit | release --force and done exit 2 when claim_remote is set: _delete_remote leases without an expected commit, so git finds no tracking ref and rejects the delete. |
 | ✅ | T038 | chore   | 1   | —          | Create task branches without tracking the mainline | git worktree add -b <branch> origin/<mainline> sets the task branch to track the mainline, so a plain git push can target it; branch with --no-track in the skill and in new --workspace. |
 | ⬜ | T039 | chore   | 1   | —          | Fetch full history in the generated GitHub workflow | The workflow init --github-workflow writes checks out one commit, so validate's reopen history check (T012) examines nothing; set fetch-depth: 0. |
-| ⬜ | T040 | feature | 3   | T004       | Merge appended changelog bullets without duplicating moved ones | Resolve the rest of conflict class 2 (DESIGN §12.8): bullets both sides append to a changelog, without duplicating a bullet one side moved; follows T004's merge driver. |
+| ✅ | T040 | feature | 3   | T004       | Merge appended changelog bullets without duplicating moved ones | Resolve the rest of conflict class 2 (DESIGN §12.8): bullets both sides append to a changelog, without duplicating a bullet one side moved; follows T004's merge driver. |
 
 ## E05 — Adoption
 

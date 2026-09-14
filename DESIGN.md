@@ -772,8 +772,8 @@ and epics in their own files (`epic split` moves them afterwards).
 
 Parallel task branches edit the same backlog tables, and git sees adjacent lines, not rows: two
 branches appending to one epic, a `✓` flipped next to a row appended by the other, or a rebase
-replaying a commit that opens a row already upstream all conflict. `taskrail merge-driver` resolves
-those as a git merge driver.
+replaying a commit that opens a row already upstream all conflict, as do bullets two branches append
+to a changelog. `taskrail merge-driver` resolves those as a git merge driver.
 
 **Contract.** `taskrail merge-driver <base> <current> <other> [--marker-size N] [--path P]
 [--base-label L] [--current-label L] [--other-label L]` — git's `%O %A %B %L %P %S %X %Y`. The
@@ -819,13 +819,44 @@ table merge cleanly. The driver never validates, since the other backlog files m
 yet; rules across tables or files stay with `taskrail validate`, which the core skill runs after a
 rebase.
 
+**Bullet lists merged bullet by bullet** (*implemented, T040*). Changelogs conflict the same way:
+two branches appending a bullet to `## Unreleased`, and "keep both" leaves a bullet twice when one
+side moved it. After the tables, the driver reads tight bullet lists outside fenced code: a bullet
+is a column-0 `- `, `* ` or `+ ` line plus its indented continuation lines; a list is a run of
+bullets with no blank line between them; ordered items are not bullets. A list is identified by
+its heading path (every ATX heading level, so `## Unreleased` › `### Added` differs from
+`## 0.1.0` › `### Added`) and its position under that path. Lists are merged when the path has the
+same number of lists on both sides and in the base, or none in the base, and no fence opens
+inside one of its bullets; a bullet's key is its text without trailing whitespace, unique within
+each version's list.
+
+- Edits: for each side, `SequenceMatcher` over the base's and the side's keys; in a `replace` block,
+  base bullets the side no longer has pair in order with side bullets the base never had, as edits
+  of the base bullet. Unequal non-zero counts leave the list to git.
+- Each bullet is then merged three-way like a row: an edit on one side wins, two different edits
+  and an edit against a deletion are unresolved, a bullet unchanged on one side and deleted on the
+  other is removed, and a bullet added on either side, or identically on both, appears once.
+- Moves: among bullets present everywhere, a side moved one that falls outside the matching blocks
+  of the base's order and its own. It takes the moving side's position (the current side's when
+  both moved it), so a moved bullet is never kept twice.
+- Order: the row rule, with bullets only the other side moved placed like its additions — the
+  current side's bullets first when both append.
+- A merged list that would hold the same text twice is left to git.
+
+Merged lists are placed into the three inputs as tables are, after them and before
+`git merge-file`. `init --merge-driver` adds to the block every `CHANGELOG.md`, in any letter case,
+that `git ls-files --cached --others --exclude-standard` lists outside `worktree_dir`, and `upgrade`
+picks up new ones; any other file gets the same merge with its own `merge=taskrail` line outside
+the block, which taskrail leaves alone.
+
 **Installing.** `init --merge-driver` records the extra and:
 
 - writes a marked block in `.gitattributes`, keeping every other line, with `/<path> merge=taskrail`
-  for each backlog file, epic file and artifact index (each kind's `artifact_index` and
-  `[autopilot].decisions_index` rendered per backlog, skipping per-task templates), quoted or escaped
-  so it matches exactly that path. `upgrade` and `init` refresh it while the extra is recorded, and
-  `epic add --own-file` and `epic split` refresh an existing block when they create an epic file;
+  for each backlog file, epic file, artifact index (each kind's `artifact_index` and
+  `[autopilot].decisions_index` rendered per backlog, skipping per-task templates) and changelog,
+  quoted or escaped so it matches exactly that path. `upgrade` and `init` refresh it while the extra
+  is recorded, and `epic add --own-file` and `epic split` refresh an existing block when they create
+  an epic file;
 - sets `merge.taskrail.name` and `merge.taskrail.driver` in this clone's local config:
 
   ```
@@ -1251,8 +1282,9 @@ procedure (*implemented, T024*); detection and cleanup are the CLI's (*implement
 - **Known conflict classes,** resolved without a human; anything else escalates:
   1. backlog rows, united by ID, with ✅ winning unless a `Reopens:` commit exists (the merge
      driver, §7.4, where a clone installed it; by hand with the core skill's rule otherwise);
-  2. appended index rows and changelog bullets: keep all (index rows by the merge driver when the
-     indexes are in its `.gitattributes` block; changelog bullets by hand until T040);
+  2. appended index rows and changelog bullets: keep all, each once (by the merge driver when the
+     file is in its `.gitattributes` block, where a bullet one side moved stays only at its new
+     place; by hand otherwise, taking the same care with moved bullets);
   3. installed skill copies and `.taskrail/installed.json`: make the manifest valid first, merge
      the sources, then run `taskrail upgrade --force`.
 - **Class 3 needs T027 first:** until `init` and `upgrade` stop on an unreadable manifest, a
