@@ -7,6 +7,7 @@
 | E01 | taskrail release | Publish a first version other repositories can install | —    |
 | E02 | taskrail phase 2 | Parallel execution and migration from existing backlogs | —    |
 | E05 | Adoption | Let a consumer project replace its own task system with taskrail | —    |
+| E06 | Repository tooling | How this repository runs its own backlog with taskrail while it is worked on | —    |
 
 ## E01 — taskrail release
 
@@ -75,3 +76,11 @@ Done when: a consumer project runs its backlog through taskrail with its own kin
 | ✅ | T023 | feature | 2   | —          | Report signs of prior work on a task in show | Informational only: an existing artifact, or commits whose subject names the task ID. |
 | ✅ | T025 | feature | 2   | T018       | Skip installing skills for kinds a repository does not allow | init and upgrade should not install executor skills for kinds outside [kinds].allowed. |
 | ✅ | T034 | bug     | 1   | T017       | Clear done-branch for a task reopened on its mainline | A stale task branch with ✅ hides a task reopened on the mainline; a mainline Reopens: <ID> commit the branch lacks should clear the state. |
+
+## E06 — Repository tooling
+
+Done when: this repository's own backlog runs through the taskrail autopilot
+
+| ✓  | ID   | Kind    | Pts | Depends On | Title                          | Description                    |
+|----|------|---------|-----|------------|--------------------------------|--------------------------------|
+| ✅ | T058 | chore   | 1   | —          | Enable the autopilot in this repository | Add an [autopilot] block to .taskrail/config.toml with CLAUDE.md and DESIGN.md as governing documents and spike decide gates escalated; verified by taskrail autopilot start --count exiting 0 against a scratch clone and by validate. |

@@ -26,3 +26,9 @@ rebase = true
 
 [checks]                     # commands the task kinds run as quality gates
 test = "uv run pytest -q"
+
+[autopilot]                  # `taskrail autopilot`; see DESIGN.md §12
+enabled = true
+max_lanes = 3
+governing = ["CLAUDE.md", "DESIGN.md"]   # read first to answer gates; changes to them reach the human
+escalate_gates = ["spike:decide"]                       # a spike's decision always goes to the human
