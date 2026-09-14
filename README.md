@@ -22,7 +22,8 @@ installs the skills and a committed wrapper, `.taskrail/bin/taskrail`, which run
 pinned in the config — through `uvx` if the installed CLI differs. Two optional flags:
 
 - `--github-workflow` adds `.github/workflows/taskrail.yml`, running `taskrail validate` on
-  pull requests.
+  pull requests and pushes to the mainlines, with full git history so its check for reopens
+  without a `Reopens:` trailer sees every commit.
 - `--pre-commit` adds a git hook that runs `taskrail validate` before commits that touch
   Markdown or `.taskrail/`.
 - `--merge-driver` lets git resolve the conflicts parallel branches make in backlog tables and

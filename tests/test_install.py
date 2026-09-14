@@ -130,6 +130,29 @@ def test_github_workflow_flag_is_remembered(empty_repo, capsys):
     assert (empty_repo / ".github/workflows/taskrail.yml").exists()
 
 
+def test_github_workflow_checks_out_full_history(empty_repo, capsys):
+    # validate's reopen check (DESIGN §7) sees nothing past a shallow clone's boundary.
+    init(empty_repo, "--github-workflow", capsys=capsys)
+    workflow = (empty_repo / install.WORKFLOW).read_text()
+    assert "      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n" in workflow
+
+
+def test_upgrade_rewrites_an_unedited_workflow_from_an_earlier_template(empty_repo, capsys):
+    init(empty_repo, "--github-workflow", capsys=capsys)
+    earlier = install.workflow(["main"]).replace("        with:\n          fetch-depth: 0\n", "")
+    assert "fetch-depth" not in earlier
+    (empty_repo / install.WORKFLOW).write_text(earlier)
+    manifest_path = empty_repo / install.MANIFEST
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files"][install.WORKFLOW] = install._digest(earlier)
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+
+    code, out, err = run(empty_repo, "upgrade", "--json", capsys=capsys)
+    assert code == 0, err
+    assert install.WORKFLOW in json.loads(out)["updated"]
+    assert "fetch-depth: 0" in (empty_repo / install.WORKFLOW).read_text()
+
+
 def test_pre_commit_hook_is_added_once_and_keeps_an_existing_hook(empty_repo, capsys):
     hook = empty_repo / ".git/hooks/pre-commit"
     hook.parent.mkdir(parents=True, exist_ok=True)

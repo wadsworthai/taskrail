@@ -137,6 +137,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   differently on both sides, or edited on one and deleted on the other; lists it cannot match are
   left to git. `init --merge-driver` and `upgrade` add every `CHANGELOG.md` to the `.gitattributes`
   block, and any file with its own `merge=taskrail` line gets the same merge (T040).
+- **The GitHub workflow fetches full history.** The workflow `init --github-workflow` writes now
+  checks out with `fetch-depth: 0`, so `validate`'s reopen check examines the history instead of
+  a single commit. `upgrade` rewrites an unedited workflow; one edited locally is reported as
+  skipped — add `fetch-depth: 0` to its checkout step by hand, or pass `--force` (T039).
 
 ## 0.1.0
 
