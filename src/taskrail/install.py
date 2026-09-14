@@ -311,19 +311,45 @@ def install_hook(root: Path, report: Report) -> None:
     path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
+SKILL_SECTION = re.compile(r"^<!-- taskrail:skill ([a-z0-9-]+) -->[ \t]*$", re.MULTILINE)
+
+
+def harness_sections(text: str) -> dict[str, str]:
+    """An integration file's notes per skill: each section opens with `<!-- taskrail:skill <name> -->`."""
+    parts = SKILL_SECTION.split(text)
+    return {name: body.strip() for name, body in zip(parts[1::2], parts[2::2]) if body.strip()}
+
+
+def skill_of(relative: str) -> str | None:
+    """The skill a path under an integration's skills directory belongs to, or None."""
+    for integration in INTEGRATIONS.values():
+        prefix = integration["skills_dir"] + "/"
+        if relative.startswith(prefix) and "/" in relative[len(prefix):]:
+            return relative[len(prefix):].split("/", 1)[0]
+    return None
+
+
 def skill_files(integrations: list[str]) -> dict[str, str]:
-    """Rendered skill files per destination path for the selected integrations."""
+    """Rendered skill files per destination path for the selected integrations.
+
+    Every file of a shipped skill directory is installed. Only `SKILL.md` carries the harness
+    marker, which receives that skill's section of each served integration's notes.
+    """
     if "claude" in integrations:
         targets = {INTEGRATIONS["claude"]["skills_dir"]: integrations}
     else:
         targets = {INTEGRATIONS[name]["skills_dir"]: [name] for name in integrations}
     files: dict[str, str] = {}
     for skills_dir, served in targets.items():
-        harness = "\n".join((HARNESS_SOURCE / f"{name}.md").read_text(encoding="utf-8") for name in sorted(served)).strip()
+        notes = [harness_sections((HARNESS_SOURCE / f"{name}.md").read_text(encoding="utf-8")) for name in sorted(served)]
         for skill in sorted(p for p in SKILLS_SOURCE.iterdir() if p.is_dir()):
-            text = (skill / "SKILL.md").read_text(encoding="utf-8")
-            text = text.replace(HARNESS_MARKER, harness) if harness else text.replace(HARNESS_MARKER + "\n\n", "")
-            files[f"{skills_dir}/{skill.name}/SKILL.md"] = text
+            for path in sorted(p for p in skill.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
+                text = path.read_text(encoding="utf-8")
+                name = path.relative_to(skill).as_posix()
+                if name == "SKILL.md":
+                    harness = "\n\n".join(section[skill.name] for section in notes if skill.name in section)
+                    text = text.replace(HARNESS_MARKER, harness) if harness else text.replace(HARNESS_MARKER + "\n\n", "")
+                files[f"{skills_dir}/{skill.name}/{name}"] = text
     return files
 
 
@@ -384,11 +410,11 @@ def install(
 
     left_out, kind_errors = unused_executor_skills(config)
     every = skill_files(selected)
-    wanted = {relative: content for relative, content in every.items() if Path(relative).parent.name not in left_out}
+    wanted = {relative: content for relative, content in every.items() if skill_of(relative) not in left_out}
     for relative, content in wanted.items():
         installer.managed(relative, content)
     withheld: list[str] = []
-    for relative in [p for p in list(installer.files) if p.endswith("/SKILL.md") and p not in wanted]:
+    for relative in [p for p in list(installer.files) if skill_of(p) is not None and p not in wanted]:
         # Bad kind input must never delete skills: keep what the kind filter alone would remove.
         if kind_errors and relative in every and (root / relative).exists():
             withheld.append(relative)
@@ -409,7 +435,7 @@ def install(
     if pre_commit:
         install_hook(root, installer.report)
     changed = [*installer.report.created, *installer.report.updated, *installer.report.removed]
-    if any(path.endswith("/SKILL.md") for path in changed):
+    if any(skill_of(path) is not None for path in changed):
         installer.report.notes.append("skills changed: restart the agent session so it loads them")
     if not selected:
         installer.report.notes.append("no agent integration installed; pass --integration claude or --integration opencode")

@@ -108,7 +108,16 @@ allowed = ["spec", "bug", "chore"]
 
 `init` and `upgrade` install only the executor skills the allowed kinds use, so the example above
 does not install `taskrail-feature` or `taskrail-spike`, and removes them if they were installed
-and not edited locally. The core `taskrail` skill always installs.
+and not edited locally. The core `taskrail` skill and the `taskrail-autopilot` skill always install.
+
+## Autopilot
+
+The `taskrail-autopilot` skill runs several tasks at once, one lane per task, when the human asks
+for it with a task count. The agent the human talks to orchestrates: it dispatches lanes with
+`taskrail autopilot next`, answers their gates from the repository's governing documents, records
+each decision on the task branch, escalates what the human must decide, and hands finished
+branches over one at a time. A repository opts in with `[autopilot].enabled = true`; until then
+`taskrail autopilot start` refuses with exit 5 and the skill stops. See DESIGN.md §12.
 
 ## Development
 

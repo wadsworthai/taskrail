@@ -726,6 +726,9 @@ and epics in their own files (`epic split` moves them afterwards).
   repeating it.
 - `taskrail-bug`, `taskrail-chore`, `taskrail-feature`, `taskrail-spike` — one per core kind,
   containing only what happens inside each stage and what the artifact must hold.
+- `taskrail-autopilot` — the orchestrator of an autopilot run (§12): when to run, dispatch,
+  supervision, answering gates, escalation, hand-off and follow-through, with its lane brief,
+  gate checklist and decision-record template in `references/`.
 
 Skills never compute paths: `taskrail show --json` returns the branch, worktree and artifact
 paths rendered from the kind's templates.
@@ -736,13 +739,16 @@ otherwise stop and return the report to whoever invoked you".
 
 ### Integrations
 
-An integration decides where skills are written and adds a short agent-specific section to
-the core skill (at its `<!-- taskrail:harness -->` marker):
+An integration decides where skills are written and adds short agent-specific notes to a
+skill at its `<!-- taskrail:harness -->` marker. `integrations/<integration>.md` holds one
+section per skill, each opened by `<!-- taskrail:skill <name> -->`; a skill receives only its own
+section, and a marker with no section is dropped. Only `SKILL.md` carries the marker; the
+portable text names no agent.
 
-| Integration | Skills directory | Agent-specific notes |
-|---|---|---|
-| `claude` | `.claude/skills/` | ask with AskUserQuestion; create task worktrees with git rather than subagent isolation |
-| `opencode` | `.opencode/skills/` | ask in plain text; a subagent's final message returns to its caller |
+| Integration | Skills directory | Notes in `taskrail` | Notes in `taskrail-autopilot` |
+|---|---|---|---|
+| `claude` | `.claude/skills/` | ask with AskUserQuestion; create task worktrees with git rather than subagent isolation | lanes are background subagents resumed with `SendMessage`; the model per lane; no timer |
+| `opencode` | `.opencode/skills/` | ask in plain text; a subagent's final message returns to its caller | lanes are task tool calls resumed by `task_id`; gates answered in waves |
 
 OpenCode also reads `.claude/skills/` and requires skill names to be unique across every
 location it reads. With both integrations installed, the skills are therefore written once, to
@@ -768,16 +774,17 @@ session starts.
 
 - **Seeded files** — `.taskrail/config.toml` and each backlog file — are created only when
   missing and belong to the repository afterwards.
-- **Managed files** — the wrapper, the skills, the optional workflow — are rewritten when they
+- **Managed files** — the wrapper, every file of each skill directory (`SKILL.md` and, for
+  example, `references/`), the optional workflow — are rewritten when they
   change, unless edited locally. `.taskrail/installed.json` records each managed file's digest;
   a file edited since, or one taskrail did not write, is skipped and reported. `--force`
-  replaces it. A skill no longer wanted (for example after adding a second integration) is
-  removed under the same rule.
+  replaces it. A skill file no longer wanted (for example after adding a second integration, or
+  one no longer shipped) is removed under the same rule.
 - **Executor skills follow the kinds.** A shipped skill that a core kind names, in `skill` or a
   route, is an executor skill. It installs only when a kind the repository resolves — core,
   local and overrides, after `[kinds].allowed` (§5.2) — names it, so a local kind may pull in a
   shipped executor skill whose own kind is not allowed. Shipped skills no core kind names, such
-  as the core `taskrail` skill, always install; skills taskrail does not ship are never written.
+  as the core `taskrail` skill and `taskrail-autopilot`, always install; skills taskrail does not ship are never written.
   The report notes the executor skills left out. While kind resolution reports errors, such as
   `kind-allowed-unknown`, nothing the kind filter would remove is removed, and a note says so:
   bad input never deletes a skill, and the next run after the fix removes what is not wanted.
@@ -804,7 +811,7 @@ taskrail/
 ├── pyproject.toml
 ├── src/taskrail/          # parser, validator, claims, writer, installer, CLI
 │   ├── kinds/             # core kind descriptors        ┐
-│   ├── skills/            # core and executor skills     ├ shipped as package data
+│   ├── skills/            # core, executor and autopilot ├ shipped as package data
 │   └── integrations/      # agent-specific skill notes   ┘
 ├── examples/spec-kit/     # example repository-local `spec` kind
 └── tests/
@@ -820,9 +827,9 @@ taskrail/
    base and `done-branch`), T027 (unreadable manifest), T029–T032 (the `autopilot` commands),
    then T024 (the skill), and trialled by T033 (§12.10).
 
-## 12. Autopilot (partly implemented)
+## 12. Autopilot (implemented)
 
-Status: **partly implemented.** Accepted at the decide gate of the
+Status: **implemented.** Accepted at the decide gate of the
 [T007 spike](../../docs/spikes/T007-design-taskrail-s-autopilot-from-existin.md), with the
 human's decisions in its
 [decision record](../../docs/autopilot/decisions/T007-design-taskrail-s-autopilot-from-existin.md).
@@ -830,8 +837,10 @@ T029 implemented the configuration (§12.9, now in §4), run files and `run` in 
 and `autopilot start`, `lane`, `decision` and `status` (§12.1); T030 implemented `autopilot next`
 with groups and resource pools (§12.7); T031 implemented `autopilot merged` (§12.1, §12.8) and
 recorded merges (§12.4); T032 added `autopilot notify`, `lane --gate` and the computed escalation
-reasons in `status` (§12.6). Each part is marked *implemented*. Every
-other part is still planned and names the task that will build it (§12.10). The evidence (E1–E7) and the full comparison of options stay in the spike.
+reasons in `status` (§12.6); T024 wrote the `taskrail-autopilot` skill with its Claude Code and
+OpenCode notes and installed it in every repository (§12.2, §12.3, §12.5, §12.6, §12.8). Each part
+is marked *implemented*; the end-to-end trial (T033) builds nothing and may change the design
+through its findings (§12.10). The evidence (E1–E7) and the full comparison of options stay in the spike.
 
 The autopilot runs several tasks at once, one lane per task, and answers their gates on the
 human's behalf where the governing documents allow it. It covers the
@@ -864,13 +873,13 @@ disabled autopilot:
 
 The autopilot runs only when the human asks for it and gives a task count. The skill states
 this in its prose, not only in frontmatter, so the rule holds on agents that ignore
-invocation-control keys.
+invocation-control keys (*implemented, T024*).
 
 ### 12.2 Installation and opt-in
 
 - `init` and `upgrade` install `taskrail-autopilot` in **every** repository, with the other
   skills. No kind names it, so it is not an executor skill and the kind filter of §9 never
-  leaves it out.
+  leaves it out (*implemented, T024*).
 - A repository opts in with `[autopilot].enabled = true`. Until then `autopilot start` refuses
   with exit 5 and names the key, and the skill stops when it sees that refusal. The refusal is a
   CLI guarantee, so it holds on any agent (*implemented, T029*).
@@ -883,12 +892,16 @@ kind filter. The human chose to install it always, so every consumer receives th
 **The orchestrator** is the session the human talks to. It keeps a lane handle per task in the
 run file, so a compacted or new orchestrator session can resume the lanes.
 
-**A lane** is a sub-session, and its contract is the same on every agent. It:
+**A lane** is a sub-session, and its contract is the same on every agent. The skill's lane brief
+(`references/lane-brief.md`), filled from `autopilot next --json`, gives it to each lane
+(*implemented, T024*). It:
 
 - runs the `taskrail` skill and the task's executor skill for one task ID;
 - creates its worktree with git and claims inside it (§8);
 - ends its turn at every gate with the full gate report;
 - is resumed with `continue <ID>` plus the answers;
+- stops after `taskrail done` and `review --json` without rebasing, since the orchestrator rebases
+  once, at hand-off (§12.8);
 - never runs `review --publish`, never merges, never starts shared services, and never touches
   another lane's worktree.
 
@@ -905,7 +918,7 @@ run file, so a compacted or new orchestrator session can resume the lanes.
 OpenCode's task calls block by default, so there the orchestrator answers gates in waves, once
 every lane in a batch has stopped: correct, but slower. Its integration note says so and names
 the experimental background flag without requiring it. Agent-specific text goes in the
-integration notes (§8); agent definitions for pinning a lane model (`.claude/agents/`,
+skill's section of the integration notes (§8, *implemented, T024*); agent definitions for pinning a lane model (`.claude/agents/`,
 `.opencode/agents/`) are adapter packaging, deferred until a consumer needs them.
 
 **Not a CLI that launches agents itself** (for example through `claude -p --resume` or
@@ -961,6 +974,7 @@ lanes must not do, and answering gates needs an agent anyway.
   `{artifacts}/autopilot/decisions/{id}-{slug}.md`, indexed at `decisions_index`, default
   `{artifacts}/autopilot/decisions/README.md` (columns Task, Title, Document). `autopilot next`
   and `status` render both paths.
+- **Template:** the skill's `references/decision-record.md` (*implemented, T024*).
 - **Committed** on the task branch by the orchestrator, **only while the lane is stopped at a
   gate** and before resuming it, so the record travels with the squash-merged pull request.
 - **Format:**
@@ -969,9 +983,12 @@ lanes must not do, and answering gates needs an agent anyway.
     the diff range, the re-run checks and the real-runtime verification, then a table
     `# | Question | Options | Decision | Reason`;
   - `## Conflict handling agreed for all lanes`, when a touch map was given;
-  - `## rebase after …`, with a File / Conflict / Resolution table and the checks re-run
-    afterwards;
-  - `## escalated to the human` for escalated gates, naming who answered.
+  - `## rebase after …`, naming the merged tasks, then the same table (one row per conflict and
+    how it was resolved) and the checks re-run afterwards;
+  - `## escalated to the human` for escalated gates, with the same table, naming who answered.
+
+  Every section uses the one `# | Question | Options | Decision | Reason` table, as this
+  repository's own records do (decided at T024's plan gate).
 - **Run-level decisions** — touch map, conflict classes, order — are copied into each affected
   task's record, and kept in the run file. No run log lives on the mainline, since it would need
   a commit outside any task.
@@ -988,7 +1005,9 @@ The orchestrator stops and asks the human when:
 6. a task row rests on a false premise;
 7. the base has diverged, as `show` and `review` already report.
 
-`autopilot status` computes the first two (*implemented, T032*); the rest are judgement.
+`autopilot status` computes the first two (*implemented, T032*); the rest are judgement, which
+the skill lists with how to escalate: `lane --state escalated`, `notify --event escalation`, then
+the question to the human (*implemented, T024*).
 
 - **Governing paths.** Each `governing` entry is a repository-relative path or shell-style glob
   that matches a file or any of its leading directories: `docs/adr` and `docs/adr/` cover
@@ -1062,6 +1081,9 @@ reading its worktree, and escalated if it is stuck. An agent that can wait on a 
   Other sequences stay out until a consumer needs them; a value pool covers small cases.
 
 ### 12.8 Merge follow-through
+
+The skill carries publishing, hand-off, follow-through and the known conflict classes below as its
+procedure (*implemented, T024*); detection and cleanup are the CLI's (*implemented, T031*).
 
 - **Publishing.** Lanes stop after `taskrail done` and `review --json`. The orchestrator rebases
   when needed, re-runs the checks, then runs `review --publish --type … --scope …` in the lane's
@@ -1152,7 +1174,7 @@ values = ["5433", "5434", "5435"]
 | T030 | feature | T029 | `autopilot next`: kinds, group limits, resource pools (§12.7) — implemented |
 | T031 | feature | T029 | `autopilot merged`: merge detection and cleanup (§12.8) — implemented |
 | T032 | feature | T029 | `autopilot notify` and the escalation flags in `status` (§12.6) — implemented |
-| T024 | feature | T030, T031, T032 | the `taskrail-autopilot` skill with Claude Code and OpenCode notes, installed in every repository (§12.2, §12.3, §12.5, §12.8) |
+| T024 | feature | T030, T031, T032 | the `taskrail-autopilot` skill with Claude Code and OpenCode notes, installed in every repository (§12.2, §12.3, §12.5, §12.8) — implemented |
 | T033 | spike | T024 | an end-to-end trial on a real backlog with each supported agent |
 
 T019 changes how a task's branch is found, as T017 does, so it runs after T017; it is not needed

@@ -105,6 +105,15 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   branch it started from, and a plain `git push` cannot land on them; `review --publish` still
   sets the task's own remote branch as upstream. A branch created earlier keeps tracking its base
   until `git branch --unset-upstream` is run on it (T038).
+- **The `taskrail-autopilot` skill.** `init` and `upgrade` install it in every repository, whatever
+  `[kinds].allowed` says. It makes the agent the orchestrator of a run the human asked for with a
+  task count, and stops when `autopilot start` exits 5: dispatch with `autopilot next`, a lane brief
+  template, gate criteria per gate type, decision records written before each answer, escalation,
+  the three known conflict classes, sequential hand-off and follow-through with `autopilot merged`.
+  Installed skills now include every file of a skill directory, such as `references/`, as managed
+  files, and the agent notes in `integrations/<agent>.md` are split per skill by
+  `<!-- taskrail:skill <name> -->`, so the core skill's notes are unchanged and the autopilot skill
+  gets its own Claude Code and OpenCode notes (T024).
 
 ## 0.1.0
 

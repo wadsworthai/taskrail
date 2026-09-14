@@ -24,3 +24,4 @@
 | T031 | Detect squash merges by content and follow through with autopilot merged | [T031-detect-squash-merges-by-content-and-foll.md](T031-detect-squash-merges-by-content-and-foll.md) |
 | T005 | Import tasks from table-based backlogs without epics | [T005-import-tasks-from-table-based-backlogs-w.md](T005-import-tasks-from-table-based-backlogs-w.md) |
 | T038 | Create task branches without tracking the mainline | [T038-create-task-branches-without-tracking-th.md](T038-create-task-branches-without-tracking-th.md) |
+| T024 | Write the taskrail-autopilot skill with Claude Code and OpenCode notes | [T024-write-the-taskrail-autopilot-skill-with.md](T024-write-the-taskrail-autopilot-skill-with.md) |

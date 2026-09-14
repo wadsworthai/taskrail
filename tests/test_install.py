@@ -11,7 +11,7 @@ from conftest import git
 from taskrail import install
 from taskrail.cli import main
 
-SKILLS = ["taskrail", "taskrail-bug", "taskrail-chore", "taskrail-feature", "taskrail-spike"]
+SKILLS = ["taskrail", "taskrail-autopilot", "taskrail-bug", "taskrail-chore", "taskrail-feature", "taskrail-spike"]
 
 
 @pytest.fixture
@@ -346,7 +346,7 @@ def test_without_allowed_kinds_every_skill_installs_without_a_note(empty_repo, c
 def test_allowed_kinds_limit_the_executor_skills_installed(empty_repo, capsys, integration, skills_dir):
     seed_config(empty_repo, "bug", "chore")
     report = init(empty_repo, "--integration", integration, capsys=capsys)
-    assert installed_skills(empty_repo, skills_dir) == ["taskrail", "taskrail-bug", "taskrail-chore"]
+    assert installed_skills(empty_repo, skills_dir) == ["taskrail", "taskrail-autopilot", "taskrail-bug", "taskrail-chore"]
     assert left_out_notes(report) == ["not installing skills that no allowed kind uses: taskrail-feature, taskrail-spike"]
     manifest = json.loads((empty_repo / ".taskrail/installed.json").read_text())
     assert not [path for path in manifest["files"] if "feature" in path or "spike" in path]
@@ -360,7 +360,7 @@ def test_narrowing_allowed_kinds_removes_their_skills_on_upgrade(empty_repo, cap
     set_kinds(empty_repo, "bug", "chore")
     report = upgrade(empty_repo, capsys=capsys)
     assert sorted(report["removed"]) == [".claude/skills/taskrail-feature/SKILL.md", ".claude/skills/taskrail-spike/SKILL.md"]
-    assert installed_skills(empty_repo) == ["taskrail", "taskrail-bug", "taskrail-chore"]
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-autopilot", "taskrail-bug", "taskrail-chore"]
     assert not (empty_repo / ".claude/skills/taskrail-feature").exists()
     manifest = json.loads((empty_repo / ".taskrail/installed.json").read_text())
     assert ".claude/skills/taskrail-feature/SKILL.md" not in manifest["files"]
@@ -408,7 +408,7 @@ def test_a_local_kind_naming_a_shipped_skill_installs_it(empty_repo, capsys, bod
     seed_config(empty_repo, "bug", "research")
     write_kind(empty_repo, "types", "research", body)
     report = init(empty_repo, "--integration", "claude", capsys=capsys)
-    assert installed_skills(empty_repo) == ["taskrail", "taskrail-bug", "taskrail-spike"]
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-autopilot", "taskrail-bug", "taskrail-spike"]
     assert left_out_notes(report) == ["not installing skills that no allowed kind uses: taskrail-chore, taskrail-feature"]
 
 
@@ -417,7 +417,7 @@ def test_core_skill_installs_when_only_a_local_kind_with_its_own_skill_is_allowe
     seed_config(empty_repo, "spec")
     write_kind(empty_repo, "types", "spec", 'skill = "speckit-pipeline"')
     report = init(empty_repo, "--integration", "claude", capsys=capsys)
-    assert installed_skills(empty_repo) == ["taskrail"]
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-autopilot"]
     assert report["skipped"] == []
     assert not any("speckit" in path for path in report["created"])
 
@@ -427,7 +427,7 @@ def test_an_override_replacing_a_core_kinds_skill_skips_that_skill(empty_repo, c
     seed_config(empty_repo)
     write_kind(empty_repo, "overrides", "bug", 'skill = "my-bug"')
     report = init(empty_repo, "--integration", "claude", capsys=capsys)
-    assert installed_skills(empty_repo) == ["taskrail", "taskrail-chore", "taskrail-feature", "taskrail-spike"]
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-autopilot", "taskrail-chore", "taskrail-feature", "taskrail-spike"]
     assert left_out_notes(report) == ["not installing skills that no allowed kind uses: taskrail-bug"]
 
 
@@ -449,11 +449,11 @@ def test_kind_resolution_errors_withhold_removals_until_fixed(empty_repo, capsys
     fixed = upgrade(empty_repo, capsys=capsys)
     assert sorted(fixed["removed"]) == [".claude/skills/taskrail-feature/SKILL.md", ".claude/skills/taskrail-spike/SKILL.md"]
     assert withheld_notes(fixed) == []
-    assert installed_skills(empty_repo) == ["taskrail", "taskrail-bug", "taskrail-chore"]
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-autopilot", "taskrail-bug", "taskrail-chore"]
 
 
 def test_kind_resolution_errors_still_install_from_the_resolved_kinds(empty_repo, capsys):
     seed_config(empty_repo, "bgu", "chore")
     report = init(empty_repo, "--integration", "claude", capsys=capsys)
-    assert installed_skills(empty_repo) == ["taskrail", "taskrail-chore"]
+    assert installed_skills(empty_repo) == ["taskrail", "taskrail-autopilot", "taskrail-chore"]
     assert withheld_notes(report) == []
