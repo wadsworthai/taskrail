@@ -75,6 +75,7 @@ class Config:
     points_scale: tuple[int, ...] = ()
     push_task_branch: bool = True
     claim_remote: str = ""
+    branch_record_remote: str = ""  # mirror branch records to this remote (DESIGN.md §6.4)
     claim_grace_minutes: int = 15
     worktree: str = "required"  # "required" | "never"
     worktree_dir: str = ".worktrees"
@@ -200,6 +201,7 @@ def load_config(root: Path) -> Config:
     git = git if isinstance(git, dict) else {}
     push_task_branch = expect(git, "push_task_branch", bool, True)
     claim_remote = expect(git, "claim_remote", str, "")
+    branch_record_remote = expect(git, "branch_record_remote", str, "")
     claim_grace_minutes = expect(git, "claim_grace_minutes", int, 15)
     if claim_grace_minutes < 0:
         problems.append("git.claim_grace_minutes must not be negative")
@@ -255,6 +257,7 @@ def load_config(root: Path) -> Config:
         points_scale=tuple(scale),
         push_task_branch=push_task_branch,
         claim_remote=claim_remote,
+        branch_record_remote=branch_record_remote,
         claim_grace_minutes=claim_grace_minutes,
         worktree=worktree,
         worktree_dir=worktree_dir,

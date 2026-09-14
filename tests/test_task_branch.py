@@ -97,7 +97,7 @@ def test_naming_a_task_before_its_workspace_exists(lanes, capsys):
     result = data(lanes.root, "branch", "T001", NAME, capsys=capsys)
     assert result == {
         "id": "T001", "branch": NAME, "previous": T001, "renamed": False, "claim_updated": False,
-        "worktree": None, "remote_copies": [],
+        "worktree": None, "remote_copies": [], "record_remote": None,
     }
     after = data(lanes.root, "show", "T001", capsys=capsys)
     assert (after["branch"], after["branch_source"], after["worktree"]) == (NAME, "recorded", f".worktrees/{NAME}")

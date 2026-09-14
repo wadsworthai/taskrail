@@ -136,6 +136,7 @@ scale = [1, 2, 3, 5, 8, 13]
 [git]
 push_task_branch = true
 claim_remote = ""                # e.g. "origin" to also claim across machines (§6.2)
+branch_record_remote = ""        # e.g. "origin" to share task branch records across clones (§6.4)
 claim_grace_minutes = 15         # how long a claim's branch may be missing before it is stale
 worktree = "required"            # "required": one worktree per task; "never": a branch in this checkout
 worktree_dir = ".worktrees"
@@ -363,8 +364,8 @@ owner and branch is a no-op. A held claim also settles the task's branch name (�
 the name its template renders and with no record yet, `claim` records that name, so a later hand
 edit of the title no longer changes the branch; claimed on any other branch — another name, a
 mainline or a detached `HEAD` — it records nothing and warns on stderr, naming `taskrail branch`.
-`--json` returns `branch_recorded` and the same `warning` (`null` when there is none); the exit
-code stays 0. `taskrail release <ID>` removes a claim; releasing someone
+`--json` returns `branch_recorded`, the same `warning` (`null` when there is none) and
+`record_remote` (§6.4); the exit code stays 0. `taskrail release <ID>` removes a claim; releasing someone
 else's needs `--force`. The owner defaults to `$TASKRAIL_OWNER`, then `user@host`.
 
 A claim is **stale** when its worktree no longer exists, or when its branch does not exist and
@@ -382,7 +383,9 @@ ref already exists. If the push fails the local claim is rolled back. Releasing 
 with a lease on the commit that was pushed. `--local-only` skips the remote for one command.
 
 Off by default: it needs network and permission to push, and the server must accept refs
-outside `refs/heads` and `refs/tags`.
+outside `refs/heads` and `refs/tags`. A claim's ref is deleted with the claim, so the branch it names
+is lost to other clones once the task is done; `branch_record_remote` mirrors the task's branch
+record next to it for that (§6.4).
 
 ### 6.3 ID allocation
 
@@ -409,7 +412,41 @@ never committed or pushed, and holds no owner, host or path. Unlike a claim it i
 `done`, `discard`, `release`, `reopen` or deleting the branch, so `review` and a dependent still
 find a renamed branch after the claim is gone. Records are written by `claim` (§6.1),
 `new --workspace --branch` and `taskrail branch`. Outside git, or without a record, the template
-applies. Another clone does not see records, so it resolves a renamed task to its template name.
+applies. Without mirroring, another clone does not see records, so it resolves a renamed task to its
+template name.
+
+**Mirroring records.** With `[git].branch_record_remote` naming a remote (off by default; independent
+of `claim_remote`, though both usually name the same remote), records are shared across clones:
+
+- *Ref.* A record is pushed as `refs/taskrail/branches/<ID>`: a parentless commit, authored
+  `taskrail <taskrail@localhost>` with the message `taskrail branch <ID>`, whose tree holds only
+  `branch.json` with `id`, `branch` and `recorded`. A record holds no owner, host or path, so
+  nothing is stripped; opting in does publish branch names, even ones `push_task_branch` never pushes.
+- *Push.* Every command that writes a record pushes it: `taskrail branch` (also for the name the
+  task already has, which is how a failed push is retried), `claim` when it records the template
+  name, and `new --workspace --branch`. The push leases on this clone's copy of the ref
+  (`--force-with-lease=<ref>:<copy>`, empty when there is none), and moves the copy to the pushed
+  commit. `--local-only` on `claim` and `branch` skips the fetch and the push.
+- *Fetch.* One `git fetch --prune --no-tags <remote> +refs/taskrail/branches/*:refs/taskrail/remotes/<remote>/branches/*`
+  copies the remote records; the copies sit outside `refs/heads` and `refs/remotes`, so no branch
+  listing, `done-branch` detection or prior-work search sees them. It runs at the start of `claim`,
+  `branch` and `new --workspace`, in `review` before the task branch is resolved (unless
+  `--no-fetch` or `[review].fetch = false`), and in `show`, `list` and `next` only with `--fetch`,
+  which does nothing while the setting is off.
+- *Disagreement.* After a fetch, a remote record replaces the local file when there is no local
+  record or its `recorded` is later, keeping its own timestamp; otherwise the local record stays —
+  a change made with `--local-only` or offline, pushed with that task's next record write. Clocks of
+  different machines decide, so a clone running behind can lose to an older name; running
+  `taskrail branch` again restores it. A fetch never deletes a local record and never renames or
+  deletes a git branch.
+- *Failures.* A failed fetch warns on stderr and the command goes on with the local records. A
+  failed push — offline, a server refusing the ref, or a lease rejected because another clone pushed
+  that record meanwhile — keeps the local branch, record and claim, warns naming the ref and the
+  retry, and leaves the exit code unchanged. `branch`, `claim` and `new --branch` report
+  `record_remote` in `--json`: `null` when nothing was mirrored, otherwise `name`, `ref`, `commit`
+  (the pushed commit, or `null`), `pushed` and `error`.
+- *Deletion.* Nothing deletes a remote record. To clean one up, run
+  `git push <remote> --delete refs/taskrail/branches/<ID>`; the next fetch prunes the local copy.
 
 `taskrail branch <ID> <NAME>` names or renames a task's branch. With `OLD` the branch resolved
 before the call:
@@ -421,8 +458,9 @@ before the call:
   exists, or adopting a branch already renamed with plain `git branch -m`.
 - The record is written, and a claim whose `branch` is `OLD` points to `NAME`; a claim mirrored to
   `claim_remote` is re-pushed with a lease on its recorded commit (`--local-only` skips it).
+- With `branch_record_remote` set, the record is pushed as described above.
 - `--json` returns `id`, `branch`, `previous`, `renamed`, `claim_updated`, `worktree` (where
-  `NAME` is checked out, or `null`) and `remote_copies`.
+  `NAME` is checked out, or `null`), `remote_copies` and `record_remote`.
 
 It refuses, changing nothing: exit 2 for a name `git check-ref-format --branch` rejects or rewrites,
 or the mainline of any backlog; exit 5 for the branch of another task, or for `NAME` existing
@@ -439,9 +477,9 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail init [--integration NAME]… [--github-workflow] [--pre-commit] [--force]` | Install into a repository; idempotent (§9) |
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks |
-| `taskrail list [--epic E01] [--eligible]` | Tasks, with computed blocked and eligible state |
-| `taskrail show <ID>` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; `null` unless `worktree = "required"`), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
-| `taskrail next` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` task |
+| `taskrail list [--epic E01] [--eligible] [--fetch]` | Tasks, with computed blocked and eligible state |
+| `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; `null` unless `worktree = "required"`), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
+| `taskrail next [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` task |
 | `taskrail claim <ID> [--run R]` / `taskrail release <ID>` | §6.1, §6.2; `--run` ties the claim to an autopilot run (§12.4) |
 | `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4) |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
@@ -534,7 +572,8 @@ than prose. Exit codes are stable:
 
 Task state, as reported by `list`, `show` and `next`, is one of `pending`, `claimed`,
 `blocked`, `done-branch`, `done` or `discarded`. Only local claims and local refs are
-consulted, so these commands never need the network.
+consulted, so these commands never need the network — except with `--fetch`, which first fetches
+mirrored branch records (§6.4).
 
 **Done on its branch.** A task is `done-branch` when its row is `⬜` in the current checkout but
 `✅` at the tip of its task branch (§6.4) — the local branch or `<remote>/<branch>` of its mainline's

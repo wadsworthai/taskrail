@@ -49,7 +49,8 @@ of `taskrail show`) supplies what happens inside each stage.
    check that the description's premises still hold, and mention both at your first gate.
    These signals never block on their own.
 3. **Workspace.** Run `git fetch <base.remote>` first, with the mainline's own remote that
-   `show` reported, then `taskrail show <ID> --json` again: its `base.onto` is the ref to branch
+   `show` reported, then `taskrail show <ID> --json --fetch` — which also brings in branch names
+   other clones recorded, when the repository mirrors them: its `base.onto` is the ref to branch
    from — the local or the remote mainline, whichever is further ahead, or, when
    `base.dependency` names a dependency finished only on its unmerged branch, that branch.
    If `base.diverged` is true, stop and ask which one to use; if `base.onto` is null, stop and
@@ -62,7 +63,7 @@ of `taskrail show`) supplies what happens inside each stage.
    now — run `taskrail branch <ID> <NAME>` before creating the workspace and read `show` again.
    To rename it later, run the same command inside the workspace, never plain `git branch -m`
    (if you already did, run it afterwards so taskrail adopts the new name). It renames the local
-   branch, keeps the worktree where it is, and never touches the remote: it exits 5 for a branch
+   branch, keeps the worktree where it is, and never touches a remote branch: it exits 5 for a branch
    already pushed, and renaming one with `--force` is a decision to report at your next gate.
 4. **Claim.** From inside the workspace, run `taskrail claim <ID>` before any edit. On the task's
    branch it records that name, so a later title edit cannot change it. A `warning` in its

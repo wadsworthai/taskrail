@@ -8,6 +8,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **Branch records across clones.** With `[git].branch_record_remote` set, a task's branch record
+  is pushed as `refs/taskrail/branches/<ID>` by `branch`, `claim` and `new --workspace --branch`,
+  and fetched by `claim`, `branch`, `new --workspace`, `review` and `show`/`list`/`next --fetch`,
+  so another clone resolves a renamed branch; the later record wins, and failures only warn (T036).
 - **Allowed kinds.** `[kinds].allowed` in config restricts a repository to a closed set of task
   kinds; `validate` rejects tasks of any other kind with `task-kind-disallowed` (T018).
 - **Prior work in `show`.** `prior_work` reports an existing artifact, the task branch, and

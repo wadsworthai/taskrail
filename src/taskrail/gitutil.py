@@ -11,7 +11,7 @@ class GitError(Exception):
     """A git command failed, or the directory is not inside a git repository."""
 
 
-# Fixed identity for the plumbing commits that carry remote claims; they are never merged.
+# Fixed identity for the plumbing commits that carry remote claims and branch records; they are never merged.
 _PLUMBING_ENV = {
     "GIT_AUTHOR_NAME": "taskrail",
     "GIT_AUTHOR_EMAIL": "taskrail@localhost",
@@ -114,8 +114,8 @@ def read_blobs(root: Path, specs: list[str]) -> dict[str, str | None]:
     return results
 
 
-def write_claim_commit(root: Path, content: str, message: str) -> str:
-    """Store `content` as `claim.json` in a parentless commit and return its id."""
+def write_file_commit(root: Path, name: str, content: str, message: str) -> str:
+    """Store `content` as the single file `name` in a parentless commit and return its id."""
     blob = run(root, "hash-object", "-w", "--stdin", input=content).stdout.strip()
-    tree = run(root, "mktree", input=f"100644 blob {blob}\tclaim.json\n").stdout.strip()
+    tree = run(root, "mktree", input=f"100644 blob {blob}\t{name}\n").stdout.strip()
     return run(root, "commit-tree", tree, "-m", message, env=_PLUMBING_ENV).stdout.strip()

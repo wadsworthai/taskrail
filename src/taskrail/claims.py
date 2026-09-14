@@ -134,7 +134,7 @@ def list_remote(config: Config) -> list[str]:
 
 def _claim_commit(config: Config, claim: Claim) -> str:
     public = {key: value for key, value in claim.to_dict().items() if key not in LOCAL_ONLY_FIELDS}
-    return gitutil.write_claim_commit(config.root, json.dumps(public, indent=2), f"taskrail claim {claim.id}")
+    return gitutil.write_file_commit(config.root, "claim.json", json.dumps(public, indent=2), f"taskrail claim {claim.id}")
 
 
 def _push_remote(config: Config, claim: Claim) -> dict:

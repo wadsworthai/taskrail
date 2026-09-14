@@ -59,6 +59,32 @@ def _local_claims(project: Project) -> dict:
         return {}
 
 
+def _fetch_records(project: Project) -> None:
+    """Bring mirrored branch records into this clone before any branch is resolved; a failure only warns (§6.4)."""
+    config = project.config
+    if not config.branch_record_remote:
+        return
+    _, error = branches.fetch(config)
+    if error:
+        print(f"taskrail: warning: could not fetch branch records from {config.branch_record_remote}: {error}", file=sys.stderr)
+    branches.forget_cache(project)
+    project.cache.pop(stack.CACHE_KEY, None)
+
+
+def _mirror_record(config, record, local_only: bool = False) -> dict | None:
+    """Push a record just written to `branch_record_remote`; a failure only warns. None when nothing is mirrored."""
+    if record is None or local_only or not config.branch_record_remote:
+        return None
+    result = branches.push(config, record)
+    if not result["pushed"]:
+        print(
+            f"taskrail: warning: could not push the branch record {result['ref']} to {result['name']}: {result['error']}; "
+            f"retry with `taskrail branch {record.id} {record.branch}`",
+            file=sys.stderr,
+        )
+    return result
+
+
 def _line(task, project: Project, claimed: dict | None = None) -> str:
     points = f"{task.points}pt" if task.points is not None else "—"
     task_state = state(task, project, claimed)
@@ -83,6 +109,8 @@ def cmd_list(args) -> int:
     project, issues = _load(args)
     if _refuse_if_invalid(issues, args):
         return EXIT_INVALID
+    if args.fetch:
+        _fetch_records(project)
     tasks = project.tasks
     if args.backlog:
         tasks = [t for t in tasks if t.backlog == args.backlog]
@@ -109,6 +137,8 @@ def cmd_show(args) -> int:
     if task is None:
         print(f"taskrail: no task `{args.id}`", file=sys.stderr)
         return EXIT_NOT_FOUND
+    if args.fetch:
+        _fetch_records(project)
     claimed = _local_claims(project)
     data = task_dict(task, project, claimed)
     kind = project.kinds.get(task.kind)
@@ -153,6 +183,8 @@ def cmd_next(args) -> int:
     if args.backlog and project.config.backlog(args.backlog) is None:
         print(f"taskrail: no backlog `{args.backlog}`", file=sys.stderr)
         return EXIT_NOT_FOUND
+    if args.fetch:
+        _fetch_records(project)
     claimed = _local_claims(project)
     tasks = eligible(project, args.backlog, claimed)[: args.limit]
     _emit(
@@ -174,6 +206,8 @@ def cmd_claim(args) -> int:
     if task.status is not Status.PENDING:
         print(f"taskrail: {task.id} is {task.status.label}, not pending", file=sys.stderr)
         return EXIT_REFUSED
+    if not args.local_only:
+        _fetch_records(project)
     finished = stack.done_on_branch(project).get(task.id)
     if finished is not None:
         mainline = project.config.backlog(task.backlog).mainline
@@ -210,6 +244,7 @@ def cmd_claim(args) -> int:
     recorded, warning = _freeze_branch(task, project, claim.branch)
     if warning:
         print(f"taskrail: warning: {warning}", file=sys.stderr)
+    record_remote = _mirror_record(config, branches.read(config, task.id) if recorded else None, args.local_only)
     if created and args.run is not None:
         try:
             with autopilot_runs.update(config, args.run) as run:  # the run keeps its member after `done` releases the claim
@@ -219,7 +254,10 @@ def cmd_claim(args) -> int:
             return EXIT_CONFLICT
     verb = "claimed" if created else "already held"
     _emit(
-        {"claimed": True, "created": created, "claim": claim.to_dict(), "branch_recorded": recorded, "warning": warning},
+        {
+            "claimed": True, "created": created, "claim": claim.to_dict(), "branch_recorded": recorded, "warning": warning,
+            "record_remote": record_remote,
+        },
         args.json,
         f"{verb} {task.id} as {claim.owner}",
     )
@@ -323,13 +361,15 @@ def cmd_unreserve_id(args) -> int:
     return EXIT_OK
 
 
-def _write(edits: "writer.Edits", as_json: bool, result: dict, text: str) -> int:
+def _write(edits: "writer.Edits", as_json: bool, result: dict, text: str, on_written=None) -> int:
     errors = writer.apply(edits)
     if errors:
         for issue in errors:
             print(issue.format(), file=sys.stderr)
         print("taskrail: the change would leave the backlog invalid; nothing was written", file=sys.stderr)
         return EXIT_INVALID
+    if on_written is not None:
+        on_written(result)
     _emit({**result, "files": sorted(edits.files)}, as_json, text)
     return EXIT_OK
 
@@ -383,6 +423,8 @@ def cmd_new(args) -> int:
         values[name.strip()] = value.strip()
 
     config = origin_config = project.config
+    if args.workspace:
+        _fetch_records(project)
     if args.branch is not None:
         if not args.workspace:
             print("taskrail: --branch needs --workspace; name an existing task's branch with `taskrail branch <ID> <NAME>`", file=sys.stderr)
@@ -440,13 +482,17 @@ def cmd_new(args) -> int:
         print(f"taskrail: {exc}", file=sys.stderr)
         return EXIT_USAGE
     text = task_id if not workspace else f"{task_id}\nworkspace {workspace['path']} on branch {workspace['branch']} from {workspace['base']}"
-    code = _write(edits, args.json, result, text)
+
+    def record_branch(result: dict) -> None:
+        if args.branch is not None:
+            written = branches.write(origin_config, task_id, args.branch)
+            result["record_remote"] = _mirror_record(origin_config, written)
+
+    code = _write(edits, args.json, result, text, on_written=record_branch)
     if code != EXIT_OK:
         if workspace:
             _close_workspace(workspace)
         ids.cancel_reservation(origin_config, backlog.config, task_id)
-    elif args.branch is not None:
-        branches.write(origin_config, task_id, args.branch)
     return code
 
 
@@ -611,6 +657,8 @@ def cmd_branch(args) -> int:
     config = project.config
     root = config.root
     gitutil.common_dir(root)
+    if not args.local_only:
+        _fetch_records(project)
     name = args.name
     problem = branches.invalid_name(project, name)
     if problem:
@@ -654,7 +702,8 @@ def cmd_branch(args) -> int:
             print(f"taskrail: git branch -m {old} {name}: {result.stderr.strip()}", file=sys.stderr)
             return EXIT_USAGE
         renamed = True
-    branches.write(config, task.id, name)
+    written = branches.write(config, task.id, name)
+    record_remote = _mirror_record(config, written, args.local_only)
 
     claim_updated = False
     if claim is not None and old != name and claim.branch == old:
@@ -670,6 +719,7 @@ def cmd_branch(args) -> int:
         "claim_updated": claim_updated,
         "worktree": str(checked_out) if checked_out else None,
         "remote_copies": remote_copies,
+        "record_remote": record_remote,
     }
     if renamed:
         text = f"{task.id} branch renamed from {old} to {name}"
@@ -693,6 +743,8 @@ def cmd_review(args) -> int:
     root = config.root
     kind = project.kinds.get(task.kind)
     backlog = config.backlog(task.backlog)
+    if config.review.fetch and not args.no_fetch:
+        _fetch_records(project)  # before resolving the branch, which another clone may have renamed
     head = branches.task_branch(task, project)
     current = gitutil.current_branch(root)
     if current != head:
@@ -928,6 +980,7 @@ def build_parser() -> argparse.ArgumentParser:
     add("validate", cmd_validate, "Check the configuration, kinds and every backlog.")
 
     listing = add("list", cmd_list, "List tasks with their computed state.")
+    listing.add_argument("--fetch", action="store_true", help="first fetch branch records mirrored to [git].branch_record_remote")
     listing.add_argument("--backlog")
     listing.add_argument("--epic")
     listing.add_argument("--state", choices=STATES)
@@ -935,10 +988,12 @@ def build_parser() -> argparse.ArgumentParser:
     listing.add_argument("--allow-invalid", action="store_true", help="list even when validation fails")
 
     show = add("show", cmd_show, "Show one task and its kind's stages.")
+    show.add_argument("--fetch", action="store_true", help="first fetch branch records mirrored to [git].branch_record_remote")
     show.add_argument("id")
     show.add_argument("--allow-invalid", action="store_true")
 
     nxt = add("next", cmd_next, "Eligible tasks in order: points ascending, then file order.")
+    nxt.add_argument("--fetch", action="store_true", help="first fetch branch records mirrored to [git].branch_record_remote")
     nxt.add_argument("--backlog")
     nxt.add_argument("--limit", type=int, default=5)
 
@@ -949,7 +1004,7 @@ def build_parser() -> argparse.ArgumentParser:
     claim.add_argument("--worktree", help="worktree the work happens in (default: this worktree)")
     claim.add_argument("--takeover", action="store_true", help="replace a stale claim")
     claim.add_argument("--ignore-deps", action="store_true", help="claim even if dependencies are not done")
-    claim.add_argument("--local-only", action="store_true", help="do not mirror the claim to the remote")
+    claim.add_argument("--local-only", action="store_true", help="do not mirror the claim or the branch record to the remote")
     claim.add_argument("--run", help="the autopilot run that owns this lane")
     claim.add_argument("--allow-invalid", action="store_true")
 
@@ -1025,7 +1080,7 @@ def build_parser() -> argparse.ArgumentParser:
     branch_cmd.add_argument("name", help="the branch name")
     branch_cmd.add_argument("--owner", help="who is renaming (default: $TASKRAIL_OWNER or user@host)")
     branch_cmd.add_argument("--force", action="store_true", help="rename a pushed branch, a name taken on the remote, or a task claimed by someone else")
-    branch_cmd.add_argument("--local-only", action="store_true", help="do not update the claim's remote copy")
+    branch_cmd.add_argument("--local-only", action="store_true", help="do not update the claim's remote copy or mirror the branch record")
     branch_cmd.add_argument("--allow-invalid", action="store_true")
 
     review_cmd = add("review", cmd_review, "Prepare a closed task for review: fetch, rebase base, push, pull request link.")
