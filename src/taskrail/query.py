@@ -151,7 +151,8 @@ def _checked_out(project: Project) -> dict[str, Path]:
     return project.cache["worktree_branches"]
 
 
-def _main_checkout(project: Project) -> Path:
+def main_checkout(project: Project) -> Path:
+    """The clone's main worktree, which task worktree paths are read against and created under (T072, T073)."""
     if "main_worktree" not in project.cache:
         try:
             project.cache["main_worktree"] = gitutil.main_worktree(project.config.root)
@@ -173,7 +174,7 @@ def worktree_path(branch: str | None, project: Project) -> str | None:
     if path is None:
         return f"{config.worktree_dir}/{branch}"
     try:
-        return Path(os.path.relpath(path, _main_checkout(project))).as_posix()
+        return Path(os.path.relpath(path, main_checkout(project))).as_posix()
     except ValueError:  # another drive than the main worktree's: no relative path exists
         return str(path)
 

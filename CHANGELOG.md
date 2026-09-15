@@ -8,6 +8,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **A task worktree is created under the main checkout from any checkout.** `new --workspace` and
+  `workspace <ID>` run inside another worktree now create the task's worktree at
+  `<worktree_dir>/<branch>` under the repository's main checkout, where `show` reports it, and refuse
+  when that path exists; before, they nested it below the worktree they ran in (T073).
 - **A task's `worktree` is one path from every checkout.** `show`, `list`, `next` and
   `autopilot next` report it relative to the repository's main checkout (the first entry of
   `git worktree list`), with `..` segments for a worktree outside it, whichever checkout runs the
