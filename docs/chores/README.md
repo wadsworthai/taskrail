@@ -14,3 +14,4 @@
 | T056 | Add an OpenCode note on escalations during blocking lane batches | [T056-add-an-opencode-note-on-escalations-duri.md](T056-add-an-opencode-note-on-escalations-duri.md) |
 | T063 | Name taskrail checks in the lane brief and the autopilot skill's re-run steps | [T063-name-taskrail-checks-in-the-lane-brief-a.md](T063-name-taskrail-checks-in-the-lane-brief-a.md) |
 | T069 | Warn in the README that taskrail is experimental and AI-developed | [T069-warn-in-the-readme-that-taskrail-is-expe.md](T069-warn-in-the-readme-that-taskrail-is-expe.md) |
+| T076 | Name wadsworthai/taskrail as the canonical repository in the CLI, skills and docs | [T076-name-wadsworthai-taskrail-as-the-canonic.md](T076-name-wadsworthai-taskrail-as-the-canonic.md) |
