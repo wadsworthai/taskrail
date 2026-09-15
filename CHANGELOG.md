@@ -8,6 +8,13 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **Task worktrees stay out of a bare repository's directory, and `worktree_base` names their base.**
+  In a bare repository with worktrees, `show`, `list`, `next` and `autopilot next` read `worktree`
+  against the directory holding the bare repository, and `new --workspace` and `workspace <ID>`
+  create task worktrees there; before, both used the bare directory itself. Those commands now report
+  `worktree_base`, the absolute directory `worktree` is relative to (the main checkout in an ordinary
+  clone), and the `taskrail` skill and the lane brief join the two instead of reading
+  `git worktree list` (T075).
 - **`autopilot merged --cleanup` keeps worktrees nested in the one it removes.** It now refuses (exit
   5) and removes nothing when another registered worktree lies inside the task's worktree, naming
   those worktrees; before, one in an ignored directory such as a `.worktrees/` that an earlier

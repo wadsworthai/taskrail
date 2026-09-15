@@ -576,7 +576,8 @@ def _workspace_target(project: Project, backlog_config, task, branch: str | None
         raise _WorkspaceRefused(f"branch {branch} already exists")
     path = None
     if config.worktree == "required":
-        # Under the main checkout, where `show` reports it, whichever checkout runs this (T073).
+        # Under the worktree base `show` reports (the main checkout, or the directory holding a bare
+        # repository), whichever checkout runs this (T073, T075).
         path = (main_checkout(project) / config.worktree_dir / branch).resolve()
         if path.exists():
             raise _WorkspaceRefused(f"{path} already exists")

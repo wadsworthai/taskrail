@@ -152,7 +152,10 @@ def _checked_out(project: Project) -> dict[str, Path]:
 
 
 def main_checkout(project: Project) -> Path:
-    """The clone's main worktree, which task worktree paths are read against and created under (T072, T073)."""
+    """The clone's worktree base, which task worktree paths are read against and created under (T072, T073).
+
+    The main worktree, or, in a bare repository, the directory holding it (T075).
+    """
     if "main_worktree" not in project.cache:
         try:
             project.cache["main_worktree"] = gitutil.main_worktree(project.config.root)
@@ -164,8 +167,9 @@ def main_checkout(project: Project) -> Path:
 def worktree_path(branch: str | None, project: Project) -> str | None:
     """Where the task's worktree is: the one that has its branch checked out, else where it would go.
 
-    Relative to the clone's main worktree, whichever of its checkouts runs the command (T072): one
-    outside it gets `..` segments, and one not created yet is `<worktree_dir>/<branch>`.
+    Relative to the clone's worktree base (`main_checkout`, reported as `worktree_base`), whichever of
+    its checkouts runs the command (T072, T075): one outside it gets `..` segments, and one not created
+    yet is `<worktree_dir>/<branch>`.
     """
     config = project.config
     if not branch or config.worktree != "required":
@@ -185,6 +189,7 @@ def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict
     config = project.config
     backlog = config.backlog(task.backlog)
     branch, branch_source = branches.resolve(task, project)
+    worktree = worktree_path(branch, project)
     return {
         "id": task.id,
         "backlog": task.backlog,
@@ -205,7 +210,8 @@ def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict
         "push_branch": config.push_task_branch,
         "branch": branch,
         "branch_source": branch_source,
-        "worktree": worktree_path(branch, project),
+        "worktree": worktree,
+        "worktree_base": str(main_checkout(project)) if worktree is not None else None,
         "artifact": render(kind.artifact, task, config) if kind else None,
         "artifact_index": render(kind.artifact_index, task, config) if kind else None,
         "never_edit": list(kind.never_edit) if kind else [],
