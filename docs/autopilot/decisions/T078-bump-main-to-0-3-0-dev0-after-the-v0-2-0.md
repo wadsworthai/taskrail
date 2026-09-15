@@ -45,3 +45,15 @@ Re-ran `taskrail checks T078 --stage implement`: `test` gave `1052 passed in 149
 |---|---|---|---|---|
 | 1 | Approve the implementation | approve · request changes | as recommended | The diff is the approved change set, and the checks pass. |
 | 2 | Running checks 4 and 5 as `--root <scratch> validate` instead of the plan's `validate --root <scratch>` | accept · reword the plan | as recommended: **accept** | `--root` is a global option; the check verifies the same thing, and the artifact records the correction. |
+
+## close
+
+Reviewed: the docs stage found nothing to change (`194084f`, the artifact only); `taskrail done` is committed on
+its own (`0e430c4`); the backlog differs from `origin/main` only in E01's *Done when* line (approved at scope)
+and this task's row, as `✅`. `governing_touched` is empty, the branch has no upstream, and `review --json`
+reported `rebase.needed: false` on `23e62e8`. The implement checks passed at `754ab82` and only the artifact and
+the row changed since.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | `chore(release)` · `chore(repo)` | **`chore(release)`** | As approved at scope, matching T077. |
