@@ -208,6 +208,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   `discarded-branch`, keeps a lane between `discard` and its commit `running`, and reports a task
   `❌` on the local or remote mainline `discarded`. Behaviour change: such a task used to read
   `pending` until merged and pulled (T062).
+- **The autopilot text names `taskrail checks`.** The lane brief tells a lane to run its checks
+  with `taskrail checks <ID>`, which passes its resource values itself, and the
+  `taskrail-autopilot` skill's gate, rebase, hand-off and after-merge steps re-run a lane's checks
+  with it (T063).
 
 ## 0.1.0
 

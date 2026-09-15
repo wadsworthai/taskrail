@@ -25,8 +25,10 @@ you have no channel to the human.
 - Branch `<BRANCH>`, worktree `<WORKTREE>`, base `<BASE>`. Create the workspace as the `taskrail`
   skill's workspace step says. If the branch already exists, stop and report.
 - Inside the worktree, claim before any edit: `taskrail claim <ID> --run <RUN>`.
-- Resource values reserved for this lane: <ENVIRONMENT>. Set them for every command that runs the
-  checks or the application.
+- Run your checks with `taskrail checks <ID>`, adding `--stage <stage>` for one stage's checks: it
+  runs them in your worktree with this lane's resource values, from any directory of the clone.
+- Resource values reserved for this lane: <ENVIRONMENT>. `taskrail checks` passes them to the checks
+  itself; set them for every other command that runs the application.
 - Shared services: <SERVICES>. The orchestrator starts them.
 
 ## Gates
@@ -79,6 +81,8 @@ gives another lane, ask at your next gate instead.
   the worktree, the artifact and the decision record `<DECISIONS>`. Resume point: <RESUME_POINT>.
   Continue from there with the answers the record gives. Report every uncommitted change you found
   at your next gate, and never discard one.
-- Resource values reserved for this lane: <ENVIRONMENT>. Set them for every command that runs the
-  checks or the application.
+- Run your checks with `taskrail checks <ID>`, adding `--stage <stage>` for one stage's checks: it
+  runs them in your worktree with this lane's resource values, from any directory of the clone.
+- Resource values reserved for this lane: <ENVIRONMENT>. `taskrail checks` passes them to the checks
+  itself; set them for every other command that runs the application.
 - Shared services: <SERVICES>. The orchestrator starts them.

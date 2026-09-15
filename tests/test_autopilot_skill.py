@@ -511,6 +511,24 @@ def test_every_taskrail_command_and_flag_in_the_claude_notes_exists():
     assert "--root" in build_parser()._option_string_actions
 
 
+def test_the_brief_and_the_re_run_steps_name_taskrail_checks(autopilot_copy):
+    """T063 (T052 D7): the lane brief and every step that re-runs a lane's checks name `taskrail checks <ID>`."""
+    brief = autopilot_copy("references/lane-brief.md")
+    for heading in ("Workspace", "Workspace (restart from the branch)"):
+        workspace = section(brief, heading)
+        assert "run your checks with `taskrail checks <id>`" in workspace, heading
+        assert "`taskrail checks` passes them to the checks itself" in workspace, heading
+        assert "every command that runs the checks" not in workspace, heading
+    skill = autopilot_copy("SKILL.md")
+    close = section(skill, "Close and hand off")
+    assert "re-run the checks with `taskrail checks <id>`" in close
+    assert "set as `taskrail_resource_<name>`" in close
+    assert "`taskrail checks <id>` for that dependent" in section(skill, "After a merge")
+    review = autopilot_copy("references/gate-review.md")
+    assert "yourself with `taskrail checks <id>`" in section(review, "Every gate")
+    assert "re-run the checks with `taskrail checks <id>`" in section(review, "Rebase: at hand-off or after a merge")
+
+
 def test_core_skill_runs_stage_checks_with_taskrail_checks_and_documents_exit_6():
     text = (install.SKILLS_SOURCE / "taskrail/SKILL.md").read_text(encoding="utf-8")
     stages = flat(text[text.index("5. **Stages.**") : text.index("6. **Scope.**")])

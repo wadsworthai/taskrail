@@ -143,10 +143,11 @@ Record that stop as a gate named `close`:
 `status` names the next one in `handoff.next`, and none while `handoff.in_review` is set.
 
 1. In the lane's worktree, run `taskrail review <ID> --json`. If `rebase.needed` is true, run
-   `git rebase <rebase.onto>`, resolve only the known classes, re-run the checks and
-   `taskrail validate`, record the rebase in the task's record and commit it. The refill after the
-   close may have released the lane's resource values: run the checks with values that no lane in
-   use holds in `status`.
+   `git rebase <rebase.onto>`, resolve only the known classes, re-run the checks with
+   `taskrail checks <ID>` and run `taskrail validate`, record the rebase in the task's record and
+   commit it. `taskrail checks` passes the lane's resource values while its run still records them,
+   but the refill after the close may have released them (its `resources` is then empty): run the
+   checks with values that no lane in use holds in `status`, set as `TASKRAIL_RESOURCE_<NAME>`.
 2. Run `taskrail review <ID> --publish --json --type <type> --scope <scope>` there, choosing the
    type and scope as the `taskrail` skill says. Exit 4, a rejected push, escalates.
 3. Record `taskrail autopilot lane <ID> --run <R> --state handed-off` and run
@@ -163,8 +164,8 @@ When the human says a branch is merged:
 1. Run `taskrail autopilot merged <ID> --cleanup --json`. When `merged` is false, report what was
    checked and clean up nothing; exit 5 names what stopped the cleanup.
 2. For each stacked dependent it lists, run its `git rebase --onto` command in that dependent's
-   worktree, resolve only the known classes, re-run the checks with resource values as at hand-off,
-   and record the rebase. A dependent
+   worktree, resolve only the known classes, re-run the checks with `taskrail checks <ID>` for that
+   dependent and resource values as at hand-off, and record the rebase. A dependent
    already published is published again with `taskrail review <ID> --publish --json`, which pushes
    with a lease.
 3. Hand off the next branch.

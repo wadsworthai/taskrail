@@ -10,9 +10,9 @@ never on the lane's report alone.
   decision they reserve to humans escalates.
 - **Read the evidence yourself.** Open the artifact at the commit the lane names, and read the diff
   by commit range in the lane's worktree (`git log -p <base>..<head>`), not only its summary.
-- **Never approve with failing checks.** Re-run the checks in the lane's worktree yourself, with the
-  lane's resource values, before the next `autopilot next --run`, while those values are still the
-  lane's own.
+- **Never approve with failing checks.** Re-run the checks in the lane's worktree yourself with
+  `taskrail checks <ID>`, which runs them there with the lane's resource values, before the next
+  `autopilot next --run`, while those values are still the lane's own.
 - **Scope.** Compare `touched` in `autopilot status` with the plan and the touch map. A change
   outside them is a question; a governing path escalates.
 - **Every question answered.** Give each of the lane's questions a decision and a reason; when you
@@ -71,4 +71,5 @@ never on the lane's report alone.
 - No conflict markers remain (`git diff --check`), a commit left empty is dropped, and an entry
   duplicated by a move is kept once.
 - After class 3, run `taskrail upgrade --force` and commit what it rewrites.
-- Re-run the checks and `taskrail validate`, then record the rebase in the task's record.
+- Re-run the checks with `taskrail checks <ID>` and run `taskrail validate`, then record the rebase
+  in the task's record.
