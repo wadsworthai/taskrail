@@ -44,3 +44,22 @@ at the same time, covers the `on-branch` case this plan leaves to it.
 
 Instructions given with the answers: keep `cmd_new`'s `record_branch` closure where and as it is (T071
 edits it), and leave the §12.1 `autopilot next` cell to T071.
+
+## implement gate
+
+Reviewed: commit `3c51604` by file (`git show`): `query.row_on_base` and `base.row`; `ids.keep_reservation`
+with the atomic write factored into `_store_reservations`; `writer.row_values` and `remove_task`; the
+three-line missing-row skip in `dispatch.next_lanes`; in `cli.py` the `show` line, `next`'s marker,
+`new`'s warning, `_probe_task`/`_workspace_target`/`_open_workspace` (the `record_branch` closure
+untouched) and `cmd_workspace` with its refusals, undo and branch record; the `taskrail` skill source
+and its installed copy; DESIGN.md §6.3, the §7 rows and *A row missing from its base* (§12.1
+untouched); one README line; one CHANGELOG bullet; `tests/test_row_on_base.py`, which the lane
+reports as 28 failing before the code. The touched files match the touch map. Re-ran
+`taskrail checks T070 --stage implement`: `test` gave `987 passed in 128.68s`; `lint` is not configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Add `"row": "on-base"` to the whole-object `base` assertions in `tests/test_workspace.py` and `tests/test_mainline_remote.py` | keep the one-line change · loosen the assertions | as recommended | The field is approved (D2); the tests keep checking the whole contract. |
+| 2 | Keep `reservation_added` in `workspace --json` | keep · drop | as recommended | It makes D6 observable, and DESIGN.md documents it. |
+| 3 | Placement of the D8 paragraph in *Creating tasks* | after "It refuses …" as its own paragraph · mid-paragraph | as recommended | The approved text is unchanged, and "It refuses" still refers to `--workspace`. |
+| 4 | `worktree = "never"` cannot carry a row committed at the checkout's `HEAD` (exit 5, row restored) | accept, documented · commit or stash the removal | as recommended | The case the task addresses is an uncommitted row; committing or stashing on the user's behalf was ruled out by the plan. |
