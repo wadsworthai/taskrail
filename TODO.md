@@ -23,6 +23,7 @@ Done when: v0.1.0 is tagged and a repository installs it with uv and runs it thr
 | ✅ | T016 | chore   | 1   | T002       | Bump taskrail on main to 0.2.0.dev0 after the 0.1.0 tag | Keep builds from main from claiming to be the released 0.1.0. |
 | ✅ | T069 | chore   | 1   | —          | Warn in the README that taskrail is experimental and AI-developed | Add a notice near the top of README.md stating that taskrail is experimental and is developed with AI agents. |
 | ✅ | T076 | chore   | —   | —          | Name wadsworthai/taskrail as the canonical repository in the CLI, skills and docs | SOURCE_URL, the wrapper's uvx fallback, self upgrade, the installed skills' source, README, CHANGELOG and tests name github.com/alexkander/taskrail, which is not reachable; point them at github.com/wadsworthai/taskrail, and create no v0.1.0 tag in this repository. |
+| ⬜ | T077 | chore   | —   | —          | Release v0.2.0 from the canonical repository | Set the version to 0.2.0, lock, turn Unreleased into 0.2.0 in CHANGELOG.md, tag v0.2.0 on the squash merge in wadsworthai/taskrail after T076 is merged, verify a clean install from the tag, and bump main to the next .dev0. |
 
 ## E02 — taskrail phase 2
 
