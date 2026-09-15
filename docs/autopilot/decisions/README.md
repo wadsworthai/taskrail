@@ -55,3 +55,4 @@
 | T071 | Run the autopilot on named tasks, including ones whose workspace new --workspace prepared | [T071-run-the-autopilot-on-named-tasks-includi.md](T071-run-the-autopilot-on-named-tasks-includi.md) |
 | T072 | Report a task's worktree path in one form whichever checkout runs the command | [T072-report-a-task-s-worktree-path-in-one-for.md](T072-report-a-task-s-worktree-path-in-one-for.md) |
 | T073 | Create a task worktree under the main checkout when new or workspace runs inside another worktree | [T073-create-a-task-worktree-under-the-main-ch.md](T073-create-a-task-worktree-under-the-main-ch.md) |
+| T074 | Refuse merged --cleanup for a worktree that contains other registered worktrees | [T074-refuse-merged-cleanup-for-a-worktree-tha.md](T074-refuse-merged-cleanup-for-a-worktree-tha.md) |
