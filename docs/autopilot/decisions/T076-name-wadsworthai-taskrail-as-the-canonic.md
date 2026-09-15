@@ -57,3 +57,16 @@ re-run against the scratch repository. Re-ran `taskrail checks T076 --stage impl
 | # | Question | Options | Decision | Reason |
 |---|---|---|---|---|
 | 1 | Approve the implementation | approve · request changes | as recommended | The diff is the approved change set, and the checks pass. |
+
+## close
+
+Reviewed: the docs stage found nothing else naming the repository (`11a0dc1`, the artifact only);
+`taskrail done` is committed on its own (`704a222`); the backlog differs from `origin/main` only in this
+task's row, as `✅`. `governing_touched` is empty, the branch has no upstream, and `review --json` reported
+`rebase.needed: false`. The implement checks passed at `3ebcae9` and only the artifact and the row changed
+since. `autopilot status` lists `DESIGN.md` as touched by T076 and T077, on separate lines as the touch map
+set, and the changelog, backlog and indexes as known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | `chore(install)` · `chore(repo)` | **`chore(install)`** | The change is where the installer, wrapper and `self upgrade` fetch taskrail from. |
