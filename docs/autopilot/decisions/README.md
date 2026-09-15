@@ -49,3 +49,4 @@
 | T064 | Skip a task merged on the remote mainline but not pulled in autopilot next | [T064-skip-a-task-merged-on-the-remote-mainlin.md](T064-skip-a-task-merged-on-the-remote-mainlin.md) |
 | T065 | Hand off a branch whose task was discarded on it | [T065-hand-off-a-branch-whose-task-was-discard.md](T065-hand-off-a-branch-whose-task-was-discard.md) |
 | T066 | Pass chosen resource values to taskrail checks for a lane whose values were released | [T066-pass-chosen-resource-values-to-taskrail.md](T066-pass-chosen-resource-values-to-taskrail.md) |
+| T067 | Detect and clean up a merged branch whose task was discarded on it | [T067-detect-and-clean-up-a-merged-branch-whos.md](T067-detect-and-clean-up-a-merged-branch-whos.md) |

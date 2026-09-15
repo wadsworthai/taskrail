@@ -4,8 +4,8 @@ Pull requests are squash-merged, so ancestry alone sees nothing. After one `git 
 finished task branch counts as merged when the first of these holds against the mainline, `M`
 being their merge-base: the head is an ancestor; a first-parent commit since `M` has the head's
 tree; a first-parent commit since `M` has the patch-id of `git diff M <head>`; or `git merge-tree`
-of the head into the mainline changes nothing. The `✅` row on the mainline and an `(ID)` title
-are reported as confirmations and never prove a merge.
+of the head into the mainline changes nothing. Only a head whose row is `✅` or `❌` is checked (T067).
+The row on the mainline and an `(ID)` title are reported as confirmations and never prove a merge.
 """
 
 from __future__ import annotations
@@ -137,10 +137,13 @@ def _title_commit(root: Path, task_id: str, head: str | None, mainline: str) -> 
     return None
 
 
-def _row_done(project: Project, task: Task, rev: str) -> bool:
+def _row_status(project: Project, task: Task, rev: str) -> str | None:
+    """The task's status cell at `rev`."""
     backlog = project.config.backlog(task.backlog)
-    statuses = _read_statuses(project, backlog.file, [rev])
-    return statuses[rev].get(task.id) == Status.DONE.value
+    return _read_statuses(project, backlog.file, [rev])[rev].get(task.id)
+
+
+CLOSED = {Status.DONE.value: Status.DONE.label, Status.DISCARDED.value: Status.DISCARDED.label}  # a row's cell → a record's `status` (T067)
 
 
 # Recorded merges
@@ -161,18 +164,23 @@ def _still_on_mainline(project: Project, task: Task, record) -> bool:
     return bool(commit) and any(_is_ancestor(root, commit, ref) for ref in _mainline_refs(project, task))
 
 
-def recorded_merges(project: Project) -> set[str]:
-    """Tasks a run records as merged whose mainline commit is still on the local or remote mainline."""
+def record_status(record: dict) -> str:
+    """A merge record's closing status: `done` or `discarded`; a record written before T067 has none and is `done`."""
+    return Status.DISCARDED.label if record.get("status") == Status.DISCARDED.label else Status.DONE.label
+
+
+def recorded_merges(project: Project) -> dict[str, str]:
+    """Per task a run records as merged while its mainline commit is still on the local or remote mainline,
+    the status of its newest such record by `detected` (T067)."""
     try:
         every_run = runs.read_all(project.config)
     except gitutil.GitError:
-        return set()
-    found: set[str] = set()
-    for run in every_run:
-        for task_id, lane in run["tasks"].items():
-            task = project.task(task_id)
-            if task_id not in found and task is not None and _still_on_mainline(project, task, lane.get("merged")):
-                found.add(task_id)
+        return {}
+    found: dict[str, str] = {}
+    for task_id in {task_id for run in every_run for task_id in run["tasks"]}:
+        task = project.task(task_id)
+        if task is not None and (latest := _latest_record(project, task, every_run)):
+            found[task_id] = record_status(latest)
     return found
 
 
@@ -427,6 +435,7 @@ def cmd_merged(args) -> int:
     mainline_ref = candidates[0]
     detection = {"via": None, "commit": None, "checks": dict.fromkeys(CHECKS)}
     done_at_head = None
+    closed = None
     recorded = False
     reason = None
     if head_commit is None:
@@ -435,12 +444,15 @@ def cmd_merged(args) -> int:
                 f"no branch of {task.id} to check: neither {branch} nor {remote}/{branch} exists, and no run records a merge", EXIT_NOT_FOUND
             )
         recorded = True
+        closed = record_status(record)
         detection.update(via=record.get("via"), commit=record["commit"])
         mainline_ref = record.get("mainline") or mainline_ref
     else:
-        done_at_head = _row_done(project, task, head_commit)
-        if not done_at_head:
-            reason = f"{task.id} is not done at the head of {head_ref}; content detection needs a finished branch"
+        cell = _row_status(project, task, head_commit)
+        done_at_head = cell == Status.DONE.value
+        closed = CLOSED.get(cell)  # detection needs a closed row: an unstarted branch is an ancestor of the mainline
+        if closed is None:
+            reason = f"{task.id} is not done or discarded at the head of {head_ref}; content detection needs a closed branch"
         else:
             for candidate in candidates:
                 detection = detect(root, head_commit, candidate)
@@ -459,6 +471,7 @@ def cmd_merged(args) -> int:
             "head": head_commit,
             "mainline": mainline_ref,
             "detected": runs.now_iso(datetime.now(timezone.utc)),
+            "status": closed,
         }
         for run in selected:
             with runs.update(config, run["id"]) as stored:
@@ -466,6 +479,7 @@ def cmd_merged(args) -> int:
             written.append(run["id"])
 
     dependents = _dependents(project, task, head_commit, (record or {}).get("head"), mainline_ref)
+    mainline_row = _row_status(project, task, mainline_ref)
 
     data = {
         "id": task.id,
@@ -475,6 +489,7 @@ def cmd_merged(args) -> int:
         "mainline": {"ref": mainline_ref, "commit": _sha(root, mainline_ref), "diverged": base.diverged},
         "head": {"ref": head_ref, "commit": head_commit if head_commit else (record or {}).get("head"), "local": local, "remote": tracked},
         "done_at_head": done_at_head,
+        "closed": closed,
         "merged": is_merged,
         "via": detection["via"],
         "commit": detection["commit"],
@@ -482,7 +497,8 @@ def cmd_merged(args) -> int:
         "reason": reason,
         "checks": detection["checks"],
         "confirmations": {
-            "row_done_on_mainline": _row_done(project, task, mainline_ref),
+            "row_done_on_mainline": mainline_row == Status.DONE.value,
+            "row_discarded_on_mainline": mainline_row == Status.DISCARDED.value,
             "title_commit": _title_commit(root, task.id, head_commit, mainline_ref),
         },
         "runs": written,
@@ -503,7 +519,11 @@ def cmd_merged(args) -> int:
 def _text(data: dict) -> str:
     ref = data["mainline"]["ref"]
     if data["merged"]:
-        lines = [f"{data['id']} merged into {ref} via {data['via']} at {data['commit'][:7]}" + (" (recorded in a run)" if data["recorded"] else "")]
+        lines = [
+            f"{data['id']} merged into {ref} via {data['via']} at {data['commit'][:7]}"
+            + (" (recorded in a run)" if data["recorded"] else "")
+            + (" (discarded)" if data["closed"] == Status.DISCARDED.label else "")
+        ]
     else:
         lines = [f"{data['id']} not merged into {ref}: {data['reason']}"]
     cleanup = data["cleanup"]

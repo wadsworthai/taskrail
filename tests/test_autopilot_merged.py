@@ -110,7 +110,10 @@ class Host:
     def unmark(self, task_id):
         self.sync()
         todo = self.path / "TODO.md"
-        todo.write_text(todo.read_text(encoding="utf-8").replace(f"| ✅ | {task_id} |", f"| ⬜ | {task_id} |"), encoding="utf-8")
+        text = todo.read_text(encoding="utf-8")
+        for closed in ("✅", "❌"):
+            text = text.replace(f"| {closed} | {task_id} |", f"| ⬜ | {task_id} |")
+        todo.write_text(text, encoding="utf-8")
         commit_all(self.path, f"docs: reopen {task_id} by hand")
         self.push()
 
@@ -149,9 +152,16 @@ def pilot(git_repo, tmp_path_factory):
         if publish:
             git(path, "push", "-q", "origin", git(path, "branch", "--show-current"))
 
+    def discard(path, task_id, publish=True):
+        assert main(["--root", str(path), "discard", task_id, "--owner", "lane"]) == 0
+        commit_all(path, f"chore({task_id}): discard")
+        if publish:
+            git(path, "push", "-q", "origin", git(path, "branch", "--show-current"))
+
     git_repo.lane = lane
     git_repo.work = work
     git_repo.finish = finish
+    git_repo.discard = discard
     return git_repo
 
 
@@ -263,9 +273,11 @@ def test_a_local_commit_after_the_squash_is_not_merged(pilot, capsys):
 def test_an_unstarted_branch_is_not_merged_although_it_is_an_ancestor(pilot, capsys):
     pilot.lane("T003")
     result = merged(pilot, "T003", capsys=capsys)
-    assert (result["merged"], result["done_at_head"]) == (False, False)
-    assert "not done" in result["reason"]
+    assert (result["merged"], result["done_at_head"], result["closed"]) == (False, False, None)
+    assert "not done or discarded" in result["reason"]
     assert checks(result) == (None, None, None, None)
+    code, _, err = run(pilot.root, "autopilot", "merged", "T003", "--cleanup", "--owner", "lane", capsys=capsys)
+    assert code == 5 and "not merged" in err
 
 
 def test_a_merged_branch_whose_row_is_not_done_at_its_head_is_not_merged(pilot, capsys):
@@ -284,7 +296,7 @@ def test_confirmations_are_reported_and_never_prove(pilot, capsys):
     finished_lane(pilot)
     squash = pilot.host.squash(BRANCHES["T001"], "feat(demo): base task (T001) (#3)")
     result = merged(pilot, "T001", capsys=capsys)
-    assert result["confirmations"] == {"row_done_on_mainline": True, "title_commit": squash}
+    assert result["confirmations"] == {"row_done_on_mainline": True, "row_discarded_on_mainline": False, "title_commit": squash}
 
     finished_lane(pilot, "T003", files=("three.py",))
     pilot.host.sync()
@@ -733,7 +745,7 @@ def test_text_and_json_forms(pilot, capsys):
     squash = pilot.host.squash(BRANCHES["T001"])
     result = merged(pilot, "T001", "--no-fetch", capsys=capsys)
     assert set(result) == {
-        "id", "branch", "remote", "fetched", "mainline", "head", "done_at_head", "merged", "via", "commit",
+        "id", "branch", "remote", "fetched", "mainline", "head", "done_at_head", "closed", "merged", "via", "commit",
         "recorded", "reason", "checks", "confirmations", "runs", "cleanup", "dependents",
     }
     assert set(result["mainline"]) == {"ref", "commit", "diverged"}
@@ -749,3 +761,112 @@ def test_text_and_json_forms(pilot, capsys):
 
     code, out, _ = run(pilot.root, "autopilot", "merged", "T002", capsys=capsys)
     assert code == 0 and out.startswith("T002 not merged into origin/main: ")
+
+
+# 15 A branch whose task was discarded on it (T067)
+
+
+def discarded_lane(pilot, task_id="T003", run_id=None, files=("three.py",)):
+    path = pilot.lane(task_id, run_id)
+    for name in files:
+        pilot.work(path, name)
+    pilot.discard(path, task_id)
+    return path
+
+
+def run_report(pilot, run_id, capsys):
+    return data(pilot.root, "autopilot", "status", "--run", run_id, "--fetch", capsys=capsys)["runs"][0]
+
+
+def state_of(report, task_id):
+    return next(row["state"] for row in report["tasks"] if row["id"] == task_id)
+
+
+def test_a_merged_discarded_branch_is_detected_and_reported(pilot, capsys):
+    discarded_lane(pilot)
+    squash = pilot.host.squash(BRANCHES["T003"])
+    result = merged(pilot, "T003", capsys=capsys)
+    assert (result["merged"], result["via"], result["commit"]) == (True, "tree", squash)
+    assert (result["closed"], result["done_at_head"], result["reason"]) == ("discarded", False, None)
+    assert (result["confirmations"]["row_discarded_on_mainline"], result["confirmations"]["row_done_on_mainline"]) == (True, False)
+
+
+def test_a_recorded_discard_merge_reads_discarded_and_never_done_merged(pilot, capsys):
+    run_id = start(pilot, capsys)
+    discarded_lane(pilot, run_id=run_id)
+    pilot.host.squash(BRANCHES["T003"])
+    pilot.host.unmark("T003")  # the ❌ row edited back by hand: only the record knows the discard merged
+
+    assert state_of(run_report(pilot, run_id, capsys), "T003") == "discarded-branch"
+    result = merged(pilot, "T003", "--run", run_id, capsys=capsys)
+    assert (result["merged"], result["runs"]) == (True, [run_id])
+    assert runs.read(load_config(pilot.root), run_id)["tasks"]["T003"]["merged"]["status"] == "discarded"
+
+    report = run_report(pilot, run_id, capsys)
+    assert (state_of(report, "T003"), report["done_merged"], report["complete"]) == ("discarded", 0, False)
+
+
+def test_cleanup_removes_a_merged_discarded_branch(pilot, capsys):
+    run_id = start(pilot, capsys)
+    lane = discarded_lane(pilot, run_id=run_id)
+    pilot.host.squash(BRANCHES["T003"])
+    config = load_config(pilot.root)
+    claims.claim(config, "T003", owner="lane", branch=BRANCHES["T003"], worktree=str(lane))  # a claim left behind
+
+    result = merged(pilot, "T003", "--cleanup", "--owner", "lane", capsys=capsys)
+    assert result["cleanup"] == {
+        "worktree": str(lane.resolve()),
+        "worktree_removed": True,
+        "branch_deleted": True,
+        "claim_released": True,
+        "remote_branch": f"origin/{BRANCHES['T003']}",
+        "refused": None,
+    }
+    assert not lane.exists()
+    assert not ref_exists(pilot.root, f"refs/heads/{BRANCHES['T003']}")
+    assert ref_exists(pilot.root, f"refs/remotes/origin/{BRANCHES['T003']}")
+    assert claims.read(config, "T003") is None
+
+    pilot.host.delete(BRANCHES["T003"])  # no copy of the branch is left: only the run knows the merge
+    again = merged(pilot, "T003", capsys=capsys)
+    assert (again["merged"], again["recorded"], again["closed"], again["commit"]) == (True, True, "discarded", result["commit"])
+
+
+def test_a_done_merge_records_done_and_a_record_without_status_counts_as_done(pilot, capsys):
+    run_id = start(pilot, capsys)
+    finished_lane(pilot, run_id=run_id)
+    pilot.host.squash(BRANCHES["T001"])
+    pilot.host.unmark("T001")
+    result = merged(pilot, "T001", "--run", run_id, capsys=capsys)
+    assert (result["merged"], result["closed"], result["done_at_head"]) == (True, "done", True)
+    config = load_config(pilot.root)
+    assert runs.read(config, run_id)["tasks"]["T001"]["merged"]["status"] == "done"
+    assert state_of(run_report(pilot, run_id, capsys), "T001") == "done-merged"
+
+    with runs.update(config, run_id) as stored:
+        del stored["tasks"]["T001"]["merged"]["status"]  # as written before T067
+    assert state_of(run_report(pilot, run_id, capsys), "T001") == "done-merged"
+
+
+def test_the_newest_recorded_merge_decides_the_status(pilot, capsys):
+    run_id = start(pilot, capsys)
+    other = start(pilot, capsys)
+    discarded_lane(pilot, run_id=run_id)
+    pilot.host.squash(BRANCHES["T003"])
+    pilot.host.unmark("T003")
+    merged(pilot, "T003", "--run", run_id, capsys=capsys)
+    config = load_config(pilot.root)
+    record = runs.read(config, run_id)["tasks"]["T003"]["merged"]
+
+    for detected, expected in (("2000-01-01T00:00:00+00:00", "discarded"), ("2999-01-01T00:00:00+00:00", "done-merged")):
+        with runs.update(config, other) as stored:
+            runs.lane(stored, "T003")["merged"] = {**record, "status": "done", "detected": detected}
+        assert state_of(run_report(pilot, run_id, capsys), "T003") == expected, detected
+
+
+def test_the_text_form_names_a_discarded_merge(pilot, capsys):
+    discarded_lane(pilot)
+    squash = pilot.host.squash(BRANCHES["T003"])
+    code, out, _ = run(pilot.root, "autopilot", "merged", "T003", capsys=capsys)
+    assert code == 0
+    assert out.splitlines()[0] == f"T003 merged into origin/main via tree at {squash[:7]} (discarded)"

@@ -8,6 +8,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **`autopilot merged` for a branch whose task was discarded on it.** The content checks now run for
+  a head whose row is `✅` or `❌`, and a proven merge reports `closed` (`done` or `discarded`),
+  `confirmations.row_discarded_on_mainline`, and is recorded with that `status`. A recorded discard
+  merge makes the task `discarded`, never `done-merged`, and the task's newest record decides;
+  `--cleanup` removes the worktree and local branch of a merged discarded branch as for a done one
+  (T067).
 - **`autopilot next` skips a task closed on an unpulled mainline.** A candidate whose row is `✅` or
   `❌` on the local mainline or `<remote>/<mainline>` but still `⬜` in the checkout — a merge that
   was not pulled — is reported in `skipped` as `done-merged` or `discarded` instead of being

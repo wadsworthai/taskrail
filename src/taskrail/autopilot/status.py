@@ -22,22 +22,33 @@ WITH_BRANCH = ("running", "gate", "escalated", "failed", "done-branch", "handed-
 WAITING = ("done-branch", "discarded-branch")  # a branch that waits for hand-off (T053, T065)
 MERGED_KEY = "autopilot_done_on_mainline"
 MAINLINE_KEY = "autopilot_closed_on_mainline"
+RECORDED_KEY = "autopilot_recorded_merges"
 WORKTREES_KEY = "autopilot_worktree_branches"
 
 
 def done_on_mainline(project: Project) -> set[str]:
     """Tasks whose row is ✅ on the local mainline or its remote-tracking branch; the checkout's rows outside git."""
     if MERGED_KEY not in project.cache:
-        from taskrail.autopilot.merged import recorded_merges  # imported here: merged imports this module
-
         # A merge `autopilot merged` proved counts too, while its commit stays on a mainline.
-        project.cache[MERGED_KEY] = _on_mainline(project, Status.DONE) | recorded_merges(project)
+        project.cache[MERGED_KEY] = _on_mainline(project, Status.DONE) | _recorded(project, Status.DONE)
     return project.cache[MERGED_KEY]
 
 
 def discarded_on_mainline(project: Project) -> set[str]:
-    """Tasks whose row is ❌ on the local mainline or its remote-tracking branch; the checkout's rows outside git (T062)."""
-    return _on_mainline(project, Status.DISCARDED)
+    """Tasks whose row is ❌ on the local mainline or its remote-tracking branch; the checkout's rows outside git (T062).
+
+    A proven merge of a branch the task was discarded on counts too, as for `done_on_mainline` (T067).
+    """
+    return _on_mainline(project, Status.DISCARDED) | _recorded(project, Status.DISCARDED)
+
+
+def _recorded(project: Project, status: Status) -> set[str]:
+    """Tasks whose newest recorded merge still on a mainline closed them with `status` (T067)."""
+    if RECORDED_KEY not in project.cache:
+        from taskrail.autopilot.merged import recorded_merges  # imported here: merged imports this module
+
+        project.cache[RECORDED_KEY] = recorded_merges(project)
+    return {task_id for task_id, closed in project.cache[RECORDED_KEY].items() if closed == status.label}
 
 
 def _on_mainline(project: Project, status: Status) -> set[str]:
