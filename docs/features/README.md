@@ -29,3 +29,4 @@
 | T052 | Add taskrail checks for a task and a Claude Code note on command shape | [T052-add-taskrail-checks-for-a-task-and-a-cla.md](T052-add-taskrail-checks-for-a-task-and-a-cla.md) |
 | T048 | Add autopilot close to abandon a run | [T048-add-autopilot-close-to-abandon-a-run.md](T048-add-autopilot-close-to-abandon-a-run.md) |
 | T051 | Label overlaps in known conflict-class files | [T051-label-overlaps-in-known-conflict-class-f.md](T051-label-overlaps-in-known-conflict-class-f.md) |
+| T047 | Keep a stacked task's fork point after done | [T047-keep-a-stacked-task-s-fork-point-after-d.md](T047-keep-a-stacked-task-s-fork-point-after-d.md) |

@@ -1130,7 +1130,9 @@ lanes must not do, and answering gates needs an agent anyway.
 - **Claims** (§6) remain the only lock, so dispatch needs no new locking for tasks or IDs.
   They gain two fields:
   - `base.commit`, the dependency tip a stacked branch started from, written at claim time by
-    T017, so `rebase --onto` still works after the dependency is squash-merged;
+    T017, so `rebase --onto` still works after the dependency is squash-merged. `claim <ID> --run R`
+    also copies the claim's `base` — `{onto, commit, dependency}` — into the task's lane as `base`,
+    so the fork point outlives the claim that `done` releases (*implemented, T047*);
   - `run`, the ID of the run that owns the lane, written by `claim <ID> --run R`, which also
     lists the task in the run file so it stays a member after `done` releases the claim
     (*implemented, T029*).
@@ -1314,14 +1316,17 @@ procedure (*implemented, T024*); detection and cleanup are the CLI's (*implement
   diverged, the remote one is tried first. The ✅ row on the mainline and an `(ID)` pull request
   title confirm a merge but never prove it, since a row can be edited by hand.
 - **Stacked dependents** are the tasks listing the merged task in `Depends On`, not ✅ on the
-  mainline, with a local or remote branch. Their fork point is the live claim's `base.commit` when
-  its `base.dependency` is the merged task and the dependent's head still contains it (a dependent
-  already rebased does not, so no second rebase is offered); else `git merge-base <dependent> <dependency head>`
-  with the head this call checked, so deleting the dependency's branch afterwards loses nothing
-  (§6.1); else the `head` a run recorded. A fork point already on the mainline means the dependent
-  branched from the mainline and needs no `--onto`. When a released dependent's dependency was
-  rewritten after it branched, `merge-base` falls back to the mainline and the dependent reads as
-  not stacked; `fork_source` says which source was used.
+  mainline, with a local or remote branch. Their fork point is the first `base.commit` whose
+  `base.dependency` is the merged task and which the dependent's head still contains (a dependent
+  already rebased does not, so no second rebase is offered): the live claim's (`claim`), then the
+  one a run's lane kept from the claim, newest run first (`run-base`, *implemented, T047*). Else
+  `git merge-base <dependent> <dependency head>` with the head this call checked, so deleting the
+  dependency's branch afterwards loses nothing (§6.1) (`merge-base`); else the `head` a run
+  recorded (`run`). A fork point already on the mainline means the dependent branched from the
+  mainline and needs no `--onto`. Only a dependent claimed without `--run` still loses its fork
+  point once released and its dependency is rewritten after it branched, as the hand-off's own
+  rebase does: `merge-base` then falls back to the mainline and the dependent reads as not
+  stacked. `fork_source` says which source was used.
 - **Known conflict classes,** resolved without a human; anything else escalates:
   1. backlog rows, united by ID, with ✅ winning unless a `Reopens:` commit exists (the merge
      driver, §7.4, where a clone installed it; by hand with the core skill's rule otherwise);

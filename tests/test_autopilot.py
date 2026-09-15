@@ -299,6 +299,38 @@ def test_claim_run_on_the_template_branch_still_records_the_branch(pilot, capsys
     assert list(runs.read(load_config(pilot.root), run_id)["tasks"]) == ["T003"]
 
 
+def test_claim_run_keeps_the_claim_base_in_the_lane(pilot, capsys):
+    """T047: the run keeps a stacked lane's fork point after `done` releases the claim."""
+    config = load_config(pilot.root)
+    run_id = start(pilot.root, capsys)
+    base = pilot.lane("T001", run_id)
+    (base / "base.py").write_text("work\n", encoding="utf-8")
+    commit_all(base, "work on base.py")
+    pilot.finish(base, "T001")
+    tip = git(base, "rev-parse", "HEAD")
+    stacked = pilot.lane("T002", run_id, base=BRANCHES["T001"])
+
+    kept = runs.read(config, run_id)["tasks"]["T002"]["base"]
+    assert kept == claims.read(config, "T002").base == {"onto": BRANCHES["T001"], "commit": tip, "dependency": "T001"}
+    pilot.finish(stacked, "T002")
+    assert claims.read(config, "T002") is None
+    assert runs.read(config, run_id)["tasks"]["T002"]["base"] == kept
+
+    # An already held claim rewrites nothing; a claim without --run writes no run file.
+    lane = pilot.root.parent / "t003-kept-lane"
+    git(pilot.root, "worktree", "add", "-q", str(lane), "-b", BRANCHES["T003"], "origin/main")
+    assert run(lane, "claim", "T003", "--owner", "lane", "--run", run_id, capsys=capsys)[0] == 0
+    first = runs.read(config, run_id)["tasks"]["T003"]["base"]
+    with runs.update(config, run_id) as stored:
+        stored["tasks"]["T003"]["base"] = "untouched"
+    assert run(lane, "claim", "T003", "--owner", "lane", "--run", run_id, capsys=capsys)[0] == 0
+    assert first["dependency"] is None and runs.read(config, run_id)["tasks"]["T003"]["base"] == "untouched"
+    before = sorted(path.name for path in runs.runs_dir(config).iterdir())
+    assert run(pilot.root, "claim", "T004", capsys=capsys)[0] == 0
+    assert sorted(path.name for path in runs.runs_dir(config).iterdir()) == before
+    assert "T004" not in runs.read(config, run_id)["tasks"]
+
+
 def test_status_follows_a_renamed_task_branch(pilot, capsys):
     run_id = start(pilot.root, capsys)
     path = pilot.lane("T003", run_id)

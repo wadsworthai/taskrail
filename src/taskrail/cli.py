@@ -257,7 +257,7 @@ def cmd_claim(args) -> int:
     if created and args.run is not None:
         try:
             with autopilot_runs.update(config, args.run) as run:  # the run keeps its member after `done` releases the claim
-                autopilot_runs.lane(run, task.id)
+                autopilot_runs.lane(run, task.id)["base"] = claim.base  # and its fork point, for `autopilot merged`
         except (autopilot_runs.RunNotFound, ids.LockTimeout) as exc:
             print(f"taskrail: claimed {task.id}, but could not list it in run {args.run}: {exc}", file=sys.stderr)
             return EXIT_CONFLICT

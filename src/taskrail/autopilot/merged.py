@@ -273,12 +273,35 @@ def _cleanup(project: Project, task: Task, branch: str, verified: str | None, re
 # Stacked dependents
 
 
+def _kept_bases(project: Project) -> dict[str, list[dict]]:
+    """Per task, the claim bases runs kept in their lanes, newest run first: they outlive the claim `done` releases."""
+    try:
+        every_run = runs.read_all(project.config)
+    except gitutil.GitError:
+        return {}
+    kept: dict[str, list[dict]] = {}
+    for run in every_run:
+        for task_id, lane in run["tasks"].items():
+            if isinstance(lane.get("base"), dict):
+                kept.setdefault(task_id, []).append(lane["base"])
+    return kept
+
+
+def _recorded_fork(root: Path, base: dict | None, dependency: str, head: str) -> str | None:
+    """A recorded base's fork point, when it was taken from `dependency` and `head` still contains it."""
+    if not isinstance(base, dict) or base.get("dependency") != dependency or not isinstance(base.get("commit"), str):
+        return None
+    commit = _sha(root, base["commit"])
+    return commit if commit and _is_ancestor(root, commit, head) else None  # a rebased branch no longer contains it
+
+
 def _dependents(project: Project, task: Task, dependency_head: str | None, recorded_head: str | None, mainline: str) -> list[dict]:
     root = project.config.root
     claimed = _local_claims(project)
     merged = status_module.done_on_mainline(project)
     remote = resolve_remote(root, project.config.backlog(task.backlog).mainline, project.config.review.remote).name
     worktrees = gitutil.worktree_branches(root)
+    kept = _kept_bases(project)
     found = []
     for dependent in project.tasks:
         if task.id not in dependent.depends_on or dependent.id in merged or dependent.status is Status.DISCARDED:
@@ -288,19 +311,19 @@ def _dependents(project: Project, task: Task, dependency_head: str | None, recor
         head = _sha(root, f"refs/heads/{branch}") or _sha(root, f"refs/remotes/{remote}/{branch}") if branch else None
         if not head:
             continue
-        fork, source, reason = None, None, None
-        base = (claim.base if claim else None) or {}
-        recorded_fork = _sha(root, base["commit"]) if base.get("dependency") == task.id and base.get("commit") else None
-        if recorded_fork and _is_ancestor(root, recorded_fork, head):  # a rebased branch no longer contains it
-            fork, source = recorded_fork, "claim"
-        else:
+        reason = None
+        recorded = [(claim.base if claim else None, "claim")] + [(base, "run-base") for base in kept.get(dependent.id, [])]
+        fork, source = next(
+            ((commit, name) for base, name in recorded if (commit := _recorded_fork(root, base, task.id, head))), (None, None)
+        )
+        if fork is None:
             for other, name in ((dependency_head, "merge-base"), (recorded_head, "run")):
                 if other and _sha(root, other):
                     fork = gitutil.run(root, "merge-base", head, other, check=False).stdout.strip() or None
                     source = name if fork else None
                     break
         if fork is None:
-            reason = f"the fork point from {task.id} is unknown: no claim records it and {task.id}'s head is gone"
+            reason = f"the fork point from {task.id} is unknown: no claim or run records it and {task.id}'s head is gone"
         stacked = fork is not None and not _is_ancestor(root, fork, mainline)
         command = None
         if stacked:

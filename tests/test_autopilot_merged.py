@@ -615,7 +615,7 @@ def test_a_finished_dependent_forks_from_the_dependency_head_even_after_cleanup(
     run_id = start(pilot, capsys)
     base = finished_lane(pilot, run_id=run_id)
     dependency_head = sha(base, "HEAD")
-    stacked = pilot.lane("T002", run_id, base=BRANCHES["T001"])
+    stacked = pilot.lane("T002", base=BRANCHES["T001"])  # without --run, so no run keeps its base
     pilot.work(stacked, "stacked.py")
     pilot.finish(stacked, "T002")  # releases the claim and its recorded base
     pilot.host.squash(BRANCHES["T001"])
@@ -634,6 +634,84 @@ def test_a_finished_dependent_forks_from_the_dependency_head_even_after_cleanup(
         "run",
         f"git rebase --onto origin/main {dependency_head}",
     )
+
+
+def released_dependent_of_a_rebased_dependency(pilot, capsys):
+    """The T033 F1 scenario: T002 stacked on T001 and marked done, then T001 rebased at hand-off and squash-merged."""
+    run_id = start(pilot, capsys)
+    base = finished_lane(pilot, run_id=run_id)
+    fork = sha(base, "HEAD")
+    stacked = pilot.lane("T002", run_id, base=BRANCHES["T001"])
+    pilot.work(stacked, "stacked.py")
+    pilot.finish(stacked, "T002")  # releases the claim and its recorded base
+    pilot.host.commit({"other.txt": "x"}, "unrelated")
+    git(base, "fetch", "-q", "origin")
+    git(base, "rebase", "-q", "origin/main")
+    git(base, "push", "-q", "--force-with-lease", "origin", BRANCHES["T001"])
+    assert sha(base, "HEAD") != fork
+    pilot.host.squash(BRANCHES["T001"])
+    return run_id, fork, stacked
+
+
+def fork_of(dependent):
+    return {key: dependent[key] for key in ("stacked", "fork", "fork_source", "onto", "command", "reason")}
+
+
+def test_a_released_dependent_keeps_its_fork_point_after_its_dependency_is_rebased(pilot, capsys):
+    run_id, fork, stacked = released_dependent_of_a_rebased_dependency(pilot, capsys)
+
+    result = merged(pilot, "T001", "--run", run_id, capsys=capsys)
+    assert result["merged"] is True
+    [dependent] = result["dependents"]
+    assert fork_of(dependent) == {
+        "stacked": True,
+        "fork": fork,
+        "fork_source": "run-base",
+        "onto": "origin/main",
+        "command": f"git rebase --onto origin/main {fork}",
+        "reason": None,
+    }
+    git(stacked, *dependent["command"].split()[1:])
+    assert git(stacked, "log", "--format=%s", "origin/main..HEAD").splitlines() == ["chore(T002): mark done", "work on stacked.py"]
+
+    # Once rebased, the kept fork point is no longer in the branch: no second rebase is offered.
+    again = merged(pilot, "T001", "--run", run_id, capsys=capsys)["dependents"][0]
+    assert (again["stacked"], again["fork_source"], again["command"]) == (False, "merge-base", None)
+
+
+def test_a_kept_base_counts_only_for_the_merged_dependency_and_an_existing_commit(pilot, capsys):
+    run_id, fork, _ = released_dependent_of_a_rebased_dependency(pilot, capsys)
+    config = load_config(pilot.root)
+    dependent = merged(pilot, "T001", "--run", run_id, capsys=capsys)["dependents"][0]
+    assert (dependent["fork"], dependent["fork_source"], dependent["stacked"]) == (fork, "run-base", True)
+    kept = runs.read(config, run_id)["tasks"]["T002"]["base"]
+
+    for label, changed in (
+        ("another dependency", {**kept, "dependency": "T003"}),
+        ("a missing commit", {**kept, "commit": "0" * 40}),
+        ("no base, as in a run file older than T047", None),
+    ):
+        with runs.update(config, run_id) as stored:
+            if changed is None:
+                del stored["tasks"]["T002"]["base"]
+            else:
+                stored["tasks"]["T002"]["base"] = changed
+        dependent = merged(pilot, "T001", "--run", run_id, capsys=capsys)["dependents"][0]
+        assert (dependent["fork_source"], dependent["stacked"], dependent["command"]) == ("merge-base", False, None), label
+
+
+def test_the_newest_run_keeping_a_base_wins(pilot, capsys):
+    run_id, fork, _ = released_dependent_of_a_rebased_dependency(pilot, capsys)
+    config = load_config(pilot.root)
+    newer = start(pilot, capsys)
+    kept = runs.read(config, run_id)["tasks"]["T002"]["base"]
+    with runs.update(config, run_id) as stored:  # an older commit T002's head also contains
+        stored["tasks"]["T002"]["base"] = {**kept, "commit": sha(pilot.root, f"{fork}~1")}
+    with runs.update(config, newer) as stored:
+        runs.lane(stored, "T002")["base"] = kept
+    assert [run["id"] for run in runs.read_all(config)] == [newer, run_id]
+    dependent = merged(pilot, "T001", capsys=capsys)["dependents"][0]
+    assert (dependent["fork"], dependent["fork_source"]) == (fork, "run-base")
 
 
 def test_a_dependent_branched_from_the_mainline_is_not_stacked(pilot, capsys):

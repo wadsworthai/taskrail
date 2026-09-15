@@ -41,3 +41,4 @@
 | T056 | Add an OpenCode note on escalations during blocking lane batches | [T056-add-an-opencode-note-on-escalations-duri.md](T056-add-an-opencode-note-on-escalations-duri.md) |
 | T048 | Add autopilot close to abandon a run | [T048-add-autopilot-close-to-abandon-a-run.md](T048-add-autopilot-close-to-abandon-a-run.md) |
 | T051 | Label overlaps in known conflict-class files | [T051-label-overlaps-in-known-conflict-class-f.md](T051-label-overlaps-in-known-conflict-class-f.md) |
+| T047 | Keep a stacked task's fork point after done | [T047-keep-a-stacked-task-s-fork-point-after-d.md](T047-keep-a-stacked-task-s-fork-point-after-d.md) |
