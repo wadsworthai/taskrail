@@ -46,3 +46,20 @@ Instructions given with the answers: add `autopilot extend` to the plan's Behavi
 criteria and affected areas before implementing; write the §12.1 `autopilot next` cell with T070's
 clause "skips a task whose `base.row` is `missing`, with the reason"; do not touch `_open_workspace`
 or other parts of `cli.py`.
+
+## implement gate
+
+Reviewed: the range `c39b5fd..25895c8`: the plan update adding `extend` (`004a149`), the T072 row
+(`1efa7d9`), and the implementation (`25895c8`), read in `branchrows.py`, `autopilot/dispatch.py`,
+`autopilot/runs.py` and `cli.py` — the latter only in `cmd_show`'s `prior_work` call, `cmd_new`'s
+`record_branch` closure and `cmd_checks`' lookup, as approved; `dispatch.next_lanes`' final `else`
+untouched for T070. A row adopted from its branch reads `on-branch` under T070's `base.row`, so T070's
+missing-row skip does not hide it. The touched files match the touch map. Re-ran
+`taskrail checks T071 --stage implement`: `test` gave `994 passed in 142.47s`; `lint` is not configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | `status` shows a named task claimed outside its run as `pending`, without the claim | accept · show `running` with a `silent` guard | as recommended | A `running` row could read `silent` and invite restarting another session's work; `next` already says `claimed by <owner>`. |
+| 2 | `runs.members` (every task a run holds) beside `dispatch._members` (its lanes) | accept · one function with a flag | as recommended | The two answer different questions, and the docstrings say which. |
+| 3 | The integration notes' "Lanes create their worktrees with git" | leave unchanged · "create or use" | **change it to say lanes create or use their worktrees with git, never through the agent's worktree isolation, in `src/taskrail/integrations/claude.md` and `opencode.md` where the sentence appears, then `taskrail upgrade`** | A prepared lane uses an existing worktree, so the sentence is now inaccurate for the case this task adds; the files are outside T070's areas, so the touch map extends to them for T071. |
+| 4 | T072 opened on this branch | — | noted | Opened as instructed at the plan gate. |
