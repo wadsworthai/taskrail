@@ -16,7 +16,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from taskrail import branches, claims, gitutil
+from taskrail import branches, branchrows, claims, gitutil
 from taskrail.autopilot import runs
 from taskrail.autopilot import status as status_module
 from taskrail.cli import (
@@ -373,7 +373,7 @@ def cmd_merged(args) -> int:
     project, issues = _load(args)
     if _refuse_if_invalid(issues, args):
         return EXIT_INVALID
-    task = project.task(args.id)
+    task = branchrows.find(project, args.id, _local_claims(project))  # a row only its branch holds counts (T071)
     if task is None:
         return _fail(f"no task `{args.id}`", EXIT_NOT_FOUND)
     config = project.config
@@ -392,7 +392,7 @@ def cmd_merged(args) -> int:
             return _fail(f"git fetch --prune {remote} failed: {result.stderr.strip()}", EXIT_USAGE)
         fetched = True
         project, _ = _load(args)  # the refs moved
-        task = project.task(args.id)
+        task = branchrows.find(project, args.id, _local_claims(project))
         config = project.config
 
     if args.run is not None:

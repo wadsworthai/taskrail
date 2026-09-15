@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from taskrail import claims as claims_module
-from taskrail import branches, gitutil, stack
+from taskrail import branches, branchrows, gitutil, stack
 from taskrail.autopilot import escalation
 from taskrail.autopilot import runs as runs_module
 from taskrail.claims import Claim
@@ -349,8 +349,8 @@ def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: date
     config = project.config
     if worktrees is None:
         worktrees = gitutil.worktree_branches(config.root)
-    members = list(run["tasks"])
-    members += sorted(task_id for task_id, claim in claimed.items() if claim.run == run["id"] and task_id not in run["tasks"])
+    members = runs_module.members(run, claimed)
+    branchrows.adopt(project, members, claimed)  # a member whose row only its branch holds reads as in any checkout (T071)
     rows = []
     for task_id in members:
         task = project.task(task_id)
@@ -358,6 +358,8 @@ def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: date
             rows.append({"id": task_id, "title": None, "kind": None, "state": None, "problem": "not in the backlog"})
             continue
         claim = claimed.get(task_id)
+        if claim is not None and task_id not in run["tasks"] and claim.run != run["id"]:
+            claim = None  # a named task claimed outside this run is not one of its lanes (T071)
         state = task_state(task, project, run, claim, now)
         rows.append(
             {
@@ -379,6 +381,7 @@ def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: date
         "owner": run["owner"],
         "count": run["count"],
         "kinds": run["kinds"],
+        "named": list(run.get("named") or []),
         "closed": run.get("closed"),
         "complete": merged >= run["count"] > 0,
         "done_merged": merged,
@@ -389,6 +392,7 @@ def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: date
 
 
 def status(project: Project, runs: list[dict], claimed: dict[str, Claim], now: datetime | None = None) -> dict:
+    branchrows.adopt(project, [task_id for run in runs for task_id in runs_module.members(run, claimed)], claimed)  # before any state is derived (T071)
     worktrees = gitutil.worktree_branches(project.config.root) if runs else {}
     reports = [run_status(project, run, claimed, now, worktrees) for run in runs]
     touched_by: dict[str, set[str]] = {}

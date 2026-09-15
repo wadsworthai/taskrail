@@ -5,15 +5,15 @@
   ],
   "extras": {},
   "files": {
-    ".claude/skills/taskrail-autopilot/SKILL.md": "08ddf9ac7e51be7f22ca40f815771254d6f4b7dbee94a538b2e2095c18809159",
+    ".claude/skills/taskrail-autopilot/SKILL.md": "5cc6c149d4bd0bf4f5adae0b2d45c18320980b0abcfc9147282ffcf1746fc758",
     ".claude/skills/taskrail-autopilot/references/decision-record.md": "a69e2633f0941a4ca691c7d891ff1dd9a4ccc40c7b85266e230e040c0e59a072",
     ".claude/skills/taskrail-autopilot/references/gate-review.md": "03b8866f66d899b7329a9295d2889085550467329c1cde2da77007ea1734ba82",
-    ".claude/skills/taskrail-autopilot/references/lane-brief.md": "e67e65340800a470e6f66282880e4cefa0b3919713b4b98666bd9cb240e6779a",
+    ".claude/skills/taskrail-autopilot/references/lane-brief.md": "50ecda81896bf41f308cc20edde33ff37deaba39c612664dd30fddfd065e79b8",
     ".claude/skills/taskrail-bug/SKILL.md": "df729a9751c75edf687232c2d377e33698dae8905b99bc671d3bff24064c25cf",
     ".claude/skills/taskrail-chore/SKILL.md": "58b0d6a21d6f72d52e995ecef8b5b34443dc1948306b1db0f73c0edc20b1d895",
     ".claude/skills/taskrail-feature/SKILL.md": "9ac63c9ac36c13ce6e4796801b07423019d71017bf8ebc17baff30b3151155fc",
     ".claude/skills/taskrail-spike/SKILL.md": "6911412305d9ca5603049534faccf7f156e1446db5904964d703bc0726c63952",
-    ".claude/skills/taskrail/SKILL.md": "0f4c0b8f1cd3562e1da23dc6b227761765983db762816ba6eec6a0ef87826075",
+    ".claude/skills/taskrail/SKILL.md": "a62aec5d9d2cc5e5e9ff41a5512d475a4b646afe24d651105053cd26217129ce",
     ".taskrail/bin/taskrail": "3e74ea933af94c71d69ebd8bd400028a2d556e0b666133615d73add4cba602cf"
   }
 }

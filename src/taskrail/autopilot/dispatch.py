@@ -12,13 +12,13 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from taskrail import claims as claims_module
-from taskrail import prior, stack
+from taskrail import branchrows, prior, stack
 from taskrail.autopilot import runs
 from taskrail.autopilot.status import discarded_on_mainline, done_on_mainline, task_state
 from taskrail.claims import Claim
 from taskrail.config import GroupConfig
 from taskrail.model import Project, Task
-from taskrail.query import base_dict, eligible, task_dict
+from taskrail.query import base_dict, blocked_by, eligible, state, task_dict
 from taskrail.templates import render
 
 OCCUPYING = ("running", "gate", "escalated", "dispatched")  # states that use a lane and hold resources
@@ -41,8 +41,23 @@ def _read_only(config):
 
 
 def _members(run: dict, claimed: dict[str, Claim]) -> list[str]:
+    """The run's lanes: the tasks it records and those whose claim names it; a named task not dispatched yet holds none."""
     extra = sorted(task_id for task_id, claim in claimed.items() if claim.run == run["id"] and task_id not in run["tasks"])
     return list(run["tasks"]) + extra
+
+
+def _waiting_reason(project: Project, task_id: str, claimed: dict[str, Claim]) -> str:
+    """Why a named task that is not eligible waits (T071)."""
+    task = project.task(task_id)
+    if task is None:
+        return "not in the backlog nor on a recorded branch"
+    found = state(task, project, claimed)
+    if found == "blocked":
+        return f"blocked by {', '.join(blocked_by(task, project))}"
+    if found == "claimed":
+        claim = claimed[task_id]
+        return f"claimed in run {claim.run}" if claim.run else f"claimed by {claim.owner}"
+    return found
 
 
 def _groups_of(task: Task, recorded: str | None, groups: tuple[GroupConfig, ...]) -> list[str]:
@@ -62,6 +77,9 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
     now = now or datetime.now(timezone.utc)
     config = project.config
     autopilot = config.autopilot
+    stored_runs = [record for record in runs.read_all(config) if not runs.is_closed(record)]
+    # Rows that only their task's branch holds count as in any checkout: before anything reads the rows (T071).
+    branchrows.adopt(project, [task_id for record in stored_runs for task_id in runs.members(record, claimed)], claimed)
     candidates = eligible(project, None, claimed)
     stack.done_on_branch(project)  # read git before the lock; both are cached per project
     merged, discarded = done_on_mainline(project), discarded_on_mainline(project)
@@ -79,7 +97,11 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
         for record in every_run.values():
             for task_id in _members(record, claimed):
                 task = project.task(task_id)
-                states[record["id"], task_id] = task_state(task, project, record, claimed.get(task_id), now) if task else None
+                if task is not None:
+                    states[record["id"], task_id] = task_state(task, project, record, claimed.get(task_id), now)
+                else:  # a claim in this run still uses a lane when its row cannot be found anywhere (T071)
+                    claim = claimed.get(task_id)
+                    states[record["id"], task_id] = "running" if claim is not None and claim.run == record["id"] else None
 
         occupied: dict[str, dict] = {}  # task ID -> the lane using it
         for (record_id, task_id), state in states.items():
@@ -107,7 +129,7 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
         held: dict[str, dict[str, str]] = {resource.name: {} for resource in autopilot.resources}
         for task_id, lane in occupied.items():
             task = project.task(task_id)
-            lane["groups"] = _groups_of(task, recorded_group(task_id, lane["run"]), autopilot.groups)
+            lane["groups"] = _groups_of(task, recorded_group(task_id, lane["run"]), autopilot.groups) if task else []
             for name in lane["groups"]:
                 members[name].append(task_id)
         for (record_id, task_id), state in states.items():
@@ -120,12 +142,18 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
             remaining = run["count"] - sum(1 for task_id in _members(run, claimed) if states.get((run["id"], task_id)) in COUNTED)
         kinds = run_kinds(project, run)
         limits = {group.name: group.limit for group in autopilot.groups}
+        named = list(run["named"]) if runs.is_named(run) else None
+        if named is not None:  # a named run takes only its tasks, in the order given (T071)
+            by_id = {task.id: task for task in candidates}
+            candidates = [by_id[task_id] for task_id in named if task_id in by_id]
 
         chosen: list[tuple[Task, dict, list[str]]] = []
         skipped: list[dict] = []
         limited_by = None
         for task in candidates:
             if kinds is not None and task.kind not in kinds:
+                if named is not None:
+                    skipped.append({"id": task.id, "reason": f"kind {task.kind} is not driven by run {run_id}"})
                 continue
             if autopilot.max_lanes - len(occupied) <= 0:
                 limited_by = "max_lanes"
@@ -180,6 +208,12 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
                 lane["resources"] = allocated
             chosen.append((task, allocated, groups))
 
+        if named is not None:
+            listed = {task.id for task in candidates} | {entry["id"] for entry in skipped}
+            for task_id in named:
+                if task_id not in listed and states.get((run_id, task_id)) not in (*COUNTED, *OCCUPYING):
+                    skipped.append({"id": task_id, "reason": _waiting_reason(project, task_id, claimed)})
+
     return {
         "run": run_id,
         "preview": run is None,
@@ -225,7 +259,9 @@ def _entry(task: Task, project: Project, claimed: dict[str, Claim], allocated: d
     data = task_dict(task, project, claimed)
     kind = project.kinds.get(task.kind)
     data["kind_descriptor"] = kind.to_dict(task) if kind else None
-    data["prior_work"] = prior.prior_work(config.root, task.id, data["branch"], data["artifact"])
+    data["prior_work"] = prior.prior_work(
+        config.root, task.id, data["branch"], data["artifact"], onto=(data["base"] or {}).get("onto"), backlog_file=config.backlog(task.backlog).file
+    )
     data["resources"] = dict(allocated)
     data["environment"] = {f"{ENVIRONMENT_PREFIX}{name}": value for name, value in allocated.items()}
     data["groups"] = list(groups)

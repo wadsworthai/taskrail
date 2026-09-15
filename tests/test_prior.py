@@ -50,7 +50,7 @@ def remote_repo(git_repo, tmp_path_factory):
 
 def test_nothing_found_reports_empty_signals(git_repo, capsys):
     data = show(git_repo.root, capsys)
-    assert data["prior_work"] == {"artifact": [], "branches": [], "commits": [], "commits_total": 0}
+    assert data["prior_work"] == {"artifact": [], "branches": [], "commits": [], "commits_total": 0, "prepared": None}
 
 
 def test_artifact_in_the_working_tree_only(git_repo, capsys):
@@ -195,7 +195,7 @@ def test_state_is_the_same_with_and_without_signals(git_repo, capsys):
 
 
 def test_outside_git_only_the_working_tree_is_checked(repo, capsys):
-    assert show(repo.root, capsys)["prior_work"] == {"artifact": [], "branches": [], "commits": [], "commits_total": 0}
+    assert show(repo.root, capsys)["prior_work"] == {"artifact": [], "branches": [], "commits": [], "commits_total": 0, "prepared": None}
     repo.write(ARTIFACT, "# T002\n")
     assert show(repo.root, capsys)["prior_work"]["artifact"] == ["working tree"]
 
@@ -225,3 +225,65 @@ def test_list_and_next_do_not_search_for_prior_work(git_repo, capsys):
         code, out, err = run(git_repo.root, command, "--json", capsys=capsys)
         assert code == 0, err
         assert all("prior_work" not in task for task in json.loads(out))
+
+
+# --- A workspace prepared by `new --workspace` (T071) ----------------------------------------------
+
+
+def prepare(repo, capsys, epic="E01", commit=True):
+    """Create a task with `new --workspace`; return its ID and worktree."""
+    repo.write(".gitignore", ".worktrees/\n")
+    git(repo.root, "add", "-A")
+    git(repo.root, "commit", "-q", "-m", "ignore worktrees")
+    code, out, err = run(repo.root, "new", "--epic", epic, "--kind", "chore", "--title", "Prepared", "--workspace", "--json", capsys=capsys)
+    assert code == 0, err
+    result = json.loads(out)
+    worktree = repo.root / ".worktrees" / result["branch"]
+    if commit:
+        git(worktree, "commit", "-q", "-am", f"chore(backlog): add {result['id']}")
+    return result["id"], worktree
+
+
+def prepared(worktree, task_id, capsys):
+    return show(worktree, capsys, task=task_id)["prior_work"]["prepared"]
+
+
+def test_a_committed_row_alone_is_a_prepared_workspace(git_repo, capsys):
+    task_id, worktree = prepare(git_repo, capsys)
+    data = show(worktree, capsys, task=task_id)["prior_work"]
+    assert data["branches"] == [worktree.name]
+    found = data["prepared"]
+    assert (found["branch"], found["worktree"], found["commits"], found["row"]) == (worktree.name, str(worktree.resolve()), 1, "committed")
+    assert found["fork"] == git(git_repo.root, "rev-parse", "main")
+    _, out, _ = run(worktree, "show", task_id, capsys=capsys)
+    assert f"prior work: branch {worktree.name} (prepared: only the task's row)" in out
+
+
+def test_an_uncommitted_row_alone_is_a_prepared_workspace(git_repo, capsys):
+    task_id, worktree = prepare(git_repo, capsys, commit=False)
+    found = prepared(worktree, task_id, capsys)
+    assert (found["commits"], found["row"]) == (0, "uncommitted")
+
+
+def test_a_row_added_to_an_epic_without_a_table_is_prepared(git_repo, capsys):
+    code, _, err = run(git_repo.root, "epic", "add", "--name", "Empty", "--objective", "No tasks yet", capsys=capsys)
+    assert code == 0, err
+    task_id, worktree = prepare(git_repo, capsys, epic="E02")
+    assert prepared(worktree, task_id, capsys)["row"] == "committed"
+
+
+@pytest.mark.parametrize("change", ["uncommitted file", "untracked file", "committed file", "other row", "removed row"])
+def test_any_other_change_is_not_a_prepared_workspace(git_repo, capsys, change):
+    task_id, worktree = prepare(git_repo, capsys)
+    todo = worktree / "TODO.md"
+    if change == "uncommitted file":
+        (worktree / ".taskrail/config.toml").write_text((worktree / ".taskrail/config.toml").read_text() + "\n")
+    elif change == "untracked file":
+        (worktree / "notes.md").write_text("draft\n")
+    elif change == "committed file":
+        commit(worktree, "docs: notes")
+    elif change == "other row":
+        todo.write_text(todo.read_text().replace("Rounding error", "Rounding bug"))
+    else:
+        todo.write_text("".join(line for line in todo.read_text().splitlines(keepends=True) if "| T003 |" not in line))
+    assert prepared(worktree, task_id, capsys) is None

@@ -148,7 +148,9 @@ def cmd_show(args) -> int:
     data = task_dict(task, project, claimed)
     kind = project.kinds.get(task.kind)
     data["kind_descriptor"] = kind.to_dict(task) if kind else None
-    data["prior_work"] = prior.prior_work(project.config.root, task.id, data["branch"], data["artifact"])
+    data["prior_work"] = prior.prior_work(
+        project.config.root, task.id, data["branch"], data["artifact"], (data["base"] or {}).get("onto"), project.config.backlog(task.backlog).file
+    )
     lines = [
         f"{task.id} — {task.title}",
         f"  backlog {task.backlog} · epic {task.epic} · kind {task.kind} · state {data['state']}",
@@ -517,8 +519,8 @@ def cmd_new(args) -> int:
     text = task_id if not workspace else f"{task_id}\nworkspace {workspace['path']} on branch {workspace['branch']} from {workspace['base']}"
 
     def record_branch(result: dict) -> None:
-        if args.branch is not None:
-            written = branches.write(origin_config, task_id, args.branch)
+        if workspace:  # record every workspace's branch, so commands outside it find the task's row there (T071)
+            written = branches.write(origin_config, task_id, workspace["branch"])
             result["record_remote"] = _mirror_record(origin_config, written)
 
     warning = None
@@ -1213,7 +1215,9 @@ def cmd_checks(args) -> int:
     project, issues = _load(args)
     if _refuse_if_invalid(issues, args):
         return EXIT_INVALID
-    task = project.task(args.id)
+    from taskrail import branchrows
+
+    task = branchrows.find(project, args.id, _local_claims(project))  # also a row only its branch holds (T071)
     if task is None:
         print(f"taskrail: no task `{args.id}`", file=sys.stderr)
         return EXIT_NOT_FOUND

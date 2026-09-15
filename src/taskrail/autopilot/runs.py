@@ -58,6 +58,8 @@ def _normalize(data) -> dict | None:
     run.setdefault("count", 0)
     run.setdefault("kinds", [])
     run.setdefault("closed", None)
+    if not isinstance(run.get("named"), list):
+        run["named"] = []  # a run started with --count names no tasks (T071)
     for key, empty in (("tasks", dict), ("handed_off", list), ("decisions", list)):
         if not isinstance(run.get(key), empty):
             run[key] = empty()
@@ -112,8 +114,11 @@ def _temporary(directory: Path, content: str) -> Path:
     return Path(name)
 
 
-def create(config: Config, count: int, kinds: list[str], owner: str, now: datetime | None = None) -> dict:
-    """Write a new run as `YYYYMMDD-N`, taking the first number of the UTC day nobody holds."""
+def create(config: Config, count: int, kinds: list[str], owner: str, now: datetime | None = None, named: list[str] | None = None) -> dict:
+    """Write a new run as `YYYYMMDD-N`, taking the first number of the UTC day nobody holds.
+
+    `named` lists the only tasks the run works, in the order `next` takes them (T071).
+    """
     now = now or datetime.now(timezone.utc)
     directory = runs_dir(config)
     directory.mkdir(parents=True, exist_ok=True)
@@ -122,7 +127,7 @@ def create(config: Config, count: int, kinds: list[str], owner: str, now: dateti
     while True:
         run_id = f"{day}-{number}"
         run = _normalize(
-            {"id": run_id, "started": now_iso(now), "owner": owner, "count": count, "kinds": list(kinds)}
+            {"id": run_id, "started": now_iso(now), "owner": owner, "count": count, "kinds": list(kinds), "named": list(named or [])}
         )
         temporary = _temporary(directory, _serialize(run))
         try:
@@ -241,6 +246,27 @@ def hand_off(run: dict, task_id: str) -> None:
     """Append a task to the run's hand-off order once."""
     if task_id not in run["handed_off"]:
         run["handed_off"].append(task_id)
+
+
+def members(run: dict, claimed: dict) -> list[str]:
+    """The run's tasks: those it records, those it names but has not dispatched yet (T071), and those whose claim names it."""
+    found = list(run["tasks"])
+    found += [task_id for task_id in run.get("named") or [] if task_id not in found]
+    found += sorted(task_id for task_id, claim in claimed.items() if claim.run == run["id"] and task_id not in found)
+    return found
+
+
+def is_named(run: dict | None) -> bool:
+    """Whether the run was started with `--tasks`: it works only the tasks it names (T071)."""
+    return bool(run) and bool(run.get("named"))
+
+
+def add_named(run: dict, task_ids: list[str]) -> list[str]:
+    """Append the IDs not yet named, raising the count by as many; return the IDs appended (T071)."""
+    added = [task_id for task_id in dict.fromkeys(task_ids) if task_id not in run["named"]]
+    run["named"].extend(added)
+    run["count"] += len(added)
+    return added
 
 
 def add_decision(run: dict, question: str, decision: str, reason: str, now: datetime | None = None) -> dict:

@@ -3,8 +3,9 @@
 The first message of a lane. Fill every `<…>` from the task's entry in the output of
 `taskrail autopilot next --run <RUN> --json` and from what you know of the run, and leave out a
 line that has nothing to say. Everything between the two rules is the brief. When you restart a
-lane from its branch (*Resume a run* in `SKILL.md`), use the Workspace section after the second
-rule in place of the brief's own.
+lane from its branch (*Resume a run* in `SKILL.md`), use the restart Workspace section after the
+second rule in place of the brief's own; when the task's entry reports `prior_work.prepared`, use
+the prepared Workspace section after it instead.
 
 ---
 
@@ -81,6 +82,24 @@ gives another lane, ask at your next gate instead.
   the worktree, the artifact and the decision record `<DECISIONS>`. Resume point: <RESUME_POINT>.
   Continue from there with the answers the record gives. Report every uncommitted change you found
   at your next gate, and never discard one.
+- Run your checks with `taskrail checks <ID>`, adding `--stage <stage>` for one stage's checks: it
+  runs them in your worktree with this lane's resource values, from any directory of the clone.
+- Resource values reserved for this lane: <ENVIRONMENT>. `taskrail checks` passes them to the checks
+  itself; set them for every other command that runs the application.
+- Shared services: <SERVICES>. The orchestrator starts them.
+
+---
+
+## Workspace (prepared by taskrail new --workspace)
+
+- Your branch `<BRANCH>` and worktree `<WORKTREE>` already exist, on base `<BASE>`: `taskrail new
+  --workspace` prepared them, and they hold only the task's row (<ROW>). Work inside them; do not
+  create a workspace, and do not stop because the branch exists.
+- Run the CLI from inside the worktree, or with `--root <WORKTREE>`: the task's row may exist only on
+  this branch, so a checkout without it does not see the task.
+- If the row is not committed yet, commit it on its own before anything else.
+- Inside the worktree, claim before any edit: `taskrail claim <ID> --run <RUN>`. If it exits
+  non-zero, stop and report.
 - Run your checks with `taskrail checks <ID>`, adding `--stage <stage>` for one stage's checks: it
   runs them in your worktree with this lane's resource values, from any directory of the clone.
 - Resource values reserved for this lane: <ENVIRONMENT>. `taskrail checks` passes them to the checks

@@ -1,6 +1,6 @@
 # T071 — Run the autopilot on named tasks, including ones whose workspace new --workspace prepared
 
-Kind: feature · Epic: E02 · Status: plan
+Kind: feature · Epic: E02 · Status: implemented
 
 Source: an autopilot session in a consuming repository, generalized here. The human asked for a run
 on specific tasks; one of them had been created with `taskrail new --workspace`, so its row existed
@@ -219,3 +219,49 @@ Criteria 1–8, 10 and 13–16 are verified by pytest in a new `tests/test_autop
   functions and one sentence.
 - The plan is at the upper end of a feature; the plan gate kept it as one task, `autopilot extend`
   included (decisions 3 and 8).
+
+## Implementation
+
+The plan gate's decisions are in the
+[decision record](../autopilot/decisions/T071-run-the-autopilot-on-named-tasks-includi.md). Built as
+planned, within the run's touch map. Details settled while building:
+
+- `src/taskrail/branchrows.py` adds a found row to the loaded backlog and drops the values cached
+  from the rows (the branch scan and the `autopilot_*` mainline reads), so a state derived afterwards
+  sees it. `next` looks up the tasks of every open run before it reads any row.
+- A named task holds a lane only once dispatched or claimed in its run. `runs.members` (every task a
+  run holds, named ones included) decides which rows are looked up and which tasks `status` lists;
+  `dispatch._members` (the run's lanes) still decides lanes and the count. In `status`, a named task
+  claimed outside its run reads `pending` there, not `running`, so it is never taken for a silent lane
+  of that run.
+- A claim naming an open run whose row cannot be found counts as `running` only in the run it names.
+- `autopilot extend` refuses while the autopilot is disabled (exit 5), like `start`; its `--json` has
+  `run`, `added` and `previous_count`.
+- `prior_work` always carries `prepared` (`null` outside git and for a branch that does not exist).
+- In `cli.py` only the three approved places changed; `cmd_checks` imports `branchrows` locally, so
+  the module's import line is left to T070.
+- `next --json` reports `worktree` relative to the root for a worktree under it even when that
+  worktree exists, and absolute when run inside it: follow-up **T072** (bug), opened at the plan gate.
+
+## Tests per acceptance criterion
+
+| # | Tests |
+|---|---|
+| 1 | `test_autopilot_named.py`: `test_start_names_tasks_in_the_order_given_once`, `test_a_count_only_run_names_nothing` |
+| 2 | `test_autopilot_named.py`: `test_start_refuses_bad_task_lists_and_writes_nothing` (5 cases), `test_start_refuses_while_disabled_before_anything_else`, `test_start_refuses_a_closed_task_or_a_kind_not_driven` |
+| 3 | `test_autopilot_named.py`: `test_a_named_run_dispatches_only_its_tasks_in_the_order_given`, `test_a_named_run_takes_the_next_named_task_when_a_lane_frees` |
+| 4 | `test_autopilot_named.py`: `test_a_named_task_that_cannot_start_says_why` |
+| 5 | `test_autopilot_named.py`: `test_new_workspace_records_its_branch` |
+| 6 | `test_autopilot_named.py`: `test_a_row_only_on_its_branch_is_found_from_the_main_checkout` |
+| 7 | `test_autopilot_named.py`: `test_a_branch_only_task_discarded_on_its_branch_reads_discarded_branch`, `test_a_row_not_committed_yet_is_found_in_its_worktree` |
+| 8 | `test_autopilot_named.py`: `test_a_lane_counts_from_a_checkout_that_lacks_its_row`, `test_a_claimed_lane_whose_row_is_gone_still_counts` |
+| 9 | every existing `tests/test_autopilot*.py` test, unmodified (`test_autopilot_skill.py` only gains tests) |
+| 10 | `test_prior.py`: `test_a_committed_row_alone_is_a_prepared_workspace`, `test_an_uncommitted_row_alone_is_a_prepared_workspace`, `test_a_row_added_to_an_epic_without_a_table_is_prepared`, `test_any_other_change_is_not_a_prepared_workspace` (uncommitted, untracked and committed file, other row, removed row), `test_nothing_found_reports_empty_signals` (`prepared: null`) |
+| 11 | `test_autopilot_skill.py`: `test_named_runs_extended_runs_and_prepared_workspaces` (source, Claude and OpenCode copies), `test_core_skill_reads_a_prepared_workspace_as_no_prior_work`, `test_every_taskrail_command_and_flag_shown_exists` |
+| 12 | `taskrail checks T071 --stage implement` (`uv run pytest -q`); `taskrail validate` |
+| 13 | `test_autopilot_named.py`: `test_extend_appends_named_tasks_and_raises_the_count` |
+| 14 | `test_autopilot_named.py`: `test_extend_refuses_tasks_like_start_and_finds_branch_only_rows` |
+| 15 | `test_autopilot_named.py`: `test_extend_sets_the_count_of_a_count_only_run`, `test_extend_refuses_a_count_below_the_tasks_already_counted` |
+| 16 | `test_autopilot_named.py`: `test_extend_refuses_the_wrong_flag_an_unknown_or_closed_run_and_a_disabled_autopilot` |
+
+The `lint` check listed for the implement stage is not configured in this repository.
