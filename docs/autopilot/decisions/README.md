@@ -39,3 +39,4 @@
 | T052 | Add taskrail checks for a task and a Claude Code note on command shape | [T052-add-taskrail-checks-for-a-task-and-a-cla.md](T052-add-taskrail-checks-for-a-task-and-a-cla.md) |
 | T053 | Order the autopilot hand-off queue by completion, not branch tip time | [T053-order-the-autopilot-hand-off-queue-by-co.md](T053-order-the-autopilot-hand-off-queue-by-co.md) |
 | T056 | Add an OpenCode note on escalations during blocking lane batches | [T056-add-an-opencode-note-on-escalations-duri.md](T056-add-an-opencode-note-on-escalations-duri.md) |
+| T048 | Add autopilot close to abandon a run | [T048-add-autopilot-close-to-abandon-a-run.md](T048-add-autopilot-close-to-abandon-a-run.md) |

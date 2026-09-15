@@ -8,6 +8,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **`autopilot close` abandons a run.** `taskrail autopilot close <R> --reason …` records who closed
+  the run, when and why, and releases its dispatches and resources. `next` then ignores the run, so
+  its lanes, group places and resource values are free again, and `status` lists it only when named
+  with `--run`. `next --run`, `lane`, `decision` and `claim --run` refuse a closed run with exit 5.
+  Claims naming the run are kept and reported, for the human to release (T048).
 - **Branch records across clones.** With `[git].branch_record_remote` set, a task's branch record
   is pushed as `refs/taskrail/branches/<ID>` by `branch`, `claim` and `new --workspace --branch`,
   and fetched by `claim`, `branch`, `new --workspace`, `review` and `show`/`list`/`next --fetch`,

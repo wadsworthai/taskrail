@@ -292,6 +292,7 @@ def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: date
         "owner": run["owner"],
         "count": run["count"],
         "kinds": run["kinds"],
+        "closed": run.get("closed"),
         "complete": merged >= run["count"] > 0,
         "done_merged": merged,
         "tasks": rows,

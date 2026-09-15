@@ -121,6 +121,11 @@ A lane that cannot finish is recorded
 `taskrail autopilot notify --event lane-failed --run <R> --task <ID>`. It keeps its claim, branch
 and worktree as evidence, and its dependents stay blocked.
 
+A run the human abandons — such as one a lost or rewound session left holding lanes — is closed
+with `taskrail autopilot close <R> --reason <why>`, only on the human's say-so. It releases the
+run's dispatches and resources and hides the run from `next` and `status`; the claims it lists
+stay until the human releases them.
+
 ## Close and hand off
 
 Lanes stop after `taskrail done` and `taskrail review <ID> --json`, without rebasing or publishing.

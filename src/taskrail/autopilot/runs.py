@@ -32,6 +32,10 @@ class RunNotFound(Exception):
     pass
 
 
+class RunClosed(Exception):
+    pass
+
+
 def now_iso(now: datetime | None = None) -> str:
     return (now or datetime.now(timezone.utc)).isoformat(timespec="seconds")
 
@@ -53,6 +57,7 @@ def _normalize(data) -> dict | None:
     run.setdefault("owner", None)
     run.setdefault("count", 0)
     run.setdefault("kinds", [])
+    run.setdefault("closed", None)
     for key, empty in (("tasks", dict), ("handed_off", list), ("decisions", list)):
         if not isinstance(run.get(key), empty):
             run[key] = empty()
@@ -175,6 +180,27 @@ def dispatch_live(entry: dict, grace_minutes: int, now: datetime | None = None) 
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=timezone.utc)
     return (now or datetime.now(timezone.utc)) - moment < timedelta(minutes=grace_minutes)
+
+
+def is_closed(run: dict | None) -> bool:
+    """Whether `autopilot close` ended the run (T048)."""
+    return bool(run) and isinstance(run.get("closed"), dict)
+
+
+def closed_message(run_id: str) -> str:
+    return f"autopilot run `{run_id}` is closed"
+
+
+def close(run: dict, reason: str, owner: str, now: datetime | None = None) -> list[dict]:
+    """Record the close and release every lane's dispatch and resources; return what was released."""
+    released = []
+    for task_id, entry in run["tasks"].items():
+        if entry.get(DISPATCHED) or entry.get("resources"):
+            released.append({"id": task_id, "dispatched": entry.get(DISPATCHED), "resources": dict(entry.get("resources") or {})})
+        entry[DISPATCHED] = None
+        entry["resources"] = {}
+    run["closed"] = {"at": now_iso(now), "by": owner, "reason": reason}
+    return released
 
 
 def lane(run: dict, task_id: str) -> dict:

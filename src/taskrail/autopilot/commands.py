@@ -63,8 +63,11 @@ def cmd_start(args) -> int:
 def cmd_lane(args) -> int:
     project, _ = _load(args)
     config = project.config
-    if runs.read(config, args.run) is None:
+    stored = runs.read(config, args.run)
+    if stored is None:
         return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
+    if runs.is_closed(stored):
+        return _fail(runs.closed_message(args.run), EXIT_REFUSED)
     task = project.task(args.id)
     if task is None:
         return _fail(f"no task `{args.id}`", EXIT_NOT_FOUND)
@@ -81,7 +84,7 @@ def cmd_lane(args) -> int:
         return _fail(f"--state {state} needs --reason", EXIT_USAGE)
     if handed_off and task.id not in stack.done_on_branch(project):
         return _fail(f"{task.id} is not done on its branch (done-branch), so it cannot be handed off", EXIT_REFUSED)
-    current = runs.read(config, args.run)["tasks"].get(task.id, {}).get("state", "running")
+    current = stored["tasks"].get(task.id, {}).get("state", "running")
     if args.reason is not None and (state or current) == "running":
         return _fail("a running lane has no reason; pass --state gate, escalated or failed with --reason", EXIT_USAGE)
     if args.gate is not None:
@@ -90,6 +93,8 @@ def cmd_lane(args) -> int:
             return _fail(problem, EXIT_USAGE)
     try:
         with runs.update(config, args.run) as run:
+            if runs.is_closed(run):
+                raise runs.RunClosed(runs.closed_message(args.run))
             lane = runs.record_lane(
                 run, task.id, handle=args.handle, group=args.group, state=state, reason=args.reason.strip() if args.reason else None, gate=args.gate
             )
@@ -98,6 +103,8 @@ def cmd_lane(args) -> int:
             order = list(run["handed_off"])
     except runs.RunNotFound as exc:
         return _fail(str(exc), EXIT_NOT_FOUND)
+    except runs.RunClosed as exc:
+        return _fail(str(exc), EXIT_REFUSED)
     except ids.LockTimeout as exc:
         return _fail(str(exc), EXIT_CONFLICT)
     text = f"{task.id} in run {args.run}: {lane['state']}" + (f" at {lane['gate']}" if lane.get("gate") else "")
@@ -162,9 +169,13 @@ def cmd_decision(args) -> int:
         return _fail(f"{', '.join(empty)} must not be empty", EXIT_USAGE)
     try:
         with runs.update(project.config, args.run) as run:
+            if runs.is_closed(run):
+                raise runs.RunClosed(runs.closed_message(args.run))
             entry = runs.add_decision(run, **values)
     except runs.RunNotFound as exc:
         return _fail(str(exc), EXIT_NOT_FOUND)
+    except runs.RunClosed as exc:
+        return _fail(str(exc), EXIT_REFUSED)
     except ids.LockTimeout as exc:
         return _fail(str(exc), EXIT_CONFLICT)
     _emit({"run": args.run, "decision": entry}, args.json, f"decision {entry['number']} recorded in run {args.run}")
@@ -178,12 +189,18 @@ def cmd_next(args) -> int:
         return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot next`", EXIT_REFUSED)
     if _refuse_if_invalid(issues, args):
         return EXIT_INVALID
-    if args.run is not None and runs.read(config, args.run) is None:
-        return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
+    if args.run is not None:
+        stored = runs.read(config, args.run)
+        if stored is None:
+            return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
+        if runs.is_closed(stored):
+            return _fail(runs.closed_message(args.run), EXIT_REFUSED)
     try:
         report = dispatch.next_lanes(project, args.run, _local_claims(project))
     except runs.RunNotFound as exc:
         return _fail(str(exc), EXIT_NOT_FOUND)
+    except runs.RunClosed as exc:
+        return _fail(str(exc), EXIT_REFUSED)
     except ids.LockTimeout as exc:
         return _fail(str(exc), EXIT_CONFLICT)
     _emit(report, args.json, dispatch.text(report))
@@ -201,7 +218,7 @@ def cmd_status(args) -> int:
             return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
         selected = [run]
     else:
-        selected = runs.read_all(config)
+        selected = [run for run in runs.read_all(config) if not runs.is_closed(run)]  # a closed run is shown only when named
     fetched = []
     if args.fetch:
         for remote in dict.fromkeys(resolve_remote(config.root, b.mainline, config.review.remote).name for b in config.backlogs):
@@ -224,6 +241,9 @@ def _status_text(report: dict) -> str:
         kinds = ", ".join(run["kinds"]) or "every allowed kind"
         done = " · complete" if run["complete"] else ""
         lines.append(f"run {run['id']} · {run['done_merged']}/{run['count']} done-merged{done} · kinds: {kinds} · started {run['started']} by {run['owner']}")
+        if run.get("closed"):
+            closed = run["closed"]
+            lines.append(f"  closed {closed['at']} by {closed['by']} — {closed['reason']}")
         for row in run["tasks"]:
             if row["state"] is None:
                 lines.append(f"  {row['id']:<6} {row['problem']}")
@@ -257,6 +277,39 @@ def _escalation_text(row: dict) -> list[str]:
     if "escalate-gate" in escalation:
         reasons.append(f"gate {row['escalate_gate']}")
     return [f"ESCALATE: {'; '.join(reasons)}"] if reasons else []
+
+
+def cmd_close(args) -> int:
+    project, _ = _load(args)  # abandoning a run must work with a broken backlog or a disabled autopilot
+    config = project.config
+    reason = (args.reason or "").strip()
+    if not reason:
+        return _fail("--reason must not be empty", EXIT_USAGE)
+    if runs.read(config, args.run) is None:
+        return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
+    try:
+        with runs.update(config, args.run) as run:
+            if runs.is_closed(run):
+                raise runs.RunClosed(f"autopilot run `{args.run}` is already closed ({run['closed'].get('at')}: {run['closed'].get('reason')})")
+            released = runs.close(run, reason, claims.default_owner())
+            closed = dict(run["closed"])
+    except runs.RunNotFound as exc:
+        return _fail(str(exc), EXIT_NOT_FOUND)
+    except runs.RunClosed as exc:
+        return _fail(str(exc), EXIT_REFUSED)
+    except ids.LockTimeout as exc:
+        return _fail(str(exc), EXIT_CONFLICT)
+    held = sorted((claim for claim in _local_claims(project).values() if claim.run == args.run), key=lambda claim: claim.id)
+    kept = [{"id": claim.id, "owner": claim.owner, "branch": claim.branch, "worktree": claim.worktree} for claim in held]
+    lines = [f"closed run {args.run}: {reason}"]
+    for entry in released:
+        values = " ".join(f"{name}={value}" for name, value in entry["resources"].items())
+        dispatched = f"dispatch of {entry['dispatched']}" if entry["dispatched"] else ""
+        lines.append(f"  released {' and '.join(part for part in (dispatched, values) if part)} from {entry['id']}")
+    for claim in kept:
+        lines.append(f"  kept claim {claim['id']} by {claim['owner']}" + (f" in {claim['worktree']}" if claim["worktree"] else "") + f"; release it with `taskrail release {claim['id']}`")
+    _emit({"run": args.run, "closed": closed, "released": released, "claims": kept}, args.json, "\n".join(lines))
+    return EXIT_OK
 
 
 def register(commands) -> None:
@@ -302,5 +355,9 @@ def register(commands) -> None:
     status.add_argument("--run", help="only this run (default: every run, newest first)")
     status.add_argument("--fetch", action="store_true", help="fetch each mainline's remote first")
     status.add_argument("--allow-invalid", action="store_true")
+
+    close = add("close", cmd_close, "Abandon a run: release its dispatches and resources, and hide it from next and status.")
+    close.add_argument("run")
+    close.add_argument("--reason", required=True, help="why the run is abandoned")
 
     merged_arguments(add("merged", cmd_merged, "Check by content whether a task branch was merged; optionally remove its worktree and branch."))

@@ -224,9 +224,13 @@ def cmd_claim(args) -> int:
         return EXIT_REFUSED
     config = project.config
     if args.run is not None:
-        if autopilot_runs.read(config, args.run) is None:
+        owning_run = autopilot_runs.read(config, args.run)
+        if owning_run is None:
             print(f"taskrail: no autopilot run `{args.run}`", file=sys.stderr)
             return EXIT_NOT_FOUND
+        if autopilot_runs.is_closed(owning_run):
+            print(f"taskrail: {autopilot_runs.closed_message(args.run)}; claim without --run or in an open run", file=sys.stderr)
+            return EXIT_REFUSED
     branch = args.branch if args.branch is not None else gitutil.current_branch(config.root)
     worktree = args.worktree if args.worktree is not None else str(gitutil.toplevel(config.root))
     base = _claim_base(task, project)

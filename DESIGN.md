@@ -1043,6 +1043,7 @@ disabled autopilot:
 | `autopilot status [--run R] [--fetch]` | *Implemented (T029; `dispatched` T030; escalation flags T032).* Every run, newest first, with `complete` once `count` of its tasks are `done-merged`, its run-level decisions, and every run task with its state: `pending` (with `blocked_by`), `dispatched` (by `next`, not yet claimed, for less than `[git].claim_grace_minutes`; T030), `running`, `gate`, `escalated`, `failed`, `done-branch`, `handed-off`, `done-merged`, `discarded`. Precedence: `done-merged`, `discarded`, `handed-off` or `done-branch`, the recorded `failed`, `escalated` or `gate`, `running` (a claim, stale or not, with its stale reason, or an uncommitted `✅` in the task branch's worktree once `done` released the claim; T054), `dispatched`, `pending`. Also each lane's handle, group, reason and resources, branch and worktree; `idle_minutes` since the latest of the branch tip's commit, a change in its worktree, the claim and the last `lane` update, and `silent` when a `running` lane is idle past `silent_minutes`; `touched`, the files changed since the fork point plus uncommitted ones, with `overlaps` between lanes across the runs listed; the decision-record paths; and `handoff`: `in_review`, `queue` (dependencies first, then in completion order: by the author time of the task's done commit — the latest first-parent commit on its branch, local or else remote, that turns its row ✅ — which a rebase or a later commit on the branch leaves unchanged, though a rebase with `--reset-author-date` does not; T053) and `next`, `null` while a branch is in review. Per task, the escalation reasons of §12.6: `gate` (the recorded stage), `governing_touched` (the `touched` files a `governing` entry matches), `escalate_gate` (`kind:stage` when the task is `gate` or `escalated` at a stage `escalate_gates` lists, else `null`) and `escalation` (`governing` when `governing_touched` is not empty and the task is not yet `done-branch`, `escalate-gate` when `escalate_gate` is set, or empty; T049); the text form adds `ESCALATE: …`, naming the reasons in `escalation`, to a flagged lane. Never runs the notify command. Reads git and never fetches unless `--fetch`; exit 3 for an unknown run. |
 | `autopilot merged <ID> [--run R] [--cleanup] [--no-fetch] [--owner O]` | *Implemented (T031).* Runs `git fetch --prune` on the mainline's remote (skipped with `--no-fetch` or when that remote is not configured; a failing fetch exits 2), then the merge detection of §12.8 on the task's branch — the live claim's, else the one §6.4 resolves — checking the local branch when it exists, else `<remote>/<branch>`. Reports `merged`, `via` (`ancestor`, `tree`, `patch-id`, `merge-tree`), the mainline `commit`, each check in `checks`, the `confirmations`, and both heads. A proven merge is recorded as `merged` in the lane of every run holding the task, or only in `--run R` (exit 3 for an unknown run or one that does not hold the task); needs no run and no `enabled`. With no branch left, it reports a merge a run recorded (`recorded: true`), else exits 3. With `--cleanup`, removes the worktree and deletes the local branch with a lease on the checked SHA, and releases the caller's leftover claim; it exits 5 when the merge is unproven or the worktree has modified or untracked files, is locked, is the main worktree, or contains the current directory or `--root`; exit 4 for another owner's claim; the remote branch and the branch record (§6.4) are kept. Lists stacked dependents (§12.8) with `git rebase --onto <onto> <fork>`, run in the dependent's worktree. Exit 0 when the check ran, merged or not. |
 | `autopilot notify --event escalation\|lane-done\|lane-failed --run R [--task ID] [--message TEXT]` | *Implemented (T032).* Runs `[autopilot].notify` when it is set and the event is in `notify_on` (§12.6), otherwise reports `skipped`. `--task` is required for `lane-done` and `lane-failed`; an unknown run, an unknown task or a task outside the run exits 3. Needs neither `enabled` nor a valid backlog. A notify command that exits non-zero, times out or cannot start is reported (`sent: false`, `exit_code`, `timed_out`, `error`, and a warning on stderr) and never blocks: `notify` still exits 0. |
+| `autopilot close <R> --reason …` | *Implemented (T048).* Abandons a run, such as one a rewound or lost orchestrator session left holding lanes. Exit 2 for an empty reason, 3 for an unknown run, 4 when the lock cannot be taken, 5 when the run is already closed; needs neither `enabled` nor a valid backlog. Under the common-directory lock it records `closed` (`at`, `by`, `reason`) and clears every lane's `dispatched` and `resources`, reporting them in `released`; live claims naming the run are kept and listed in `claims`, for the human to `release`. A closed run is then ignored by `next`, preview included — its lanes take no lane, group place or resource value — and left out of `status` unless named with `--run`; `next --run`, `lane`, `decision` and `claim --run` refuse it with exit 5. `merged` still records merges in it, and those still count toward `done-merged`. |
 
 The autopilot runs only when the human asks for it and gives a task count. The skill states
 this in its prose, not only in frontmatter, so the rule holds on agents that ignore
@@ -1140,18 +1141,20 @@ lanes must not do, and answering gates needs an agent anyway.
   - per task: the lane handle, the group, `gate`, `escalated` or `failed` with a reason, when
     `next` dispatched it, and the allocated resources;
   - the `handed-off` order;
-  - the run-level decisions agreed so far.
+  - the run-level decisions agreed so far;
+  - whether the run was closed: when, by whom and why (T048).
 
   The run ID is `YYYYMMDD-N`: the UTC date and the first number of that day no run holds. The
   file is created exclusively (a fully written temporary file hard-linked into place), changed
   under the common-directory lock `reserve-id` uses, replaced atomically, and read keeping keys
   this version does not know. Its keys are `id`, `started`, `owner`, `count`, `kinds`, `tasks`
-  (per task: `handle`, `group`, `state`, `reason`, `gate`, `updated`, `dispatched`, `resources`), `handed_off` and
-  `decisions` (each `number`, `question`, `decision`, `reason`, `recorded`). A task belongs to a
-  run when the run file lists it or its claim names the run. Runs are never removed.
+  (per task: `handle`, `group`, `state`, `reason`, `gate`, `updated`, `dispatched`, `resources`), `handed_off`,
+  `decisions` (each `number`, `question`, `decision`, `reason`, `recorded`) and `closed` (`at`, `by`,
+  `reason`; null while the run is open). A task belongs to a run when the run file lists it or its
+  claim names the run. Runs are never removed; `autopilot close` ends one and keeps its file.
 - **Two orchestrator sessions** may run at once. They never dispatch the same task twice, since
-  `next` skips a task dispatched in any run and a lane needs a claim, and `status` lists every run
-  in the common directory, so each sees the other's lanes.
+  `next` skips a task dispatched in any run and a lane needs a claim, and `status` lists every open
+  run in the common directory, so each sees the other's lanes.
 
 ### 12.5 Decision records
 
@@ -1247,8 +1250,8 @@ reading its worktree, and escalated if it is stuck. An agent that can wait on a 
 - **A lane is in use** while its task is `running` (a claim, stale or not), `gate`, `escalated` or
   `dispatched` in a run. `failed`, `done-branch`, `handed-off`, `done-merged` and `discarded` use
   none: a failed lane keeps its claim, so its task and dependents stay out, but it no longer holds
-  a lane. Lanes, group limits and resource values are counted across every run in the clone;
-  claims without a run are not lanes.
+  a lane. Lanes, group limits and resource values are counted across every open run in the
+  clone; claims without a run, or naming a closed run, are not lanes.
 - **`max_lanes`** (default 3) caps the lanes in use at once.
 - **The run's `count`** caps what a run starts: `next --run R` dispatches at most `count` minus the
   run's tasks that are `dispatched`, `running`, `gate`, `escalated`, `failed`, `done-branch`,

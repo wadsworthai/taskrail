@@ -1,8 +1,9 @@
 """`autopilot next`: the tasks to dispatch now, and the resources each lane gets (DESIGN.md §12.1, §12.7).
 
-Lanes, groups and resource values are shared by every run in the clone. A lane is in use while its
-task is `running`, `gate`, `escalated` or `dispatched`; a lane that stopped using one gives its
-resource values back the next time `next` runs. Claiming stays the lane's job.
+Lanes, groups and resource values are shared by every open run in the clone; a closed run is ignored.
+A lane is in use while its task is `running`, `gate`, `escalated` or `dispatched`; a lane that
+stopped using one gives its resource values back the next time `next` runs. Claiming stays the
+lane's job.
 """
 
 from __future__ import annotations
@@ -65,10 +66,13 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
     stack.done_on_branch(project)  # read git before the lock; both are cached per project
     done_on_mainline(project)
 
-    with runs.update_all(config) if run_id else _read_only(config) as every_run:
-        run = every_run.get(run_id) if run_id else None
+    with runs.update_all(config) if run_id else _read_only(config) as stored:
+        run = stored.get(run_id) if run_id else None
         if run_id and run is None:
             raise runs.RunNotFound(f"no autopilot run `{run_id}`")
+        if runs.is_closed(run):
+            raise runs.RunClosed(runs.closed_message(run_id))
+        every_run = {record_id: record for record_id, record in stored.items() if not runs.is_closed(record)}  # a closed run holds nothing (T048)
 
         # The state of every lane, in every run.
         states: dict[tuple[str, str], str | None] = {}
