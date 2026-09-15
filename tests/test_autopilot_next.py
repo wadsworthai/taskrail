@@ -562,3 +562,37 @@ def test_status_reports_a_dispatched_task(pilot, capsys):
     backdate(pilot.root, run_id, "T001", 0)
     pilot.lane("T001", run_id)
     assert row(pilot.root, capsys, run_id, "T001")["state"] == "running"
+
+
+# T054
+
+
+def test_a_lane_between_done_and_its_commit_is_running_and_not_dispatched_again(pilot, capsys):
+    configure(pilot, "max_lanes = 1\n")
+    run_id = start(pilot.root, capsys)
+    assert ids(dispatch(pilot.root, capsys, run_id)) == ["T001"]
+    path = pilot.lane("T001", run_id)
+    backdate(pilot.root, run_id, "T001", 16)  # claim_grace_minutes is 15
+    assert main(["--root", str(path), "done", "T001", "--owner", "lane"]) == 0  # releases the claim; not committed yet
+
+    lane = row(pilot.root, capsys, run_id, "T001")
+    assert (lane["state"], lane["claim"], lane["touched"]) == ("running", None, ["TODO.md"])
+    configure(pilot, "max_lanes = 2\n")
+    result = dispatch(pilot.root, capsys, run_id)
+    assert skipped(result)["T001"] == f"running in run {run_id}"
+    assert ids(result) == ["T002"]  # T001 still holds one of the two lanes
+    assert "T001" in [occupied["id"] for occupied in result["lanes"]["occupied"]]
+
+    commit_all(path, "chore(T001): mark done")
+    assert row(pilot.root, capsys, run_id, "T001")["state"] == "done-branch"
+
+
+def test_a_lane_at_a_gate_without_a_claim_is_not_dispatched_again(pilot, capsys):
+    run_id = start(pilot.root, capsys, count=3)
+    pilot.lane("T001", run_id)
+    data(pilot.root, "autopilot", "lane", "T001", "--run", run_id, "--state", "gate", capsys=capsys)
+    assert main(["--root", str(pilot.root), "release", "T001", "--owner", "lane"]) == 0
+
+    result = dispatch(pilot.root, capsys, run_id)
+    assert skipped(result)["T001"] == f"gate in run {run_id}"
+    assert ids(result) == ["T002", "T003"]

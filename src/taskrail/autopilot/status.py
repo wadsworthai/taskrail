@@ -20,6 +20,7 @@ STATES = ("pending", "dispatched", "running", "gate", "escalated", "failed", "do
 RECORDED = ("failed", "escalated", "gate")  # lane states only the run file knows
 WITH_BRANCH = ("running", "gate", "escalated", "failed", "done-branch", "handed-off")  # states whose files count
 MERGED_KEY = "autopilot_done_on_mainline"
+WORKTREES_KEY = "autopilot_worktree_branches"
 
 
 def done_on_mainline(project: Project) -> set[str]:
@@ -52,6 +53,26 @@ def done_on_mainline(project: Project) -> set[str]:
     return merged
 
 
+def _closing(task: Task, project: Project) -> bool:
+    """Whether `done` wrote the task's ✅ in the worktree of its branch and it is not committed yet (T054)."""
+    branch = branches.task_branch(task, project)
+    if not branch:
+        return False
+    if WORKTREES_KEY not in project.cache:
+        try:
+            project.cache[WORKTREES_KEY] = gitutil.worktree_branches(project.config.root)
+        except gitutil.GitError:
+            project.cache[WORKTREES_KEY] = {}
+    worktree = project.cache[WORKTREES_KEY].get(branch)
+    if worktree is None:
+        return False
+    try:
+        text = (worktree / task.file).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    return stack._statuses(text, project.config.column_aliases).get(task.id) == Status.DONE.value
+
+
 def task_state(task: Task, project: Project, run: dict, claim: Claim | None, now: datetime | None = None) -> str:
     if task.id in done_on_mainline(project):
         return "done-merged"
@@ -62,7 +83,7 @@ def task_state(task: Task, project: Project, run: dict, claim: Claim | None, now
     lane = run["tasks"].get(task.id)
     if lane and lane["state"] in RECORDED:
         return lane["state"]
-    if claim is not None:
+    if claim is not None or _closing(task, project):
         return "running"
     if lane and runs_module.dispatch_live(lane, project.config.claim_grace_minutes, now):
         return "dispatched"  # `autopilot next` sent it to a lane that has not claimed yet

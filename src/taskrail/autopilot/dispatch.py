@@ -136,13 +136,14 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
 
             reason = None
             failed_in = [record["id"] for record in ([run] if run else every_run.values()) if (record["tasks"].get(task.id) or {}).get("state") == "failed"]
-            dispatched_in = [record_id for (record_id, task_id), state in states.items() if task_id == task.id and state == "dispatched"]
+            # An unclaimed candidate may still hold a lane: dispatched, recorded at a gate, or closing (T054).
+            occupying_in = [(record_id, state) for (record_id, task_id), state in states.items() if task_id == task.id and state in OCCUPYING]
             groups = _groups_of(task, recorded_group(task.id, run_id), autopilot.groups)
             full = next((name for name in groups if len(members[name]) >= limits[name]), None)
             if failed_in:
                 reason = f"failed in run {failed_in[0]}"
-            elif dispatched_in:
-                reason = f"dispatched in run {dispatched_in[0]}"
+            elif occupying_in:
+                reason = f"{occupying_in[0][1]} in run {occupying_in[0][0]}"
             elif full:
                 reason = f"group {full} is full"
             else:

@@ -150,6 +150,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   it already dropped `escalate_gate`; `governing_touched` still lists the paths. The autopilot
   skill's close review escalates a governing path the task's decision record does not show
   escalated. Behaviour change: such a task used to stay flagged until its merge (T049).
+- **A closing lane stays `running`.** Between `taskrail done` and its commit, `autopilot status`
+  reports the lane `running` — the `✅` in the working tree of its branch's worktree counts once the
+  claim is released — with its `touched` files, instead of `pending`. `autopilot next` skips any
+  candidate that still occupies a lane (`running`, `gate` or `escalated` without a claim, as well as
+  `dispatched`), with the reason `<state> in run R`, so such a task is not dispatched twice (T054).
 
 ## 0.1.0
 
