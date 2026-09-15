@@ -556,3 +556,48 @@ def test_core_skill_runs_stage_checks_with_taskrail_checks_and_documents_exit_6(
     assert "run its checks with `taskrail checks <id> --stage <stage>`" in stages
     assert "| 6 | a check failed |" in text
     assert "--stage" in subparsers(build_parser())["checks"]._option_string_actions
+
+
+# --- 14. Named runs, extending a run and prepared workspaces (T071) --------------------------------
+
+
+def test_named_runs_extended_runs_and_prepared_workspaces(autopilot_copy):
+    """T071: the human names the tasks or adds them to a live run; a branch `new --workspace` prepared is not prior work."""
+    skill = autopilot_copy("SKILL.md")
+    description = flat(re.search(r"^description: (.+)$", skill, re.MULTILINE).group(1))
+    assert "gives the number of tasks to complete or names the tasks" in description
+    when = section(skill, "When to run")
+    for phrase in (
+        "gives a task count or names the tasks",
+        "taskrail autopilot start --tasks <ids> --json",
+        "in the order they gave",
+        "extend that run rather than starting another",
+        "taskrail autopilot extend <r> --tasks <ids> --json",
+        "taskrail autopilot extend <r> --count <n> --json",
+        "extending also needs the human's explicit request",
+        "`taskrail branch <id> <name>`",
+    ):
+        assert phrase in when, phrase
+    dispatch = section(skill, "Dispatch")
+    assert "`prior_work.prepared`" in dispatch and "prepared workspace section" in dispatch
+
+    brief = autopilot_copy("references/lane-brief.md")
+    assert "the prepared workspace section after it instead" in flat(brief)
+    assert "if the branch already exists, stop and report" in section(brief, "Workspace")
+    prepared = section(brief, "Workspace (prepared by taskrail new --workspace)")
+    for phrase in (
+        "already exist",
+        "hold only the task's row (<row>)",
+        "do not stop because the branch exists",
+        "commit it on its own",
+        "claim <id> --run <run>",
+        "run your checks with `taskrail checks <id>`",
+        "`taskrail checks` passes them to the checks itself",
+    ):
+        assert phrase in prepared, phrase
+
+
+def test_core_skill_reads_a_prepared_workspace_as_no_prior_work():
+    text = (install.SKILLS_SOURCE / "taskrail/SKILL.md").read_text(encoding="utf-8")
+    inspect = flat(text[text.index("2. **Inspect.**") : text.index("3. **Workspace.**")])
+    assert "`prior_work.prepared` set means the branch is the workspace `taskrail new --workspace` prepared" in inspect

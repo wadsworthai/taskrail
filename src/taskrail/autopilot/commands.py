@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import sys
 
-from taskrail import claims, gitutil, ids, stack
+from taskrail import branchrows, claims, gitutil, ids, stack
 from taskrail.autopilot import dispatch, notify, runs
 from taskrail.autopilot.approve import add_arguments as approve_arguments
 from taskrail.autopilot.approve import cmd_approve_governing
 from taskrail.autopilot.merged import add_arguments as merged_arguments
 from taskrail.autopilot.merged import cmd_merged
+from taskrail.autopilot.status import discarded_on_mainline, done_on_mainline, task_state
 from taskrail.autopilot.status import status as compute_status
 from taskrail.cli import (
     EXIT_CONFLICT,
@@ -32,17 +33,68 @@ def _fail(message: str, code: int) -> int:
     return code
 
 
+def _task_ids(raw: str) -> list[str]:
+    """`--tasks` IDs in the order given, each once."""
+    return list(dict.fromkeys(item.strip() for item in raw.split(",") if item.strip()))
+
+
+def _named_problem(project, task_ids: list[str], claimed: dict) -> tuple[str, int] | None:
+    """Why these tasks cannot be named in a run, with the exit code; None when every one can (T071)."""
+    config = project.config
+    branchrows.adopt(project, task_ids, claimed)  # a row only its task's branch holds can be named from any checkout
+    driven = set(config.autopilot.kinds)
+    for task_id in task_ids:
+        task = project.task(task_id)
+        if task is None:
+            return (
+                f"no task `{task_id}` in this checkout nor on its claimed or recorded branch; if its workspace exists, "
+                f"record its branch with `taskrail branch {task_id} <NAME>` inside that worktree",
+                EXIT_NOT_FOUND,
+            )
+        closed = None
+        if task.status is not None and task.status.label in ("done", "discarded"):
+            closed = task.status.label
+        elif task_id in done_on_mainline(project) or task_id in discarded_on_mainline(project):
+            closed = "closed on the mainline"
+        elif task_id in stack.done_on_branch(project):
+            closed = "done-branch"
+        elif task_id in stack.discarded_on_branch(project):
+            closed = "discarded-branch"
+        if closed:
+            return f"{task_id} is {closed}, so a run cannot work it", EXIT_REFUSED
+        if task.kind not in project.kinds:
+            return f"{task_id}'s kind `{task.kind}` is not defined or not allowed", EXIT_REFUSED
+        if driven and task.kind not in driven:
+            return f"{task_id}'s kind `{task.kind}` is not in [autopilot].kinds ({', '.join(sorted(driven))})", EXIT_REFUSED
+    return None
+
+
 def cmd_start(args) -> int:
     project, issues = _load(args)
     config = project.config
     if not config.autopilot.enabled:
         return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot start`", EXIT_REFUSED)
-    if args.count is None:
-        return _fail("autopilot start needs --count N, the number of tasks to complete", EXIT_USAGE)
-    if args.count < 1:
+    named = _task_ids(args.tasks) if args.tasks is not None else None
+    if named is None and args.count is None:
+        return _fail("autopilot start needs --count N, the number of tasks to complete, or --tasks with their IDs", EXIT_USAGE)
+    if args.count is not None and args.count < 1:
         return _fail("--count must be at least 1", EXIT_USAGE)
+    if named is not None:
+        if not named:
+            return _fail("--tasks needs at least one task ID", EXIT_USAGE)
+        if args.kinds is not None:
+            return _fail("--kinds does not apply with --tasks: a named run works the tasks it names", EXIT_USAGE)
+        if args.count is not None and args.count != len(named):
+            return _fail(f"--count {args.count} does not match the {len(named)} task(s) --tasks names", EXIT_USAGE)
     if _refuse_if_invalid(issues, args):
         return EXIT_INVALID
+    if named is not None:
+        problem = _named_problem(project, named, _local_claims(project))
+        if problem:
+            return _fail(*problem)
+        run = runs.create(config, len(named), [], claims.default_owner(), named=named)
+        _emit({"run": run, "path": str(runs.runs_dir(config) / f"{run['id']}.json")}, args.json, run["id"])
+        return EXIT_OK
     if args.kinds is None:
         kinds, source = list(config.autopilot.kinds), "[autopilot].kinds"
     else:
@@ -62,6 +114,72 @@ def cmd_start(args) -> int:
     return EXIT_OK
 
 
+def cmd_extend(args) -> int:
+    """Add named tasks to a named run, or set a count-only run's count (T071)."""
+    project, issues = _load(args)
+    config = project.config
+    if not config.autopilot.enabled:
+        return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot extend`", EXIT_REFUSED)
+    stored = runs.read(config, args.run)
+    if stored is None:
+        return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
+    if runs.is_closed(stored):
+        return _fail(runs.closed_message(args.run), EXIT_REFUSED)
+    named_run = runs.is_named(stored)
+    if args.tasks is None and args.count is None:
+        return _fail("autopilot extend needs --tasks (a named run) or --count (a count-only run)", EXIT_USAGE)
+    if named_run and args.count is not None:
+        return _fail(f"run {args.run} names its tasks; its count grows with --tasks, not --count", EXIT_USAGE)
+    if not named_run and args.tasks is not None:
+        return _fail(f"run {args.run} was started with --count; raise it with --count, or start a run with --tasks", EXIT_USAGE)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    claimed = _local_claims(project)
+    if named_run:
+        requested = _task_ids(args.tasks)
+        if not requested:
+            return _fail("--tasks needs at least one task ID", EXIT_USAGE)
+        problem = _named_problem(project, [task_id for task_id in requested if task_id not in stored["named"]], claimed)
+        if problem:
+            return _fail(*problem)
+    else:
+        if args.count < 1:
+            return _fail("--count must be at least 1", EXIT_USAGE)
+        branchrows.adopt(project, runs.members(stored, claimed), claimed)
+        counted = [
+            task_id
+            for task_id in dispatch._members(stored, claimed)
+            if (task := project.task(task_id)) is not None and task_state(task, project, stored, claimed.get(task_id)) in dispatch.COUNTED
+        ]
+        if args.count < len(counted):
+            return _fail(
+                f"--count {args.count} is lower than the {len(counted)} task(s) already counted toward run {args.run} ({', '.join(counted)})",
+                EXIT_REFUSED,
+            )
+    try:
+        with runs.update(config, args.run) as run:
+            if runs.is_closed(run):
+                raise runs.RunClosed(runs.closed_message(args.run))
+            previous = run["count"]
+            if named_run:
+                added = runs.add_named(run, requested)
+            else:
+                added = []
+                run["count"] = args.count
+            updated = dict(run)
+    except runs.RunNotFound as exc:
+        return _fail(str(exc), EXIT_NOT_FOUND)
+    except runs.RunClosed as exc:
+        return _fail(str(exc), EXIT_REFUSED)
+    except ids.LockTimeout as exc:
+        return _fail(str(exc), EXIT_CONFLICT)
+    text = f"run {args.run}: count {previous} → {updated['count']}"
+    if named_run:
+        text += f"; added {', '.join(added)}" if added else "; every task was already named"
+    _emit({"run": updated, "added": added, "previous_count": previous}, args.json, text)
+    return EXIT_OK
+
+
 def cmd_lane(args) -> int:
     project, _ = _load(args)
     config = project.config
@@ -70,7 +188,7 @@ def cmd_lane(args) -> int:
         return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
     if runs.is_closed(stored):
         return _fail(runs.closed_message(args.run), EXIT_REFUSED)
-    task = project.task(args.id)
+    task = branchrows.find(project, args.id, _local_claims(project))  # also a row only its branch holds (T071)
     if task is None:
         return _fail(f"no task `{args.id}`", EXIT_NOT_FOUND)
     if args.group is not None:
@@ -145,7 +263,7 @@ def cmd_notify(args) -> int:
         return _fail(f"--event {args.event} needs --task", EXIT_USAGE)
     task = None
     if args.task is not None:
-        task = project.task(args.task)
+        task = branchrows.find(project, args.task, _local_claims(project))  # also a row only its branch holds (T071)
         if task is None:
             return _fail(f"no task `{args.task}`", EXIT_NOT_FOUND)
         claim = _local_claims(project).get(task.id)
@@ -259,7 +377,8 @@ def _status_text(report: dict) -> str:
     for run in report["runs"]:
         kinds = ", ".join(run["kinds"]) or "every allowed kind"
         done = " · complete" if run["complete"] else ""
-        lines.append(f"run {run['id']} · {run['done_merged']}/{run['count']} done-merged{done} · kinds: {kinds} · started {run['started']} by {run['owner']}")
+        scope = f"named: {', '.join(run['named'])}" if run.get("named") else f"kinds: {kinds}"
+        lines.append(f"run {run['id']} · {run['done_merged']}/{run['count']} done-merged{done} · {scope} · started {run['started']} by {run['owner']}")
         if run.get("closed"):
             closed = run["closed"]
             lines.append(f"  closed {closed['at']} by {closed['by']} — {closed['reason']}")
@@ -347,8 +466,14 @@ def register(commands) -> None:
         return sub
 
     start = add("start", cmd_start, "Start a run; refused until [autopilot].enabled is true.")
-    start.add_argument("--count", type=int, help="number of tasks to complete (required)")
+    start.add_argument("--count", type=int, help="number of tasks to complete (required unless --tasks names them)")
     start.add_argument("--kinds", help="comma-separated kinds to drive (default: [autopilot].kinds)")
+    start.add_argument("--tasks", help="comma-separated task IDs: the run works only these, in this order, and its count is their number")
+
+    extend = add("extend", cmd_extend, "Add tasks to a named run, or set a count-only run's count.")
+    extend.add_argument("run")
+    extend.add_argument("--tasks", help="comma-separated task IDs to append to a run started with --tasks; its count grows by as many")
+    extend.add_argument("--count", type=int, help="the new count of a run started with --count")
 
     lane = add("lane", cmd_lane, "Record the orchestrator's view of one lane in a run.")
     lane.add_argument("id")

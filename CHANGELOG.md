@@ -8,6 +8,13 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **Named autopilot runs, extended runs and prepared workspaces.** `autopilot start --tasks IDs`
+  starts a run that works only those tasks, in the order given, with their number as its count;
+  `autopilot extend R --tasks IDs` adds tasks to such a run and `--count N` sets a count-only run's
+  count. A task whose row lives only on its own branch, as `new --workspace` leaves it, is found by
+  the autopilot commands and `taskrail checks` from any checkout — `new --workspace` now records its
+  branch — so `next` and `status` count the same lanes wherever they run. `prior_work.prepared` marks
+  a branch that holds only the task's row, and the lane brief works in it instead of stopping (T071).
 - **taskrail has its own repository.** It was extracted with its history from a larger repository,
   where it lived in a subdirectory and was tagged `taskrail-vX.Y.Z`. Releases are now tagged
   `vX.Y.Z` at `github.com/alexkander/taskrail` and install without `#subdirectory`; the wrapper,

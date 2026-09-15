@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 
-from taskrail import ids
+from taskrail import branchrows, ids
 from taskrail.autopilot import runs
 from taskrail.autopilot import status as status_module
 from taskrail.cli import EXIT_CONFLICT, EXIT_NOT_FOUND, EXIT_OK, EXIT_REFUSED, EXIT_USAGE, _emit, _load, _local_claims
@@ -27,10 +27,10 @@ def cmd_approve_governing(args) -> int:
     run = runs.read(config, args.run)
     if run is None:
         return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
-    task = project.task(args.id)
+    claimed = _local_claims(project)
+    task = branchrows.find(project, args.id, claimed)  # a row only its branch holds counts (T071)
     if task is None:
         return _fail(f"no task `{args.id}`", EXIT_NOT_FOUND)
-    claimed = _local_claims(project)
     claim = claimed.get(task.id)
     if task.id not in run["tasks"] and not (claim and claim.run == run["id"]):
         return _fail(f"{task.id} is not a task of run {run['id']}", EXIT_NOT_FOUND)

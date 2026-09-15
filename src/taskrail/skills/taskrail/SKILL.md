@@ -49,7 +49,8 @@ of `taskrail show`) supplies what happens inside each stage.
    are running, stop and name the right one. If `prior_work` lists an artifact, the task's
    branch or commits naming the task, someone may already have worked on it: look at them,
    check that the description's premises still hold, and mention both at your first gate.
-   These signals never block on their own.
+   These signals never block on their own. `prior_work.prepared` set means the branch is the
+   workspace `taskrail new --workspace` prepared, holding only the task's row, not earlier work.
 3. **Workspace.** Run `git fetch <base.remote>` first, with the mainline's own remote that
    `show` reported, then `taskrail show <ID> --json --fetch` — which also brings in branch names
    other clones recorded, when the repository mirrors them: its `base.onto` is the ref to branch

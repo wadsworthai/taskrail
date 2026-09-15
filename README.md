@@ -62,6 +62,8 @@ taskrail reopen T012 --reason "…"       # back to pending; prints a commit mes
 taskrail epic add --name Auth --objective "Sign in without passwords" --own-file
 taskrail epic split E01                # move an inline epic to todo/E01-<slug>.md
 taskrail autopilot start --count 3     # start an autopilot run; refused until [autopilot].enabled = true
+taskrail autopilot start --tasks T012,T015   # …or a run that works only these tasks, in this order
+taskrail autopilot extend 20260913-1 --tasks T017   # add a task to a named run (--count N for a count-only run)
 taskrail autopilot next --run 20260913-1   # tasks to dispatch now, with each lane's resource values
 taskrail claim T012 --run 20260913-1   # …a lane claims inside the run
 taskrail autopilot lane T012 --run 20260913-1 --handle <agent-id> --state gate --gate plan
@@ -128,7 +130,8 @@ and not edited locally. The core `taskrail` skill and the `taskrail-autopilot` s
 ## Autopilot
 
 The `taskrail-autopilot` skill runs several tasks at once, one lane per task, when the human asks
-for it with a task count. The agent the human talks to orchestrates: it dispatches lanes with
+for it with a task count or names the tasks, and extends a live run when the human adds tasks to
+it. The agent the human talks to orchestrates: it dispatches lanes with
 `taskrail autopilot next`, answers their gates from the repository's governing documents, records
 each decision on the task branch, escalates what the human must decide, and hands finished
 branches over one at a time. A repository opts in with `[autopilot].enabled = true`; until then

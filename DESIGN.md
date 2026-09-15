@@ -429,7 +429,9 @@ holding `id`, `branch` and `recorded` (a timestamp). Every worktree of the clone
 never committed or pushed, and holds no owner, host or path. Unlike a claim it is not removed by
 `done`, `discard`, `release`, `reopen` or deleting the branch, so `review` and a dependent still
 find a renamed branch after the claim is gone. Records are written by `claim` (§6.1),
-`new --workspace --branch` and `taskrail branch`. Outside git, or without a record, the template
+`new --workspace` — the branch it creates, named by `--branch` or the template, so commands outside
+that workspace find the task's row on it before anyone claims it (T071) — and `taskrail branch`.
+Outside git, or without a record, the template
 applies. Without mirroring, another clone does not see records, so it resolves a renamed task to its
 template name.
 
@@ -442,7 +444,7 @@ of `claim_remote`, though both usually name the same remote), records are shared
   nothing is stripped; opting in does publish branch names, even ones `push_task_branch` never pushes.
 - *Push.* Every command that writes a record pushes it: `taskrail branch` (also for the name the
   task already has, which is how a failed push is retried), `claim` when it records the template
-  name, and `new --workspace --branch`. The push leases on this clone's copy of the ref
+  name, and `new --workspace`. The push leases on this clone's copy of the ref
   (`--force-with-lease=<ref>:<copy>`, empty when there is none), and moves the copy to the pushed
   commit. `--local-only` on `claim` and `branch` skips the fetch and the push.
 - *Fetch.* One `git fetch --prune --no-tags <remote> +refs/taskrail/branches/*:refs/taskrail/remotes/<remote>/branches/*`
@@ -460,7 +462,7 @@ of `claim_remote`, though both usually name the same remote), records are shared
 - *Failures.* A failed fetch warns on stderr and the command goes on with the local records. A
   failed push — offline, a server refusing the ref, or a lease rejected because another clone pushed
   that record meanwhile — keeps the local branch, record and claim, warns naming the ref and the
-  retry, and leaves the exit code unchanged. `branch`, `claim` and `new --branch` report
+  retry, and leaves the exit code unchanged. `branch`, `claim` and `new --workspace` report
   `record_remote` in `--json`: `null` when nothing was mirrored, otherwise `name`, `ref`, `commit`
   (the pushed commit, or `null`), `pushed` and `error`.
 - *Deletion.* Nothing deletes a remote record. To clean one up, run
@@ -512,7 +514,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail import <FILE> [--write] [--column CORE=HEADER]… [--status VALUE=STATUS]… [--kind VALUE=KIND]… [--default-kind KIND] [--epic-level N] [--epic-name NAME]` | Convert a table-based Markdown backlog without epics into this backlog; a dry run unless `--write` (§7.3) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
-| `taskrail autopilot start` / `next` / `lane` / `decision` / `status` / `merged` / `notify` | Autopilot runs, dispatch and their lanes, and merge follow-through (§12.1, §12.8) |
+| `taskrail autopilot start` / `extend` / `next` / `lane` / `decision` / `status` / `merged` / `notify` | Autopilot runs, count-only or named, dispatch and their lanes, and merge follow-through (§12.1, §12.8) |
 | `taskrail merge-driver <base> <current> <other> […]` | The git merge driver for backlog tables (§7.4); run by git, not by hand |
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |
 
@@ -743,6 +745,16 @@ skill asks the agent to look at them and mention them at its first gate.
   title ending in `(<ID>)`, optionally followed by `(#N)` or `(!N)`) or `branch` (the subject
   contains the task's branch name). A subject that mentions the ID anywhere else is ignored,
   since backlog maintenance names IDs constantly.
+- `prepared` — `null`, or `{branch, worktree, fork, commits, row}` when the task's local branch is a
+  workspace holding only the task's row, as `new --workspace` leaves it (T071). Compared with `fork`,
+  the merge-base of the branch and `base.onto`, the branch's content — its tip, plus the uncommitted
+  and untracked changes of the worktree that has it checked out — changes only files of the task's
+  backlog (its main file and epic files), removes no line, and adds exactly one task row with the
+  task's ID, plus at most the table header and separator `new` writes into an epic without a task
+  table. `commits` counts the branch's commits since `fork`; `row` is `committed` when the tip holds
+  the row, else `uncommitted`. The rule is by content, so it holds whoever made the branch. `branches`
+  still lists the branch; `show`'s text marks it `(prepared: only the task's row)`, and the skills
+  treat such a branch as the task's workspace rather than someone's earlier work.
 
 The history search is a single `git log --fixed-strings --grep=<ID>` over those refs, so its
 cost grows with the history; `list` and `next` do not run it. Like `base`, it never fetches.
@@ -1101,8 +1113,9 @@ disabled autopilot:
 
 | Command | Does |
 |---|---|
-| `autopilot start --count N [--kinds …]` | *Implemented (T029).* Exit 5, naming `[autopilot].enabled`, unless it is true — checked first, so the refusal comes even without `--count`; then exit 2 without `--count` or with a count below 1, exit 1 for an invalid backlog, and exit 2 for a kind the project does not define or allow. `--kinds` defaults to `[autopilot].kinds`. Creates a run file (§12.4) with the target count, kinds, owner and start time, and prints the run ID. |
-| `autopilot next [--run R]` | *Implemented (T030).* Exit 5, naming `[autopilot].enabled`, unless it is true — checked first, preview included; then exit 1 for an invalid backlog, 3 for an unknown run, 4 when the lock cannot be taken, and 0 otherwise, even when nothing is dispatched. Tasks to dispatch now: `taskrail next`'s eligible tasks in its order (so a single unmerged dependency is a stacked base, and claimed or blocked tasks are not candidates), of the kinds the run drives — the run's `kinds` and `[autopilot].kinds` intersected when both are set, whichever is set otherwise, every allowed kind when neither is. A candidate is skipped, with its reason, when it is `done-merged` or `discarded` (§12.4) while its row in the checkout is still `⬜`, as after a merge that was not pulled (*T064*), recorded `failed` in the run, dispatched or otherwise occupying a lane (`running`, `gate`, `escalated`) in any run — such as a lane between `done` and its commit, in a group at its limit, or when its base is diverged or missing. Candidates are taken in order while a lane is free (`max_lanes`), the run's count allows more (§12.7) and every resource has a free value; `limited_by` names the limit that stopped it. For each task: `show --json`'s fields (its `base` already carries `commit`), the allocated `resources`, `environment` (`TASKRAIL_RESOURCE_<NAME>`), `groups`, and the decision-record paths; also `lanes`, `remaining`, `groups`, `resources`, `released` and `skipped`. Under the common-directory lock, in one step, it releases the resources of lanes that ended and records `dispatched` and `resources` for each dispatched task in run R. Without `--run` it is a preview for `[autopilot].kinds` with no count, and writes nothing. Claiming stays the lane's job. |
+| `autopilot start --count N [--kinds …]` / `autopilot start --tasks IDs [--count N]` | *Implemented (T029; `--tasks` T071).* Exit 5, naming `[autopilot].enabled`, unless it is true — checked first, so the refusal comes even without `--count`; then exit 2 with neither `--count` nor `--tasks`, with a count below 1, with an empty `--tasks`, with `--kinds` beside `--tasks`, or with a `--count` that differs from the number of tasks `--tasks` names; exit 1 for an invalid backlog, and exit 2 for a kind the project does not define or allow. `--kinds` defaults to `[autopilot].kinds`. `--tasks` names the only tasks the run works, comma-separated, kept in the order given with duplicates dropped, and makes their number the count; it exits 3 for an ID found neither in the checkout nor on its task's branch (*Rows on their task's branch* below), naming `taskrail branch <ID> <NAME>` to record one, and 5 for a named task that is done or discarded in the checkout or on a mainline ref, `done-branch` or `discarded-branch`, or of a kind the project does not allow or `[autopilot].kinds` leaves out. A blocked or claimed task may be named. Creates a run file (§12.4) with the target count, kinds, `named` tasks, owner and start time, and prints the run ID. |
+| `autopilot extend R [--tasks IDs] [--count N]` | *Implemented (T071).* Changes an open run under the common-directory lock. `--tasks` on a named run appends the IDs not yet named, in the order given, and raises `count` by as many, with `start`'s exit 3 and 5 for each new ID; naming only tasks already named changes nothing. `--count N` on a count-only run sets `count`: exit 2 below 1, exit 5 below the run's tasks already counted toward its count (§12.7). Exit 5 first unless `[autopilot].enabled`; then exit 3 for an unknown run and 5 for a closed one; exit 2 for `--count` on a named run, `--tasks` on a count-only run, or neither flag; exit 1 for an invalid backlog; 4 when the lock cannot be taken. `--json` returns the updated `run`, `added` and `previous_count`; `next` and `status` read the run file, so they follow at once. |
+| `autopilot next [--run R]` | *Implemented (T030).* Exit 5, naming `[autopilot].enabled`, unless it is true — checked first, preview included; then exit 1 for an invalid backlog, 3 for an unknown run, 4 when the lock cannot be taken, and 0 otherwise, even when nothing is dispatched. Tasks to dispatch now: `taskrail next`'s eligible tasks in its order (so a single unmerged dependency is a stacked base, and claimed or blocked tasks are not candidates) — on a named run only its `named` tasks, in the order named, a named task that is not eligible and holds no place in the run being listed in `skipped` with why it waits (`blocked by …`, `claimed by <owner>`, `claimed in run …`, `done-branch`, …; T071) — of the kinds the run drives — the run's `kinds` and `[autopilot].kinds` intersected when both are set, whichever is set otherwise, every allowed kind when neither is. A candidate is skipped, with its reason, when it is `done-merged` or `discarded` (§12.4) while its row in the checkout is still `⬜`, as after a merge that was not pulled (*T064*), recorded `failed` in the run, dispatched or otherwise occupying a lane (`running`, `gate`, `escalated`) in any run — such as a lane between `done` and its commit, in a group at its limit, or when its base is diverged or missing; it also skips a task whose `base.row` is `missing`, with the reason (T070), and, on a named run, a named task of a kind the run does not drive (T071). Candidates are taken in order while a lane is free (`max_lanes`), the run's count allows more (§12.7) and every resource has a free value; `limited_by` names the limit that stopped it. For each task: `show --json`'s fields (its `base` already carries `commit`, and `prior_work.prepared` says whether its branch is a prepared workspace, §7.2), the allocated `resources`, `environment` (`TASKRAIL_RESOURCE_<NAME>`), `groups`, and the decision-record paths; also `lanes`, `remaining`, `groups`, `resources`, `released` and `skipped`. Under the common-directory lock, in one step, it releases the resources of lanes that ended and records `dispatched` and `resources` for each dispatched task in run R. Without `--run` it is a preview for `[autopilot].kinds` with no count, and writes nothing. Claiming stays the lane's job. |
 | `autopilot lane <ID> --run R [--handle H] [--group G] [--state running\|gate\|escalated\|failed\|handed-off] [--reason …] [--gate STAGE]` | *Implemented (T029; `--gate` T032; `close` T050).* Records the agent-specific lane handle, a group membership assigned by judgement (§12.7; exit 2 unless `[[autopilot.group]]` has a group of that name without `column` and `match`) and the orchestrator's view of the lane. `--reason` is required with `escalated` and `failed`, optional with `gate`, and cleared by `running`. `failed` keeps the claim, so the task stays ineligible and its dependents stay blocked. `handed-off` appends the task to the run's hand-off order once, and exits 5 unless the task is `done-branch` or `discarded-branch` (T065). `--gate` records the stage whose gate the lane is stopped at, as `gate`: it must be a stage of the task's kind, or `close` for the stop after `taskrail done` that every kind shares, and the lane must be (or be set) `gate` or `escalated`, otherwise exit 2; a move to `gate` or `escalated` keeps it, `running` and `failed` clear it. An unknown run or task exits 3. |
 | `autopilot decision --run R --question … --decision … --reason …` | *Implemented (T029).* Appends a numbered run-level decision (touch map, conflict classes, order) to the run file, so run state is written only by the CLI. |
 | `autopilot approve-governing <ID> --run R [--path P]…` | *Implemented (T059).* Records that the human approved a lane's governing edit (§12.6), so `status` stops flagging it at later gates. Without `--path` it approves every path in the task's current `governing_touched`; with `--path` only those, and exit 2 for a path not in it. For each path it stores in the lane's `governing_approved` the blob ID of the path's current content: `git hash-object` of the file in the lane's worktree when that worktree exists, else the blob at the branch tip, or `null` for a path absent from both. A later approval of a path replaces its blob ID; other approved paths are kept. Exit 3 for an unknown run, an unknown task or a task outside the run, 4 when the lock cannot be taken, 5 when the task's `governing_touched` is empty; needs neither `enabled` nor a valid backlog. |
@@ -1111,9 +1124,23 @@ disabled autopilot:
 | `autopilot notify --event escalation\|lane-done\|lane-failed --run R [--task ID] [--message TEXT]` | *Implemented (T032).* Runs `[autopilot].notify` when it is set and the event is in `notify_on` (§12.6), otherwise reports `skipped`. `--task` is required for `lane-done` and `lane-failed`; an unknown run, an unknown task or a task outside the run exits 3. Needs neither `enabled` nor a valid backlog. A notify command that exits non-zero, times out or cannot start is reported (`sent: false`, `exit_code`, `timed_out`, `error`, and a warning on stderr) and never blocks: `notify` still exits 0. |
 | `autopilot close <R> --reason …` | *Implemented (T048).* Abandons a run, such as one a rewound or lost orchestrator session left holding lanes. Exit 2 for an empty reason, 3 for an unknown run, 4 when the lock cannot be taken, 5 when the run is already closed; needs neither `enabled` nor a valid backlog. Under the common-directory lock it records `closed` (`at`, `by`, `reason`) and clears every lane's `dispatched` and `resources`, reporting them in `released`; live claims naming the run are kept and listed in `claims`, for the human to `release`. A closed run is then ignored by `next`, preview included — its lanes take no lane, group place or resource value — and left out of `status` unless named with `--run`; `next --run`, `lane`, `decision` and `claim --run` refuse it with exit 5. `merged` still records merges in it, and those still count toward `done-merged`, or `discarded` for a discarded branch (T067). |
 
-The autopilot runs only when the human asks for it and gives a task count. The skill states
-this in its prose, not only in frontmatter, so the rule holds on agents that ignore
-invocation-control keys (*implemented, T024*).
+The autopilot runs only when the human asks for it and gives a task count or names the tasks, and
+a run is extended only on the human's request. The skill states this in its prose, not only in
+frontmatter, so the rule holds on agents that ignore invocation-control keys (*implemented, T024;
+named tasks and `extend`, T071*).
+
+**Rows on their task's branch** (*implemented, T071*). A task created with `new --workspace` has its
+row only on its branch until the branch is merged, so a checkout of the mainline, or another task's
+worktree, lacks it. `autopilot start`, `extend`, `next`, `status`, `lane`, `notify`,
+`approve-governing` and `merged`, and `taskrail checks`, find such a task on its branch: the branch of
+its live claim, else its record (§6.4), which `new --workspace` writes. They read the row from the
+worktree that has that branch checked out, so a row not yet committed counts, else from the local
+branch tip, else from `<remote>/<branch>`, and add it to the backlog they loaded. Such a row reads `⬜`
+there, since the checkout does not close it; `done-branch`, `discarded-branch`, `done-merged` and
+`discarded` come from the refs as for any task. `next` and `status` look up every task of every open
+run this way before deriving a state, so every checkout of the clone computes the same states, lanes
+in use and hand-off queue. Other commands — `show`, `list`, plain `next`, `claim`, `edit`, `done`,
+`review` — still read only their checkout's rows and run inside the task's worktree.
 
 ### 12.2 Installation and opt-in
 
@@ -1143,8 +1170,9 @@ still reaches a lane is not verified.
 (*implemented, T024*). It:
 
 - runs the `taskrail` skill and the task's executor skill for one task ID;
-- creates its worktree with git and claims inside it (§8), or, restarted from its branch, works in
-  the existing worktree and claims again;
+- creates its worktree with git and claims inside it (§8); or, restarted from its branch, works in
+  the existing worktree and claims again; or, when `prior_work.prepared` shows a workspace
+  `new --workspace` prepared, works in that one and claims (T071);
 - ends its turn at every gate with the full gate report;
 - is resumed with `continue <ID>` plus the answers;
 - stops after `taskrail done` and `review --json` without rebasing, since the orchestrator rebases
@@ -1210,7 +1238,7 @@ lanes must not do, and answering gates needs an agent anyway.
 - **Run file** (*implemented, T029*): `$(git rev-parse --git-common-dir)/taskrail/runs/<run>.json`, next to the claims,
   local and never committed. It holds only what git cannot derive and what must survive the
   orchestrator's context:
-  - the target count and kinds;
+  - the target count and kinds, and the tasks a named run works (T071);
   - per task: the lane handle, the group, `gate`, `escalated` or `failed` with a reason, when
     `next` dispatched it, the allocated resources, and the governing paths the human approved with
     their blob IDs (T059);
@@ -1221,11 +1249,12 @@ lanes must not do, and answering gates needs an agent anyway.
   The run ID is `YYYYMMDD-N`: the UTC date and the first number of that day no run holds. The
   file is created exclusively (a fully written temporary file hard-linked into place), changed
   under the common-directory lock `reserve-id` uses, replaced atomically, and read keeping keys
-  this version does not know. Its keys are `id`, `started`, `owner`, `count`, `kinds`, `tasks`
+  this version does not know. Its keys are `id`, `started`, `owner`, `count`, `kinds`, `named` (the IDs `--tasks` gave, in order; empty for a count-only run, and read so from a file written before T071), `tasks`
   (per task: `handle`, `group`, `state`, `reason`, `gate`, `updated`, `dispatched`, `resources`, `governing_approved`), `handed_off`,
   `decisions` (each `number`, `question`, `decision`, `reason`, `recorded`) and `closed` (`at`, `by`,
-  `reason`; null while the run is open). A task belongs to a run when the run file lists it or its
-  claim names the run. Runs are never removed; `autopilot close` ends one and keeps its file.
+  `reason`; null while the run is open). A task belongs to a run when the run file lists it in `tasks`
+  or `named`, or its claim names the run; a named task holds a lane only once dispatched or claimed
+  in the run, and a claim outside the run does not make it one of the run's lanes. Runs are never removed; `autopilot close` ends one and keeps its file.
 - **Two orchestrator sessions** may run at once. They never dispatch the same task twice, since
   `next` skips a task dispatched in any run and a lane needs a claim, and `status` lists every open
   run in the common directory, so each sees the other's lanes.
@@ -1335,12 +1364,14 @@ reading its worktree, and escalated if it is stuck. An agent that can wait on a 
 - **A lane is in use** while its task is `running` (a claim, stale or not), `gate`, `escalated` or
   `dispatched` in a run. `failed`, `done-branch`, `handed-off`, `done-merged`, `discarded-branch` and `discarded` use
   none: a failed lane keeps its claim, so its task and dependents stay out, but it no longer holds
-  a lane. Lanes, group limits and resource values are counted across every open run in the
+  a lane. A claim naming an open run whose task's row cannot be found in the checkout nor on its
+  branch still uses a lane, as `running` (T071). Lanes, group limits and resource values are counted across every open run in the
   clone; claims without a run, or naming a closed run, are not lanes.
 - **`max_lanes`** (default 3) caps the lanes in use at once.
 - **The run's `count`** caps what a run starts: `next --run R` dispatches at most `count` minus the
   run's tasks that are `dispatched`, `running`, `gate`, `escalated`, `failed`, `done-branch`,
-  `handed-off` or `done-merged`. A `discarded` or `discarded-branch` task frees its place; a `failed` one keeps it, since
+  `handed-off` or `done-merged`; a named run's count is its number of named tasks, raised by
+  `autopilot extend`. A `discarded` or `discarded-branch` task frees its place; a `failed` one keeps it, since
   it waits for a human, and replacing it would start more work than was asked for.
 - **`[[autopilot.group]]`** has a `name`, a `limit`, and either `column` plus `match` (membership
   computed from the task's column) or neither (membership assigned by the orchestrator's

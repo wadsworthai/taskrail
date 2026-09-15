@@ -1,6 +1,6 @@
 ---
 name: taskrail-autopilot
-description: Orchestrate a taskrail autopilot run — work several backlog tasks at once in lanes, answer their gates on the human's behalf from the governing documents, record every decision, escalate what the human must decide, and hand finished branches over one at a time. Use only when the human explicitly asks to run the autopilot and gives the number of tasks to complete.
+description: Orchestrate a taskrail autopilot run — work several backlog tasks at once in lanes, answer their gates on the human's behalf from the governing documents, record every decision, escalate what the human must decide, and hand finished branches over one at a time. Use only when the human explicitly asks to run the autopilot and gives the number of tasks to complete or names the tasks.
 license: MIT
 metadata:
   source: https://github.com/alexkander/taskrail
@@ -17,17 +17,30 @@ describes, with `--json` and its exit codes.
 
 ## When to run
 
-**Run the autopilot only when the human explicitly asks for it and gives a task count.** If they
-ask without a count, ask for one and do nothing else. Never start the autopilot on your own
-initiative: not because tasks are pending, not from `taskrail next`, and not because this skill is
-installed. This rule lives here, in the text every agent reads, not only in metadata.
+**Run the autopilot only when the human explicitly asks for it and gives a task count or names the
+tasks.** If they ask without either, ask for one and do nothing else. Never start the autopilot on
+your own initiative: not because tasks are pending, not from `taskrail next`, and not because this
+skill is installed. This rule lives here, in the text every agent reads, not only in metadata.
 
-1. Run `taskrail autopilot start --count <N> --json`, adding `--kinds <kinds>` only when the human
-   named kinds. Keep the run ID (`run.id` in the JSON); every later command names it as `<R>`.
+1. When the human names the tasks, run `taskrail autopilot start --tasks <IDs> --json` with the IDs
+   in the order they gave: the run works only those tasks, in that order, and its count is their
+   number. Otherwise run `taskrail autopilot start --count <N> --json`, adding `--kinds <kinds>` only
+   when the human named kinds. Keep the run ID (`run.id` in the JSON); every later command names it
+   as `<R>`.
 2. If it exits 5, the repository has not enabled the autopilot: stop and report its message to the
    human. Never change `[autopilot].enabled` yourself, and do not work the tasks some other way
    instead.
-3. Any other failure: act on the exit code as the `taskrail` skill says, and stop.
+3. If it exits 3 for a named task, its row is neither in this checkout nor on a branch taskrail
+   knows as the task's: report the message to the human, who may record the branch with
+   `taskrail branch <ID> <NAME>` inside its worktree. A task created with `taskrail new --workspace`
+   is found from any checkout, since that command records its branch.
+4. Any other failure: act on the exit code as the `taskrail` skill says, and stop.
+
+When the human adds tasks to a run or raises its count, extend that run rather than starting
+another: `taskrail autopilot extend <R> --tasks <IDs> --json` for a run started with `--tasks`, which
+raises its count by the tasks added, or `taskrail autopilot extend <R> --count <N> --json` for a run
+started with `--count`. Extending also needs the human's explicit request; then run `next --run <R>`
+to fill the lanes it frees.
 
 ## Before the first dispatch
 
@@ -42,7 +55,11 @@ installed. This rule lives here, in the text every agent reads, not only in meta
 
 1. Run `taskrail autopilot next --run <R> --json`. For each task it dispatches, fill
    `references/lane-brief.md` from that task's entry: branch, worktree, `base`, `environment`,
-   `decisions`, the executor skill, the other live lanes and the touch map so far.
+   `decisions`, the executor skill, the other live lanes and the touch map so far. When the entry's
+   `prior_work.prepared` is set, the task's branch is a workspace `taskrail new --workspace`
+   prepared, holding only the task's row: use the brief's prepared workspace section in place of its
+   Workspace section. A branch without it is someone's earlier work, and the brief's own section
+   stops the lane. On a run started with `--tasks`, `skipped` says why a named task waits.
 2. Start any shared service the lane needs yourself — lanes never do — and launch the lane as a
    sub-session with the brief. Launch the lanes of one dispatch together.
 3. Record each lane at once: `taskrail autopilot lane <ID> --run <R> --handle <H> --state running`.
