@@ -31,6 +31,7 @@ Run `.taskrail/bin/taskrail <command>` from anywhere in the repository or a task
 | 3 | not found | re-check the ID or name |
 | 4 | conflict: claimed by someone else | stop and report who holds it |
 | 5 | refused: not pending, or blocked | stop and report why |
+| 6 | a check failed | report the failing check's output; fix it or stop at the gate |
 
 Useful commands: `next`, `list [--epic E01] [--state pending]`, `show <ID>`, `claims`,
 `kind list`.
@@ -78,9 +79,10 @@ of `taskrail show`) supplies what happens inside each stage.
    whether the stage is relevant to this task; to skip it, record the stage and your reason in
    the artifact and in the next gate report — and if its gate is `always`, stop and ask before
    skipping it. For each stage you run: do its work (a stage the executor skill does not
-   describe is done as its `summary` says), run each of its `checks` with the command from the
-   `checks` map (say so if a check is not configured), commit when `commit` is true, then apply
-   its gate. `commit = false` means a commit is not required at that point, not that one is
+   describe is done as its `summary` says), run its checks with
+   `taskrail checks <ID> --stage <stage>`, which runs each command from the `checks` map in the
+   task's worktree and reports one it does not define as not configured (say so), commit when
+   `commit` is true, then apply its gate. `commit = false` means a commit is not required at that point, not that one is
    forbidden.
 6. **Scope.** Never edit the areas in `never_edit`. Work you discover outside the task's scope
    becomes a follow-up task (see *Creating tasks*); mention it at the next gate. Only fix
@@ -140,6 +142,15 @@ relay: whoever passes it on cannot recover what you leave out.
   and wait to be resumed.
 - Create task worktrees with git as described above rather than through a subagent's worktree
   isolation, which picks its own branch name and location.
+- Shape every shell command so a permission allowlist can match it: one command per Bash
+  call, the taskrail wrapper and files by absolute path, and `git -C <worktree>` or
+  `taskrail --root <worktree>` instead of `cd <worktree> && …`. Avoid `&&`, `;` and `|`
+  chains, shell variables, `$?` and heredocs, and edit files with the Edit tool: Claude Code
+  checks each part of a compound command on its own, so it asks for permission even when
+  every part is allowed.
+- Run a task's checks with `taskrail checks <ID>`, adding `--stage <stage>` for one stage's
+  checks, rather than changing into its worktree: it runs them there, with the task's
+  autopilot resources, as one command that a single allowlist entry covers.
 
 ## Creating tasks
 

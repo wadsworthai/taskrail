@@ -16,7 +16,7 @@ SOURCE = install.SKILLS_SOURCE / SKILL
 REFERENCES = ["references/decision-record.md", "references/gate-review.md", "references/lane-brief.md"]
 FILES = ["SKILL.md", *REFERENCES]
 
-# The core skill's agent notes as they were before per-skill sections: they must not change.
+# The core skill's agent notes: those from before per-skill sections, plus T052's command shape.
 CORE_CLAUDE_NOTES = """## On Claude Code
 
 - At a gate, ask the human with the AskUserQuestion tool when it is available; otherwise ask in
@@ -24,7 +24,16 @@ CORE_CLAUDE_NOTES = """## On Claude Code
 - Running as a subagent, you have no channel to the human: end your turn with the gate report
   and wait to be resumed.
 - Create task worktrees with git as described above rather than through a subagent's worktree
-  isolation, which picks its own branch name and location."""
+  isolation, which picks its own branch name and location.
+- Shape every shell command so a permission allowlist can match it: one command per Bash
+  call, the taskrail wrapper and files by absolute path, and `git -C <worktree>` or
+  `taskrail --root <worktree>` instead of `cd <worktree> && …`. Avoid `&&`, `;` and `|`
+  chains, shell variables, `$?` and heredocs, and edit files with the Edit tool: Claude Code
+  checks each part of a compound command on its own, so it asks for permission even when
+  every part is allowed.
+- Run a task's checks with `taskrail checks <ID>`, adding `--stage <stage>` for one stage's
+  checks, rather than changing into its worktree: it runs them there, with the task's
+  autopilot resources, as one command that a single allowlist entry covers."""
 CORE_OPENCODE_NOTES = """## On OpenCode
 
 - At a gate, ask the human in plain text and wait for the reply.
@@ -439,3 +448,42 @@ def test_every_taskrail_command_and_flag_shown_exists():
         for flag in re.findall(r"(?<![\w-])--[a-z][a-z-]*", command):
             assert flag in parser._option_string_actions, f"{flag} in `{span}`"
     assert used == set(autopilot), sorted(set(autopilot) - used)
+
+
+# --- 13. Command shape and `taskrail checks` (T052) ------------------------------------------------
+
+
+def test_claude_notes_on_command_shape_and_checks_reach_the_installed_copies(empty_repo, capsys):
+    init(empty_repo, "--integration", "claude", capsys=capsys)
+    skills = empty_repo / ".claude/skills"
+    core = flat((skills / "taskrail/SKILL.md").read_text())
+    for phrase in (
+        "one command per bash call",
+        "`git -c <worktree>` or `taskrail --root <worktree>` instead of `cd <worktree> && …`",
+        "checks each part of a compound command on its own",
+        "run a task's checks with `taskrail checks <id>`",
+    ):
+        assert phrase in core, phrase
+    autopilot = flat((skills / SKILL / "SKILL.md").read_text())
+    for phrase in ("one command per bash call", "rather than `cd … &&`", "re-run a lane's checks at a gate or at hand-off with `taskrail checks <id>`"):
+        assert phrase in autopilot, phrase
+
+
+def test_every_taskrail_command_and_flag_in_the_claude_notes_exists():
+    top = subparsers(build_parser())
+    text = (install.SKILLS_SOURCE.parent / "integrations/claude.md").read_text(encoding="utf-8")
+    shown = [m for span in re.findall(r"`([^`\n]+)`", text) for m in re.findall(r"(?<![\w/-])taskrail (--root <[a-z]+> )?([a-z][a-z-]*)([^`]*)", span)]
+    assert ("", "checks", " <ID>") in shown
+    for root, command, rest in shown:
+        assert command in top, command
+        for flag in re.findall(r"(?<![\w-])--[a-z][a-z-]*", rest):
+            assert flag in top[command]._option_string_actions, flag
+    assert "--root" in build_parser()._option_string_actions
+
+
+def test_core_skill_runs_stage_checks_with_taskrail_checks_and_documents_exit_6():
+    text = (install.SKILLS_SOURCE / "taskrail/SKILL.md").read_text(encoding="utf-8")
+    stages = flat(text[text.index("5. **Stages.**") : text.index("6. **Scope.**")])
+    assert "run its checks with `taskrail checks <id> --stage <stage>`" in stages
+    assert "| 6 | a check failed |" in text
+    assert "--stage" in subparsers(build_parser())["checks"]._option_string_actions

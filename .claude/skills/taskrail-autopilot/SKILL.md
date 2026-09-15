@@ -222,3 +222,7 @@ claims with `taskrail claim <ID> --ignore-deps --run <R>`, and the task's record
   worktree isolation, which picks its own branch name and location.
 - Nothing wakes you on a timer. A tool that waits on a condition may re-run `autopilot status`
   while lanes work, but nothing may depend on it.
+- Use the command shape of the `taskrail` skill's Claude Code notes yourself — one command
+  per Bash call, absolute paths, `git -C` and `taskrail --root` rather than `cd … &&` — and
+  re-run a lane's checks at a gate or at hand-off with `taskrail checks <ID>`, which runs them
+  in its worktree with its resources.

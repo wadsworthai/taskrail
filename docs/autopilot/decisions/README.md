@@ -36,3 +36,4 @@
 | T060 | Remove DESIGN.md and CLAUDE.md from the autopilot's governing paths | [T060-remove-design-md-and-claude-md-from-the.md](T060-remove-design-md-and-claude-md-from-the.md) |
 | T054 | Keep a closing lane from reading as pending between done and its commit | [T054-keep-a-closing-lane-from-reading-as-pend.md](T054-keep-a-closing-lane-from-reading-as-pend.md) |
 | T055 | Fix the autopilot skill text found wrong in the T033 trial | [T055-fix-the-autopilot-skill-text-found-wrong.md](T055-fix-the-autopilot-skill-text-found-wrong.md) |
+| T052 | Add taskrail checks for a task and a Claude Code note on command shape | [T052-add-taskrail-checks-for-a-task-and-a-cla.md](T052-add-taskrail-checks-for-a-task-and-a-cla.md) |

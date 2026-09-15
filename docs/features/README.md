@@ -26,3 +26,4 @@
 | T040 | Merge appended changelog bullets without duplicating moved ones | [T040-merge-appended-changelog-bullets-without.md](T040-merge-appended-changelog-bullets-without.md) |
 | T050 | Accept --gate close for the stop after done | [T050-accept-gate-close-for-the-stop-after-don.md](T050-accept-gate-close-for-the-stop-after-don.md) |
 | T049 | Stop flagging governing paths once a task is done on its branch | [T049-stop-flagging-governing-paths-once-a-tas.md](T049-stop-flagging-governing-paths-once-a-tas.md) |
+| T052 | Add taskrail checks for a task and a Claude Code note on command shape | [T052-add-taskrail-checks-for-a-task-and-a-cla.md](T052-add-taskrail-checks-for-a-task-and-a-cla.md) |

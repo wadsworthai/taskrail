@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, branches, claims, gitutil, history, ids, install, mergedriver, prior, review, stack, writer
+from taskrail import __version__, branches, checks, claims, gitutil, history, ids, install, mergedriver, prior, review, stack, writer
 from taskrail.autopilot import runs as autopilot_runs
 from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
@@ -23,6 +23,7 @@ EXIT_USAGE = 2
 EXIT_NOT_FOUND = 3
 EXIT_CONFLICT = 4
 EXIT_REFUSED = 5
+EXIT_CHECK_FAILED = 6
 
 # `new` flags that fill each core task column; ID and ✓ are set by taskrail itself.
 CORE_COLUMN_FLAGS = {"Kind": "--kind", "Title": "--title", "Pts": "--pts", "Depends On": "--depends-on", "Description": "--description"}
@@ -1007,6 +1008,24 @@ def cmd_review(args) -> int:
     return EXIT_OK
 
 
+def cmd_checks(args) -> int:
+    """Run a task's configured checks in its worktree, with its autopilot lane's resources (§7.5)."""
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    task = project.task(args.id)
+    if task is None:
+        print(f"taskrail: no task `{args.id}`", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    try:
+        result = checks.run_checks(project, task, args.stage, args.check, capture=args.json)
+    except checks.ChecksRefused as exc:
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return exc.code
+    _emit(result, args.json, checks.summary(result))
+    return EXIT_OK if result["passed"] else EXIT_CHECK_FAILED
+
+
 def cmd_epic_add(args) -> int:
     project, issues = _load(args)
     if _refuse_if_invalid(issues, args):
@@ -1282,6 +1301,14 @@ def build_parser() -> argparse.ArgumentParser:
     review_cmd.add_argument("--type", help="Conventional Commits type of the title (default: the kind's commit_type)")
     review_cmd.add_argument("--scope", help="Conventional Commits scope of the title (default: [review].scope)")
     review_cmd.add_argument("--breaking", action="store_true", help="mark the title as a breaking change (!)")
+
+    checks_cmd = add(
+        "checks", cmd_checks, "Run a task's configured checks in its worktree with its autopilot lane's resources; exit 6 when one fails."
+    )
+    checks_cmd.add_argument("id")
+    checks_cmd.add_argument("--stage", help="only this stage's checks")
+    checks_cmd.add_argument("--check", action="append", metavar="NAME", help="only this check; repeatable")
+    checks_cmd.add_argument("--allow-invalid", action="store_true")
 
     epic = commands.add_parser("epic", help="Manage epics.")
     epic_commands = epic.add_subparsers(dest="epic_command", required=True)

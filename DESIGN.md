@@ -504,6 +504,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
+| `taskrail checks <ID> [--stage STAGE] [--check NAME]…` | Run a task's configured checks in its worktree with its autopilot lane's resources, from anywhere in the clone (§7.5) |
 | `taskrail import <FILE> [--write] [--column CORE=HEADER]… [--status VALUE=STATUS]… [--kind VALUE=KIND]… [--default-kind KIND] [--epic-level N] [--epic-name NAME]` | Convert a table-based Markdown backlog without epics into this backlog; a dry run unless `--write` (§7.3) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
@@ -871,6 +872,22 @@ The block is committed and the definition is not. A clone with no `merge.taskrai
 those files with git's text merge; a section with a `name` but no `driver` makes git fail, so remove
 the whole section (`git config --remove-section merge.taskrail`) to opt out.
 
+### 7.5 Checks
+
+`taskrail checks <ID>` runs the checks named by the stages of the task's kind that apply to it —
+in stage order, each once, the same set as `show`'s `checks` — or only those of `--stage`, or
+only the `--check` names. It runs them in the task's worktree: the one its claim records when
+that directory exists, else the one that has its branch checked out; the commands and kinds
+come from that worktree's own configuration. Each runs through the platform shell with the
+worktree as working directory and, when an autopilot run lists the task (the claim's run, else
+the newest run), its lane's resource values as `TASKRAIL_RESOURCE_<NAME>` (§12.7). Every
+selected check runs; one that `[checks]` does not define is reported `not-configured` and does
+not fail. `--json` returns each check's `name`, `command`, `status`, `exit` and combined
+`output`, with `worktree`, `run`, `resources`, `environment` and `passed`. Exit 0 when every
+check that ran passed, 6 when one failed, 2 for an unknown stage, 3 for an unknown task, 5 when
+the task has no worktree. It reads run files and never writes them, so one allowlist entry
+covers a lane's checks without `cd` or variables in the command.
+
 ## 8. Skills
 
 - `taskrail` — the core skill: the backlog model, how to call the CLI and read its exit codes,
@@ -900,7 +917,7 @@ portable text names no agent.
 
 | Integration | Skills directory | Notes in `taskrail` | Notes in `taskrail-autopilot` |
 |---|---|---|---|
-| `claude` | `.claude/skills/` | ask with AskUserQuestion; create task worktrees with git rather than subagent isolation | lanes are background subagents resumed with `SendMessage`; the model per lane; no timer |
+| `claude` | `.claude/skills/` | ask with AskUserQuestion; create task worktrees with git rather than subagent isolation; one allowlistable command per call, without `cd … &&` chains, and `taskrail checks` | lanes are background subagents resumed with `SendMessage`; the model per lane; no timer; the same command shape, and lane checks re-run with `taskrail checks` |
 | `opencode` | `.opencode/skills/` | ask in plain text; a subagent's final message returns to its caller | lanes are task tool calls resumed by `task_id`; gates answered in waves |
 
 OpenCode also reads `.claude/skills/` and requires skill names to be unique across every

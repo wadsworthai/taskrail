@@ -161,6 +161,13 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   an unclaimed dispatch expires after `[git].claim_grace_minutes`; and resumes a run from a new
   session by lane handle, restarting a lane from its branch with a new restart section of the lane
   brief when the handle no longer reaches it (T055).
+- **`taskrail checks <ID>`.** Runs a task's configured checks — every applying stage's, or those of
+  `--stage` or `--check` — in its worktree, found from its claim or its checked-out branch, with
+  the worktree's own configuration and its autopilot lane's resources as
+  `TASKRAIL_RESOURCE_<NAME>`, from anywhere in the clone; every check runs, `--json` captures each
+  one's output, and a failing check exits 6. The core skill runs stage checks this way and lists
+  exit 6, and the Claude Code notes describe a command shape an allowlist can match: one command
+  per call, absolute paths, `git -C` and `--root` instead of `cd … &&` chains (T052).
 
 ## 0.1.0
 

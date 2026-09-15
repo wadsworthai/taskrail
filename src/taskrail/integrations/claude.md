@@ -8,6 +8,15 @@
   and wait to be resumed.
 - Create task worktrees with git as described above rather than through a subagent's worktree
   isolation, which picks its own branch name and location.
+- Shape every shell command so a permission allowlist can match it: one command per Bash
+  call, the taskrail wrapper and files by absolute path, and `git -C <worktree>` or
+  `taskrail --root <worktree>` instead of `cd <worktree> && …`. Avoid `&&`, `;` and `|`
+  chains, shell variables, `$?` and heredocs, and edit files with the Edit tool: Claude Code
+  checks each part of a compound command on its own, so it asks for permission even when
+  every part is allowed.
+- Run a task's checks with `taskrail checks <ID>`, adding `--stage <stage>` for one stage's
+  checks, rather than changing into its worktree: it runs them there, with the task's
+  autopilot resources, as one command that a single allowlist entry covers.
 
 <!-- taskrail:skill taskrail-autopilot -->
 
@@ -27,3 +36,7 @@
   worktree isolation, which picks its own branch name and location.
 - Nothing wakes you on a timer. A tool that waits on a condition may re-run `autopilot status`
   while lanes work, but nothing may depend on it.
+- Use the command shape of the `taskrail` skill's Claude Code notes yourself — one command
+  per Bash call, absolute paths, `git -C` and `taskrail --root` rather than `cd … &&` — and
+  re-run a lane's checks at a gate or at hand-off with `taskrail checks <ID>`, which runs them
+  in its worktree with its resources.
