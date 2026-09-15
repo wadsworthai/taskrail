@@ -246,7 +246,8 @@ def _cleanup(project: Project, task: Task, branch: str, verified: str | None, re
         return refuse(f"{task.id} is claimed by {claim.owner}; nothing was removed", EXIT_CONFLICT)
 
     local = _sha(root, f"refs/heads/{branch}")
-    entry = next((e for e in _worktree_entries(root) if e["branch"] == branch), None) if local else None
+    entries = _worktree_entries(root) if local else []
+    entry = next((e for e in entries if e["branch"] == branch), None)
     if entry is not None:
         path = entry["path"]
         info["worktree"] = str(path)
@@ -256,6 +257,12 @@ def _cleanup(project: Project, task: Task, branch: str, verified: str | None, re
             return refuse(f"the current directory or --root is inside the worktree {path}; run the cleanup from outside it")
         if entry["locked"]:
             return refuse(f"the worktree {path} is locked; unlock it first")
+        # git worktree remove deletes ignored content, and a worktree nested in an ignored directory is invisible to status (T074).
+        contained = [str(e["path"]) for e in entries if e is not entry and _inside(path, e["path"]) and e["path"].exists()]
+        if contained:
+            return refuse(
+                f"the worktree {path} contains other worktrees: {', '.join(contained)}; move them out with git worktree move, or remove them, first"
+            )
         dirty = gitutil.run(path, "status", "--porcelain", "--untracked-files=all", check=False).stdout.strip()
         if dirty:
             return refuse(f"the worktree {path} has uncommitted or untracked changes")

@@ -1,6 +1,6 @@
 # T074 — Refuse merged --cleanup for a worktree that contains other registered worktrees
 
-Kind: bug · Epic: E02 · Status: diagnosed
+Kind: bug · Epic: E02 · Status: fixed
 
 Source: found in T073 (see the *Impact* section of
 [T073's document](T073-create-a-task-worktree-under-the-main-ch.md)). Before T073, `new --workspace`
@@ -298,3 +298,149 @@ The regression test builds a merged, closed lane, adds a worktree under the lane
 with an untracked file, runs `autopilot merged --cleanup`, and asserts exit 5, a refusal naming the
 nested path, and that the lane, its branch, the nested worktree and its file all remain; then it
 moves the nested worktree out and asserts the cleanup succeeds.
+
+## Decision at the diagnose gate
+
+The diagnosis was approved as proposed (see the
+[decision record](../autopilot/decisions/T074-refuse-merged-cleanup-for-a-worktree-tha.md)): "contains"
+means any other registered worktree whose resolved path is inside the one being removed and whose
+directory still exists, ignored or not, locked or not; the refusal is exit 5 with the message only, in
+`cleanup.refused` and on stderr, with no new JSON field; ignored content that is not a worktree does
+not block, and no follow-up is opened for it.
+
+## Fix
+
+### Regression test, observed failing first
+
+`test_cleanup_refuses_a_worktree_that_contains_other_worktrees` in `tests/test_autopilot_merged.py`
+builds a lane for `T001`, finishes it and squash-merges it on the host, ignores `.worktrees/` through
+the common `info/exclude`, and adds inside the lane:
+
+- `.worktrees/T003-nested`, a worktree with an untracked `WORK.md`, locked;
+- `.worktrees/gone`, a worktree whose directory is then deleted, so it stays registered but has
+  nothing to lose.
+
+It asserts the lane's `git status --porcelain --untracked-files=all` is empty, then runs
+`autopilot merged T001 --cleanup --owner lane --json` and expects exit 5, a `cleanup.refused` that
+starts with `the worktree <lane> contains other worktrees: `, names `T003-nested` and not `gone`, is
+repeated on stderr, and leaves `WORK.md`, the lane and its local branch in place. It then adds
+`sub/T004-nested`, a worktree in a directory that is not ignored, and expects the same refusal naming
+both — this reason, not "uncommitted or untracked changes". Finally it unlocks and moves both nested
+worktrees out with `git worktree move` and expects the cleanup to exit 0, remove the lane and its
+branch, and leave the moved `WORK.md` intact.
+
+Run against the unfixed code (fd4290b plus the test):
+
+```text
+$ uv run --project <worktree> pytest <worktree>/tests/test_autopilot_merged.py -q -k contains_other_worktrees
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_cleanup_refuses_a_worktree_that_contains_other_worktrees _________
+...
+>       refused_naming(nested)
+...
+    def refused_naming(*inside):
+        code, out, err = run(pilot.root, "autopilot", "merged", "T001", "--cleanup", "--owner", "lane", "--json", capsys=capsys)
+>       assert code == 5, err
+E       AssertionError: 
+E       assert 0 == 5
+=========================== short test summary info ============================
+FAILED .worktrees/T074-refuse-merged-cleanup-for-a-worktree-tha/tests/test_autopilot_merged.py::test_cleanup_refuses_a_worktree_that_contains_other_worktrees
+1 failed, 38 deselected in 0.64s
+```
+
+It fails at the first cleanup, with only the ignored nested worktree present: exit 0 and an empty
+stderr, so the cleanup went on and removed the lane — the root cause. The test imports this
+worktree's source (`uv run --project <worktree> python -c "import taskrail; print(taskrail.__file__)"`
+prints `<worktree>/src/taskrail/__init__.py`).
+
+### Change
+
+`_cleanup` in `src/taskrail/autopilot/merged.py` reads `_worktree_entries(root)` once and, after the
+`locked` refusal and before the dirty check, refuses when another entry lies inside the worktree to
+remove and its directory exists:
+
+```python
+entries = _worktree_entries(root) if local else []
+entry = next((e for e in entries if e["branch"] == branch), None)
+...
+# git worktree remove deletes ignored content, and a worktree nested in an ignored directory is invisible to status (T074).
+contained = [str(e["path"]) for e in entries if e is not entry and _inside(path, e["path"]) and e["path"].exists()]
+if contained:
+    return refuse(
+        f"the worktree {path} contains other worktrees: {', '.join(contained)}; move them out with git worktree move, or remove them, first"
+    )
+```
+
+`refuse` exits 5 and `cmd_merged` prints the reason on stderr, as for the other refusals. Nothing
+else in the cleanup changed; ignored files alone still do not refuse.
+
+Documentation: the `autopilot merged` row of `DESIGN.md`'s command table lists the new refusal and
+that ignored files alone do not refuse; `CHANGELOG.md` has an Unreleased entry.
+
+## Verification
+
+The regression test after the fix:
+
+```text
+$ uv run --project <worktree> pytest <worktree>/tests/test_autopilot_merged.py -q -k contains_other_worktrees
+.                                                                        [100%]
+1 passed, 38 deselected in 1.39s
+```
+
+The reproduction script (`repro_t074.py`) after the fix, cleanup and afterwards sections:
+
+```text
+== cleanup of the lane from the main checkout
+$ taskrail --root repo autopilot merged T001 --cleanup --no-fetch --json
+exit 5
+stderr: taskrail: cleanup refused: the worktree repo/.worktrees/T001-lane contains other worktrees: repo/.worktrees/T001-lane/.worktrees/T002-nested; move them out with git worktree move, or remove them, first
+{
+  ...
+  "merged": true,
+  "via": "ancestor",
+  ...
+  "cleanup": {
+    "worktree": "repo/.worktrees/T001-lane",
+    "worktree_removed": false,
+    "branch_deleted": false,
+    "claim_released": false,
+    "remote_branch": null,
+    "refused": "the worktree repo/.worktrees/T001-lane contains other worktrees: repo/.worktrees/T001-lane/.worktrees/T002-nested; move them out with git worktree move, or remove them, first"
+  },
+  "dependents": []
+}
+
+== afterwards
+$ git -C repo worktree list --porcelain
+worktree repo
+HEAD c103f8c6cc28e3f9d648b9521898e9a1e3dcdc95
+branch refs/heads/main
+
+worktree repo/.worktrees/T001-lane
+HEAD c103f8c6cc28e3f9d648b9521898e9a1e3dcdc95
+branch refs/heads/T001-lane
+
+worktree repo/.worktrees/T001-lane/.worktrees/T002-nested
+HEAD c103f8c6cc28e3f9d648b9521898e9a1e3dcdc95
+branch refs/heads/T002-nested
+
+repo/.worktrees/T001-lane/.worktrees/T002-nested/WORK.md exists: True
+$ git -C repo branch --list T002-nested
+branch T002-nested: + T002-nested
+```
+
+The fix stage's checks:
+
+```text
+$ taskrail --root <worktree> checks T074 --stage fix
+== test: uv run pytest -q
+...
+1037 passed in 150.69s (0:02:30)
+== lint: not configured
+passed test
+not configured lint
+T074 in <worktree>: passed
+```
+
+`lint` is listed for the fix stage but not defined in the `checks` map.

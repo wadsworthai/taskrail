@@ -1,6 +1,7 @@
 """`autopilot merged`: merge detection by content, recorded merges, cleanup and stacked dependents (T031)."""
 
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -565,6 +566,47 @@ def test_cleanup_refuses_the_main_worktree(pilot, capsys):
     code, _, err = run(pilot.root, "autopilot", "merged", "T004", "--cleanup", "--owner", "lane", capsys=capsys)
     assert code == 5 and "main worktree" in err
     assert ref_exists(pilot.root, f"refs/heads/{BRANCHES['T004']}")
+
+
+def test_cleanup_refuses_a_worktree_that_contains_other_worktrees(pilot, capsys, tmp_path):
+    """A worktree nested in the lane's ignored directory is invisible to its status, and git worktree remove deletes it (T074)."""
+    lane = finished_lane(pilot)
+    pilot.host.squash(BRANCHES["T001"])
+    branch_ref = f"refs/heads/{BRANCHES['T001']}"
+    exclude = Path(git(pilot.root, "rev-parse", "--path-format=absolute", "--git-common-dir")) / "info" / "exclude"
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    exclude.write_text(".worktrees/\n")
+    nested = lane / ".worktrees" / "T003-nested"
+    git(lane, "worktree", "add", "-q", str(nested), "-b", "T003-nested")
+    (nested / "WORK.md").write_text("uncommitted work\n")
+    git(lane, "worktree", "lock", str(nested))
+    gone = lane / ".worktrees" / "gone"
+    git(lane, "worktree", "add", "-q", str(gone), "-b", "gone")
+    shutil.rmtree(gone)  # still registered, but its directory is gone: nothing of it can be lost
+    assert git(lane, "status", "--porcelain", "--untracked-files=all") == ""
+
+    def refused_naming(*inside):
+        code, out, err = run(pilot.root, "autopilot", "merged", "T001", "--cleanup", "--owner", "lane", "--json", capsys=capsys)
+        assert code == 5, err
+        refused = json.loads(out)["cleanup"]["refused"]
+        assert refused.startswith(f"the worktree {lane.resolve()} contains other worktrees: "), refused
+        assert all(str(path.resolve()) in refused for path in inside) and str(gone.resolve()) not in refused
+        assert refused in err
+        assert (nested / "WORK.md").read_text() == "uncommitted work\n"
+        assert lane.exists() and ref_exists(pilot.root, branch_ref)
+
+    refused_naming(nested)
+    visible = lane / "sub" / "T004-nested"  # not ignored: named as a worktree, not as untracked changes
+    git(lane, "worktree", "add", "-q", str(visible), "-b", "T004-nested")
+    refused_naming(nested, visible)
+
+    git(pilot.root, "worktree", "unlock", str(nested))
+    git(pilot.root, "worktree", "move", str(nested), str(tmp_path / "T003-nested"))
+    git(pilot.root, "worktree", "move", str(visible), str(tmp_path / "T004-nested"))
+    code, _, err = run(pilot.root, "autopilot", "merged", "T001", "--cleanup", "--owner", "lane", capsys=capsys)
+    assert code == 0, err
+    assert not lane.exists() and not ref_exists(pilot.root, branch_ref)
+    assert (tmp_path / "T003-nested" / "WORK.md").read_text() == "uncommitted work\n"
 
 
 def test_cleanup_keeps_a_branch_that_moved_after_the_check(pilot, capsys, monkeypatch):
