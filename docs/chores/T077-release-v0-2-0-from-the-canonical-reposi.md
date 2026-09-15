@@ -222,3 +222,11 @@ No tag was created, and nothing ran `uv tool install`. Scratch files are under
 
 The fallback to `uvx` from the published tag, and `self upgrade --dry-run`, wait for the tag. T078
 covers them.
+
+### Docs stage
+
+No documentation needs to change. README *Releasing* already describes this process: a pull
+request, then the tag, then the install check and the bump. CLAUDE.md already describes the
+changelog as "under Unreleased until a release", and an empty `## Unreleased` is kept. The
+skills do not mention the version. T078 was opened in the implement stage, and no other
+follow-up is needed.
