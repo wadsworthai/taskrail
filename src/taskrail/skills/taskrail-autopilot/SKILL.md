@@ -3,7 +3,7 @@ name: taskrail-autopilot
 description: Orchestrate a taskrail autopilot run — work several backlog tasks at once in lanes, answer their gates on the human's behalf from the governing documents, record every decision, escalate what the human must decide, and hand finished branches over one at a time. Use only when the human explicitly asks to run the autopilot and gives the number of tasks to complete or names the tasks.
 license: MIT
 metadata:
-  source: https://github.com/alexkander/taskrail
+  source: https://github.com/wadsworthai/taskrail
 ---
 
 # taskrail-autopilot

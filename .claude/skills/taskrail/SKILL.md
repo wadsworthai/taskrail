@@ -3,7 +3,7 @@ name: taskrail
 description: Work a taskrail backlog (TODO.md grouped by epics) through the taskrail CLI — find, claim, create and close tasks, and follow the procedure every task kind shares. Use whenever a task ID such as T012 is mentioned, when asked what to work on next, when adding tasks or epics, and before running any taskrail-* executor skill.
 license: MIT
 metadata:
-  source: https://github.com/alexkander/taskrail
+  source: https://github.com/wadsworthai/taskrail
 ---
 
 # taskrail

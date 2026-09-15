@@ -3,7 +3,7 @@ name: taskrail-chore
 description: Execute a taskrail task of kind chore — maintenance, tooling, dependency or configuration work whose change set and boundary are approved before anything is edited. Use when working a backlog task whose kind is chore.
 license: MIT
 metadata:
-  source: https://github.com/alexkander/taskrail
+  source: https://github.com/wadsworthai/taskrail
 ---
 
 # taskrail-chore

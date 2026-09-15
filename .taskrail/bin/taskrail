@@ -29,4 +29,4 @@ if ! command -v uvx >/dev/null 2>&1; then
   echo "taskrail: $pin is needed but neither a matching taskrail nor uvx is installed (https://docs.astral.sh/uv/)" >&2
   exit 2
 fi
-exec uvx --quiet --from "git+${TASKRAIL_SOURCE:-https://github.com/alexkander/taskrail.git}@$pin" taskrail "$@"
+exec uvx --quiet --from "git+${TASKRAIL_SOURCE:-https://github.com/wadsworthai/taskrail.git}@$pin" taskrail "$@"

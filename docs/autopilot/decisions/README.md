@@ -57,3 +57,4 @@
 | T073 | Create a task worktree under the main checkout when new or workspace runs inside another worktree | [T073-create-a-task-worktree-under-the-main-ch.md](T073-create-a-task-worktree-under-the-main-ch.md) |
 | T074 | Refuse merged --cleanup for a worktree that contains other registered worktrees | [T074-refuse-merged-cleanup-for-a-worktree-tha.md](T074-refuse-merged-cleanup-for-a-worktree-tha.md) |
 | T075 | Report and create task worktrees outside the bare directory of a bare repository | [T075-report-and-create-task-worktrees-outside.md](T075-report-and-create-task-worktrees-outside.md) |
+| T076 | Name wadsworthai/taskrail as the canonical repository in the CLI, skills and docs | [T076-name-wadsworthai-taskrail-as-the-canonic.md](T076-name-wadsworthai-taskrail-as-the-canonic.md) |

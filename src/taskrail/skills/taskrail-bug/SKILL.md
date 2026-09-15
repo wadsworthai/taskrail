@@ -3,7 +3,7 @@ name: taskrail-bug
 description: Execute a taskrail task of kind bug — reproduce it with evidence, find and document the root cause, and fix it under a regression test that was observed failing first. Use when working a backlog task whose kind is bug.
 license: MIT
 metadata:
-  source: https://github.com/alexkander/taskrail
+  source: https://github.com/wadsworthai/taskrail
 ---
 
 # taskrail-bug

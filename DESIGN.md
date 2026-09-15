@@ -109,7 +109,7 @@ to the `## Epics` table.
 ## 4. Configuration — `.taskrail/config.toml`
 
 ```toml
-version = "v0.1.0"          # CLI version the repository is pinned to
+version = "v0.2.0"          # CLI version the repository is pinned to
 
 [[backlog]]
 name = "template"
@@ -1006,7 +1006,7 @@ Modeled on Spec Kit: a CLI installed with uv, which writes files into the consum
 repository.
 
 ```bash
-uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@v0.1.0"
+uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.2.0"
 taskrail init --integration claude
 ```
 
