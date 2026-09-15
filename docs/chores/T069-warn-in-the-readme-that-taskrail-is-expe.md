@@ -68,3 +68,9 @@ All commands run against the task's worktree (`<worktree>` below).
   `959 passed in 124.25s (0:02:04)`. `lint` is not configured in the `checks` map.
 - `taskrail --root <worktree> validate`: `58 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`,
   exit 0.
+
+## Docs
+
+Nothing else to update. The change is itself documentation; `CLAUDE.md`, `DESIGN.md` and the
+skills describe neither the README's structure nor the project's maturity, and the scope gate
+decided against a `CHANGELOG.md` entry. No follow-up tasks were opened.
