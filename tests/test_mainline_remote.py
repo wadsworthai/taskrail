@@ -105,6 +105,7 @@ def test_show_uses_the_remote_the_mainline_tracks(two_remotes, tmp_path_factory,
         "remote_source": "branch.main.remote",
         "commit": git(two_remotes.root, "rev-parse", "upstream/main"),
         "dependency": None,
+        "row": "on-base",
     }
     assert "base upstream/main" in run(two_remotes.root, "show", "T002", capsys=capsys)[1]
 

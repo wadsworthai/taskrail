@@ -147,12 +147,31 @@ def reserve(config: Config, backlog: BacklogConfig, owner: str) -> str:
         numbers = [_number(i, backlog.prefix) for i in used] + [_number(r["id"], backlog.prefix) for r in pending]
         task_id = f"{backlog.prefix}{max(numbers, default=0) + 1:0{backlog.id_digits}d}"
         pending.append({"id": task_id, "owner": owner, "created": datetime.now(timezone.utc).isoformat(timespec="seconds")})
-        path = _reservations_path(config, backlog)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(pending, indent=2), encoding="utf-8")
-        temporary.replace(path)
+        _store_reservations(config, backlog, pending)
         return task_id
+
+
+def _store_reservations(config: Config, backlog: BacklogConfig, entries: list[dict]) -> None:
+    path = _reservations_path(config, backlog)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+    temporary.replace(path)
+
+
+def keep_reservation(config: Config, backlog: BacklogConfig, task_id: str, owner: str) -> bool:
+    """Reserve an ID a row already has, unless it is reserved; True when a reservation was added.
+
+    `reserve` drops a reservation once its ID appears in a scanned file, so a row moved into an
+    uncommitted workspace needs its ID reserved again until it is committed (T070).
+    """
+    with id_lock(config):
+        current = reservations(config, backlog)
+        if any(r["id"] == task_id for r in current):
+            return False
+        current.append({"id": task_id, "owner": owner, "created": datetime.now(timezone.utc).isoformat(timespec="seconds")})
+        _store_reservations(config, backlog, current)
+        return True
 
 
 def cancel_reservation(config: Config, backlog: BacklogConfig, task_id: str) -> bool:

@@ -149,6 +149,31 @@ def set_cells(edits: Edits, task: Task, values: dict[str, str]) -> None:
     raise WriteError(f"could not locate the row for {task.id} at {task.file}:{task.line}")
 
 
+def _row_of(edits: Edits, task: Task) -> tuple[list[str], dict[str, int], list[str]]:
+    """The lines of a task's file, its table's columns (core names and custom headers) and the row's cells."""
+    aliases = edits.config.column_aliases
+    lines = edits.lines(task.file)
+    for section in parse_sections("".join(lines)):
+        for table in section.tables:
+            for number, cells in table.rows:
+                if number == task.line and _is_task_table(table, aliases):
+                    return lines, _index(table.header, aliases), cells
+    raise WriteError(f"could not locate the row for {task.id} at {task.file}:{task.line}")
+
+
+def row_values(edits: Edits, task: Task) -> dict[str, str]:
+    """Every cell of a task's row, keyed as `add_task` takes them: core column name or custom header."""
+    _, columns, cells = _row_of(edits, task)
+    return {name: cells[position] for name, position in columns.items() if position < len(cells)}
+
+
+def remove_task(edits: Edits, task: Task) -> None:
+    """Delete a task's row, and only that line (T070)."""
+    lines, _, _ = _row_of(edits, task)
+    del lines[task.line - 1]
+    edits.set_lines(task.file, lines)
+
+
 def _header_template(edits: Edits, project: Project, backlog: BacklogConfig) -> tuple[str, str]:
     """Header and separator lines copied from an existing task table of the backlog, or a default."""
     for task in project.tasks:

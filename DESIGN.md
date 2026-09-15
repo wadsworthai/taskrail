@@ -411,6 +411,8 @@ in the working tree, on every local branch and — with a remote configured — 
 remote-tracking branches, plus IDs reserved but not yet used. A reservation is dropped once
 its ID appears in any of those files; `taskrail unreserve-id` cancels one that will not be
 used. This replaces "highest plus one", which two agents can compute identically.
+`taskrail workspace` reserves the ID of the row it moves again when that reservation was dropped,
+since the row then sits only in an uncommitted workspace that no scan reads (T070).
 
 Only IDs in the `ID` column of task tables count, so a description that mentions an ID does
 not move the counter.
@@ -494,13 +496,14 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate [--no-history] [--history-limit N]` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks. Also warns about reopens committed without a trailer (*Reopens in history* below) |
 | `taskrail list [--epic E01] [--eligible] [--fetch]` | Tasks, with computed blocked and eligible state |
-| `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; `null` unless `worktree = "required"`), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
-| `taskrail next [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` or `discarded-branch` task |
+| `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches; its `row` says whether the base has the task's row, and the text names `taskrail workspace` when only this checkout has it), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; `null` unless `worktree = "required"`), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
+| `taskrail next [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` or `discarded-branch` task; a task whose `base.row` is `missing` stays listed, its text line ending `(row not on <onto>)` |
 | `taskrail claim <ID> [--run R]` / `taskrail release <ID>` | §6.1, §6.2; `--run` ties the claim to an autopilot run (§12.4) |
 | `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4) |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
-| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there; `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved |
+| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there; `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved; without `--workspace`, on a checkout of the backlog's mainline, it warns on stderr, naming `taskrail workspace`, and returns the text in `warning` (`null` otherwise) |
+| `taskrail workspace <ID> [--branch NAME]` | Create the branch and worktree of a task whose row is missing from its base (`base.row`), from that base, and move the row there with its ID, keeping it reserved (see *A row missing from its base*) |
 | `taskrail edit <ID> [--title] [--pts] [--depends-on] [--description] [--kind] [--column NAME=VALUE]… [--force] [--local-only]` | Change cells of an existing task row (see the rules below) |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
@@ -669,7 +672,7 @@ discarded task. The same `git cat-file --batch` reads both. (*T062*)
 its unmerged branch does not block, and the dependent is stacked on it. Two or more such
 dependencies block the task, and `blocked_by` lists them. `show`'s `base` holds `onto`,
 `diverged`, `reason`, the mainline's `remote` with its `remote_source`, `commit` (the commit
-`onto` names) and `dependency`:
+`onto` names), `dependency` and `row` (see *A row missing from its base* below):
 
 - no unmerged dependency — `onto` is the further-ahead of the local mainline and
   `<remote>/<mainline>`, `null` with `diverged` when they have diverged; `dependency` is `null`;
@@ -679,6 +682,50 @@ dependencies block the task, and `blocked_by` lists them. `show`'s `base` holds 
 
 `new --workspace --depends-on …` branches from the same base, and refuses with exit 5 when two or
 more dependencies are unmerged.
+
+**A row missing from its base.** `show`, `list` and `next` read the working tree, so a row that
+`new` wrote without `--workspace` — uncommitted on a mainline checkout, or committed on a branch that
+is not the base — reads `pending` while `onto` lacks it, and a workspace created from `onto` could
+not claim the task. `base.row` says where the row is (T070):
+
+- `on-base` — the backlog's files at `onto` (its main file and the epic files it names there) have
+  a task row with this ID, whatever its status;
+- `on-branch` — `onto` lacks it, and the task's branch (§6.4) exists locally or as
+  `<remote>/<branch>`: the task has its workspace, as after `new --workspace`, committed or not;
+- `missing` — `onto` lacks it and the task has no branch: only this checkout has the row;
+- `null` when `onto` is `null`.
+
+The files are read with one `git cat-file --batch` per backlog and distinct `onto`, cached per
+command. `show`'s text adds a line `row not on <onto>: only this checkout has it`, naming
+`taskrail workspace <ID>`; `next` keeps listing the task with its line marked; `state` is unchanged.
+`autopilot next` skips such a task (§12.1).
+
+`taskrail workspace <ID> [--branch NAME] [--owner O]` carries a `missing` row into the task's own
+workspace. It creates the branch, without an upstream, and the worktree from `onto` as
+`new --workspace` does (the branch in this checkout when `worktree = "never"`), appends the row with
+its ID and every cell to the same epic there, deletes that one line from the checkout it ran in,
+reserves the ID again when its reservation was dropped (§6.3), and records the branch (§6.4) —
+the template's name, or `--branch NAME` — mirrored as `claim` mirrors. It commits nothing: the row is
+committed inside the workspace, then the task is claimed. Every refusal is checked, and the removal
+validated, before a branch is created; a later failure removes the new workspace and branch, restores
+the row and cancels a reservation it added. With `worktree = "never"` the row is removed first and the
+checkout must then be clean. It refuses, changing nothing: exit 3 for an unknown ID or an epic that
+does not exist on `onto`; exit 5 for a task that is not pending, `done-branch` or `discarded-branch`,
+whose `row` is `on-base` (nothing to carry) or `on-branch`, for diverged mainlines, two or more
+unmerged dependencies, an existing worktree path, a `--branch` another task has, or — without
+worktrees — other uncommitted changes; exit 4 for a task claimed by someone else and exit 5 for one
+the caller claimed here; exit 1 when adding the row on `onto` or removing it here would leave that
+backlog invalid, such as a dependency only this checkout has; exit 2 for an invalid `--branch`, a
+column the base's table lacks, or no base. `--json` returns `id`, `backlog`, `epic`, `branch`,
+`workspace`, `base`, `files` (written in the workspace), `removed_from` with `path`, `files` and
+`uncommitted` (whether those files now differ from that checkout's `HEAD`, as when the row had been
+committed there), `reservation_added` and `record_remote`.
+
+`new` without `--workspace`, on a checkout whose current branch is the backlog's mainline, still
+writes the row and exits 0, but warns on stderr that the row is uncommitted there and names
+`taskrail workspace <ID>`; `--json` returns the text in `warning`, `null` on any other branch, on a
+detached `HEAD` and with `--workspace`. A row added on a task branch, the follow-up flow, does not
+warn.
 
 ### 7.2 Prior work
 

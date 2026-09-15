@@ -97,6 +97,7 @@ def base_dict(task: Task, project: Project) -> dict | None:
             base = choose_base(root, remote.name, mainline)
             onto, diverged, reason = base.onto, base.diverged, base.reason
         commit = _sha(root, onto) if onto else None
+        row = row_on_base(task, project, onto, remote.name) if onto else None
     except gitutil.GitError:
         return None
     return {
@@ -107,7 +108,37 @@ def base_dict(task: Task, project: Project) -> dict | None:
         "remote_source": remote.source,
         "commit": commit,
         "dependency": dependency,
+        "row": row,
     }
+
+
+ROWS_CACHE_KEY = "rows_at_base"
+REFS_CACHE_KEY = "branch_refs"
+
+
+def row_on_base(task: Task, project: Project, onto: str, remote: str) -> str:
+    """Where a task's row is relative to its base (T070).
+
+    `on-base` when the backlog's files at `onto` have a row with the task's ID; otherwise
+    `on-branch` when the task's branch exists locally or as `<remote>/<branch>`, and `missing` when
+    it does not: only this checkout has the row, so a workspace created from `onto` would lack it.
+    Each backlog is read once per distinct `onto`, cached per project.
+    """
+    backlog = project.config.backlog(task.backlog)
+    rows = project.cache.setdefault(ROWS_CACHE_KEY, {})
+    key = (backlog.file, onto)
+    if key not in rows:
+        rows[key] = set(stack._read_statuses(project, backlog.file, [onto])[onto])
+    if task.id in rows[key]:
+        return "on-base"
+    if REFS_CACHE_KEY not in project.cache:
+        root = project.config.root
+        project.cache[REFS_CACHE_KEY] = set(gitutil.refs(root, "refs/heads")) | set(gitutil.refs(root, "refs/remotes"))
+    branch = branches.task_branch(task, project)
+    existing = project.cache[REFS_CACHE_KEY]
+    if branch and (f"refs/heads/{branch}" in existing or f"refs/remotes/{remote}/{branch}" in existing):
+        return "on-branch"
+    return "missing"
 
 
 def _checked_out(project: Project) -> dict[str, Path]:

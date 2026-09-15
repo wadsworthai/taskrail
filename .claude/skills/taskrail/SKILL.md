@@ -56,7 +56,12 @@ of `taskrail show`) supplies what happens inside each stage.
    from — the local or the remote mainline, whichever is further ahead, or, when
    `base.dependency` names a dependency finished only on its unmerged branch, that branch.
    If `base.diverged` is true, stop and ask which one to use; if `base.onto` is null, stop and
-   report `base.reason`. If `worktree` is set, create it:
+   report `base.reason`. If `base.row` is `missing`, the task's row exists only in this checkout,
+   and a workspace created from `base.onto` would not contain it: run
+   `taskrail workspace <ID> --json` instead of the git commands below. It creates the branch and
+   worktree from `base.onto`, moves the row there with its ID and removes it from this checkout;
+   commit the row inside the workspace, and the removal here when `removed_from.uncommitted` is
+   true and this checkout's branch needs it. If `worktree` is set, create it:
    `git worktree add --no-track <worktree> -b <branch> <base.onto>`; otherwise
    `git switch --no-track -c <branch> <base.onto>`. `--no-track` keeps the base from becoming the
    branch's upstream, so a plain `git push` cannot land on the mainline or a dependency's branch;
@@ -165,9 +170,14 @@ To open a task and start working on it straight away, add `--workspace`. It crea
 branch — and worktree, when the repository uses them — from `base.onto` and writes the new row
 there instead of in the current checkout, so the task travels with its own pull request rather
 than being committed to the mainline first. Commit the row inside that workspace, then claim
-the task. It refuses when the mainlines have diverged or the branch already exists. Add epics with
-`taskrail epic add --name … --objective … [--done-when …] [--own-file]`, and move a large
-inline epic to its own file with `taskrail epic split E01`.
+the task. It refuses when the mainlines have diverged or the branch already exists.
+
+Without `--workspace` the row is written in the current checkout; on a mainline checkout `new`
+warns, since a repository that merges through pull requests has no path for it there. Move such
+a row into its own workspace with `taskrail workspace <ID>`, which keeps its ID.
+
+Add epics with `taskrail epic add --name … --objective … [--done-when …] [--own-file]`, and move
+a large inline epic to its own file with `taskrail epic split E01`.
 
 ## Editing tasks
 

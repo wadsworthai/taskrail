@@ -1,6 +1,8 @@
 # T070 — Detect a task whose row is missing from its base and carry the row into its workspace
 
-Kind: feature · Epic: E05 · Status: plan (awaiting approval). Run `20260915-2`. Record:
+Kind: feature · Epic: E05 · Status: implemented (plan approved: D1–D10 as recommended, except that
+DESIGN.md §12.1's `autopilot next` cell is left to T071; decision 11 added: `workspace` always records
+its branch). Run `20260915-2`. Record:
 `docs/autopilot/decisions/T070-detect-a-task-whose-row-is-missing-from.md`.
 
 ## Today
@@ -71,13 +73,16 @@ After this change:
    - it removes the row from the checkout it ran in, deleting only that line;
    - it keeps the ID reserved (re-adding the reservation when an earlier `reserve` dropped it),
      since the row is uncommitted in the workspace and appears in no scanned file until committed;
-   - `--branch NAME` names the branch and records it (§6.4), validated as for `new --branch`;
+   - it records the branch it creates (§6.4) — the template's name, or `--branch NAME`, validated as
+     for `new --branch` — mirrored to `branch_record_remote` as `claim` mirrors, so a row that lives
+     only on its branch is found through that record, as for `new --workspace` (decision 11);
    - like `new --workspace`, it fetches mirrored branch records first and commits nothing: the
      executor commits the row inside the workspace, then claims.
    `--json` returns `id`, `backlog`, `epic`, `branch`, `workspace`, `base`, `files` (written in the
    workspace), `removed_from` (`path` of the origin checkout, `files`, and `uncommitted`: whether
    those files now differ from its `HEAD` — true when the row had been committed there, so the
-   deletion needs a commit), and `record_remote`.
+   deletion needs a commit), `reservation_added` (whether the ID had to be reserved again) and
+   `record_remote`.
    Order: every refusal below is checked, and the removal validated in memory, before any branch is
    created; then the workspace is created and its row written (validated; on failure the workspace
    and branch are removed); then the removal is written. With `worktree = "never"` the removal is
@@ -121,8 +126,8 @@ After this change:
    and cells (points, dependencies, description and a custom column included); the origin
    checkout's backlog no longer has it and `git status --porcelain` there is empty; `reserve-id`
    afterwards returns the next number, not the carried ID; `claim <ID>` inside the workspace exits
-   0; `show <ID> --json` there reports `base.row` `on-branch`. The JSON fields listed in Behaviour 5
-   are present.
+   0; `show <ID> --json` there reports `base.row` `on-branch` and `branch_source` `recorded`
+   (decision 11). The JSON fields listed in Behaviour 5 are present.
 6. With `worktree = "never"`: the checkout is switched to the task's branch with the row written
    there; with another uncommitted change it exits 5, the checkout stays on `main` and still has the
    row.
@@ -140,6 +145,46 @@ After this change:
     `taskrail workspace <ID>` in its workspace step, and the existing test that every command and
     flag a skill shows exists passes with the new command in the parser.
 
+## Tests per criterion
+
+All in `tests/test_row_on_base.py` unless named otherwise. Each was observed failing before the
+implementation (28 failed): `KeyError: 'row'` for the `base.row` tests; the `show` text line and the
+`autopilot next` skip absent (`assert {'id': 'T004', 'reason': …} in []`); `argparse` exit 2,
+`invalid choice: 'workspace'`, for every `workspace` test; `KeyError: 'warning'` for `new`; the
+skill phrases absent from the source and both installed copies; `KeyError: 'workspace'` in the parser.
+
+| Criterion | Test |
+|-----------|------|
+| 1 | `test_base_row_is_on_base_for_a_committed_task_and_missing_for_one_only_this_checkout_has`, `test_a_row_committed_on_a_branch_that_is_not_the_base_is_missing`, `test_base_row_is_on_branch_in_the_workspace_new_created` (before and after the row's commit), `test_base_row_is_null_when_the_mainlines_have_diverged` |
+| 2 | `test_show_text_names_the_missing_row_and_the_command` |
+| 3 | `test_next_keeps_a_missing_row_and_marks_it` (JSON `row` for both tasks; the marked line; every other line identical to `next` before the row existed) |
+| 4 | `test_autopilot_next_skips_a_missing_row_and_dispatches_the_rest` (preview and `--run`; T002 dispatched; T004 absent from the run's tasks) |
+| 5 | `test_workspace_carries_the_row_with_its_id_and_cells` (points, dependency, a description with an escaped pipe, a custom column; the whole `--json` result; no upstream; fork point `origin/main`; the origin backlog back to its committed content; T004's reservation dropped by a `reserve-id` while the row sat in the checkout, re-added, so the next `reserve-id` returns T005; `branch_source` `recorded`, `row` `on-branch`, `claim` exit 0 in the workspace), `test_workspace_text_output` |
+| 6 | `test_workspace_switches_this_checkout_when_worktrees_are_off`, `test_workspace_refuses_other_uncommitted_changes_when_worktrees_are_off` |
+| 7 | `test_workspace_refuses_an_unknown_task`, `…_a_row_already_on_its_base`, `…_a_task_whose_branch_exists`, `…_a_task_that_is_not_pending`, `…_a_claimed_task` (4 for another owner, 5 for the caller), `…_diverged_mainlines`, `…_an_epic_missing_on_the_base`, `…_a_row_whose_dependency_only_this_checkout_has`, `…_a_row_another_row_here_depends_on` — each through a helper asserting the backlog and the reservations are unchanged, and that no branch or worktree is left |
+| 8 | `test_workspace_branch_names_and_records_the_branch`, `test_workspace_refuses_an_invalid_branch_name` |
+| 9 | `test_new_without_workspace_warns_on_the_mainline`, `test_new_on_another_branch_or_with_a_workspace_does_not_warn` |
+| 10 | `test_the_core_skill_names_base_row_and_the_workspace_command` (source, `claude` and `opencode` copies), `test_the_workspace_command_and_its_flags_exist` |
+
+Implementation notes:
+
+- `tests/test_workspace.py::test_show_reports_the_base` and
+  `tests/test_mainline_remote.py::test_show_uses_the_remote_the_mainline_tracks` compare the whole
+  `base` object; the full run failed on both with `Left contains 1 more item: {'row': 'on-base'}`, and
+  each expected object now includes `"row": "on-base"`. Neither file was listed in the affected areas.
+- `_open_workspace` now takes a task: `cmd_new` builds its probe with a new `_probe_task`, and the
+  checks it made moved into `_workspace_target`, which `cmd_workspace` also runs before changing
+  anything. `cmd_new`'s `record_branch` closure is unchanged.
+- `writer.row_values` (new, next to `remove_task`) reads the row's cells by its table's header, so a
+  cell whose optional column is absent is not invented, and escaped pipes survive the move.
+- `--json` gained `reservation_added`, not named in the plan, so the caller can see D6 at work.
+- *Creating tasks*: the approved paragraph sits after the `--workspace` paragraph's last sentence
+  ("It refuses when the mainlines have diverged or the branch already exists."), not before it, so
+  that sentence keeps referring to `--workspace`; "Add epics with …" became its own paragraph.
+- `.claude/skills/taskrail/SKILL.md` and `.taskrail/installed.json` were updated with
+  `taskrail upgrade`.
+- DESIGN.md §12.1 is not edited (decision 9): *A row missing from its base* in §7 only points to it.
+
 ## Affected areas
 
 Named by file and function, for the touch map.
@@ -150,19 +195,19 @@ Named by file and function, for the touch map.
   warning and `warning` in the result; the `Task` probe moves out of `_open_workspace`, which then
   takes a task), a new `cmd_workspace` next to `cmd_new`, and its parser registration in
   `build_parser`.
-- `src/taskrail/writer.py` — a new `remove_task(edits, task)`.
+- `src/taskrail/writer.py` — new `remove_task(edits, task)` and `row_values(edits, task)`, sharing
+  a `_row_of` lookup.
 - `src/taskrail/ids.py` — a new `keep_reservation(config, backlog, task_id, owner)`.
 - `src/taskrail/autopilot/dispatch.py` — `next_lanes`, the candidate loop's final `else:` branch
   (one more skip reason after the base check). Shared with T071; my change is those few lines.
-- `tests/test_row_on_base.py` (new) — criteria 1–9; `tests/test_autopilot_next.py` untouched unless
-  a fixture helper is needed (I would import from it rather than edit it).
+- `tests/test_row_on_base.py` (new) — criteria 1–10; `tests/test_workspace.py` and
+  `tests/test_mainline_remote.py`, one expected `base` object each (see *Implementation notes*).
 - `src/taskrail/skills/taskrail/SKILL.md` — step 3 *Workspace* (one sentence added after the
   `base.onto` is null rule) and *Creating tasks* (one sentence after the `--workspace` paragraph);
   then `taskrail upgrade` for `.claude/skills/taskrail/SKILL.md` and `.taskrail/installed.json`.
 - `DESIGN.md` — §6.3 (one sentence on the kept reservation), §7 CLI table (`show`, `next`, `new`
-  rows, a new `workspace` row), §7 *Dependencies and the base* (`row` in the field list plus a short
-  paragraph *A row missing from its base*), §12.1 `autopilot next` row (one clause in the skip
-  list; T071 edits the same cell).
+  rows, a new `workspace` row), §7 *Dependencies and the base* (`row` in the field list plus a
+  paragraph *A row missing from its base*). §12.1's `autopilot next` cell is T071's (decision 9).
 - `README.md` — one line in *Use*: `taskrail workspace T012   # move a row only this checkout has into its own branch and worktree`.
 - `CHANGELOG.md` — one *Unreleased* bullet.
 - `docs/features/README.md` — index row.
