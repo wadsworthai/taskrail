@@ -550,3 +550,28 @@ T001 worktree: .worktrees/T001-first   lane brief <WORKTREE> = worktree_base/wor
 In this clone, `show T075 --json` with the fixed source reports
 `"worktree": ".worktrees/T075-report-and-create-task-worktrees-outside"` and
 `"worktree_base": "<clone>"`.
+
+## Impact
+
+The fix gate approved the change as it stands and kept `DESIGN.md` §8 unchanged (see the decision
+record). Checked for anything outside this fix that the root cause shows wrong; nothing needed a
+follow-up task:
+
+- **Other readers of the base.** `grep -rn "main_worktree\|main_checkout" src/` finds only
+  `gitutil.main_worktree`, `query.main_checkout`, `query.worktree_path`, `query.task_dict` and
+  `cli._workspace_target`, all covered by the fix.
+- **Other prose that derives the base from `git worktree list`.** `grep` over `src/taskrail/skills/`,
+  `src/taskrail/integrations/` and `README.md` for "main checkout", "worktree list" and `<WORKTREE>`
+  finds only the two places changed here; the autopilot skill fills the lane brief from the dispatch
+  entry and defers to the brief.
+- **`autopilot merged --cleanup` in a bare layout**, including T074's new refusal for a worktree that
+  contains other registered worktrees (merged into `origin/main` while this task ran): its
+  `_worktree_entries` lists the bare directory as an entry without a branch, so it never matches a task
+  branch, and the bare directory is never inside a task worktree, so it never counts as contained.
+- **Tests and docstrings that say "main checkout"** (`test_worktree_path.py`,
+  `test_workspace_placement.py`, `test_task_branch.py`) describe ordinary clones, where the base is
+  still the main checkout.
+- **The T072 CHANGELOG bullet** still says the skill creates a worktree with
+  `git -C <main checkout> worktree add` and joins the lane brief's worktree to the main checkout. It is
+  an unreleased entry that this task's bullet, listed above it in the same *Unreleased* section,
+  supersedes; left as the record of T072 rather than rewritten here.
