@@ -188,3 +188,11 @@ code; `<scratch>` is a fresh `git init` repository outside the clone.
     `Git operation failed`.
 - `taskrail checks T076 --stage implement`: `test` (`uv run pytest -q`) gave
   `1052 passed in 132.34s (0:02:12)`; `lint` is not configured in the `checks` map.
+
+## Docs
+
+Nothing else to update. The documentation this change affects — `README.md`, `CHANGELOG.md`,
+`DESIGN.md` and the skills — was part of the approved change set and changed in the implement
+commit. `grep -rn -e alexkander -e v0.1.0 -e github.com/` over `CLAUDE.md`,
+`src/taskrail/integrations/`, `examples/` and `pyproject.toml` prints nothing: none of them names
+the repository or a release tag. No follow-up tasks were opened.
