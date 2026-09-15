@@ -1,0 +1,41 @@
+# T077 — autopilot decisions
+
+Decisions the orchestrator took on the human's behalf while this task ran in an autopilot lane.
+Each is recorded before it is given to the lane.
+
+## escalated to the human
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The canonical repository, and a `v0.1.0` tag in it | `wadsworthai/taskrail` · `alexkander/taskrail` | **`github.com/wadsworthai/taskrail`; no `v0.1.0` version or tag in this repository** | The human's instruction, with the request to create T076 and T077 and run them at once (run 20260915-6). |
+| 2 | Consolidate the Unreleased text the release makes obsolete (scope decision D2) | consolidate · rename the heading only | **consolidate: merge the T072, T073 and T075 bullets into one, drop the "Behaviour change" sentences comparing against behaviour 0.1.0 never had (T030, T049, T051, T065) and T061's "as before"; keep every real behaviour change against 0.1.0; add a lead paragraph and an empty `## Unreleased` above `## 0.2.0`** | Decided by the human. |
+| 3 | How the release is carried out (scope decisions D1 and D8) | tag after the merge plus a bump task · two follow-up tasks · the human tags | **this branch carries the version, lock and changelog; after the merge the orchestrator asks the human, then tags `v0.2.0` on T077's squash commit and pushes it; one follow-up chore verifies the install from the tag and bumps `main` to `0.3.0.dev0`; no tag in any scratch clone** | Decided by the human. |
+
+Answered by the human (repository owner), in the orchestrator session.
+
+## Conflict handling agreed for all lanes
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Order of T076 and T077 (run decision 1) | parallel, T076 handed off first · serialize | **both lanes work in parallel; T076 is handed off and merged first, T077 is rebased onto it; the `v0.2.0` tag is pushed only after T077 merges, with the human's explicit approval at that moment** | The release must name the canonical repository, and a published tag never moves. |
+| 2 | Touch map (run decision 2) | split by scope · serialize | **T076: `install.py` `SOURCE_URL`, the `self upgrade --tag` help in `cli.py`, `test_install.py`'s self upgrade test, the six skill sources and what `taskrail upgrade` regenerates, README's install example and one *History* clause, CHANGELOG's preamble install line, its "taskrail has its own repository" bullet and a note under `## 0.1.0`, DESIGN.md's §4 pin example and §9 install example. T077: `pyproject.toml`, `uv.lock`, CHANGELOG's `## Unreleased` heading, the consolidation of the T072/T073/T075 bullets and the intra-release behaviour-change sentences, DESIGN.md line 3 (the status line), and `TODO.md` through the CLI.** | The lanes then share `CHANGELOG.md` and `DESIGN.md` only on separate lines. |
+
+## scope gate
+
+Reviewed: the scope artifact `docs/chores/T077-release-v0-2-0-from-the-canonical-reposi.md` (commit `274a85b`,
+the artifact and its index row only); on `d904d11`, `pyproject.toml` at `0.2.0.dev0`, `tests/test_version.py`
+(the package version equals pyproject's; `release_tag()` is `v` plus its `X.Y.Z`), which holds for `0.2.0`;
+`origin` has no tags. The stage defines no checks.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| D1 | The split | this branch plus one follow-up · two follow-ups · no follow-up | **as recommended** | Decided by the human. |
+| D2 | Superseded Unreleased text | consolidate · heading only · full regroup | **consolidate, as recommended** | Decided by the human. Do not touch the "taskrail has its own repository" bullet, the preamble or `## 0.1.0` (T076's). |
+| D3 | An empty `## Unreleased` above `## 0.2.0` | yes · the bump adds it | as recommended | Pull requests merged between the release and the bump need a place for their bullets. |
+| D4 | A lead paragraph under `## 0.2.0`, no URL, no date | yes · none | as recommended | It tells upgraders to read the behaviour changes. |
+| D5 | Edit T077's description with `taskrail edit` so it no longer promises the tag and the bump | edit · leave | as recommended | The row should describe what this branch delivers, naming the follow-up. |
+| D6 | DESIGN.md line 3 (status) | T077 sets it to `v0.2.0` · T076 owns it | **T077 sets it, touching only that line** | T076 leaves it (its scope decision 4); the status names the release this branch makes. |
+| D7 | Pull request title | `chore(release)` · `chore(repo)` | **`chore(release): release v0.2.0 (T077)`** | A release commit; CLAUDE.md's scope list is open-ended. |
+| D8 | A tag in a scratch clone for the wrapper-fallback check | defer to the follow-up · local scratch tag | **defer to the follow-up; no tag anywhere** | Decided by the human with D1. |
+
+The change set is approved as listed in the artifact, with D6 applied.
