@@ -43,3 +43,4 @@
 | T051 | Label overlaps in known conflict-class files | [T051-label-overlaps-in-known-conflict-class-f.md](T051-label-overlaps-in-known-conflict-class-f.md) |
 | T047 | Keep a stacked task's fork point after done | [T047-keep-a-stacked-task-s-fork-point-after-d.md](T047-keep-a-stacked-task-s-fork-point-after-d.md) |
 | T061 | Separate the documents the orchestrator reads first from the paths that escalate | [T061-separate-the-documents-the-orchestrator.md](T061-separate-the-documents-the-orchestrator.md) |
+| T059 | Record an approved governing edit so autopilot status stops flagging it | [T059-record-an-approved-governing-edit-so-aut.md](T059-record-an-approved-governing-edit-so-aut.md) |

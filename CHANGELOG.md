@@ -195,6 +195,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   their own key, so `governing` only escalates; without the key they are the `governing` entries,
   as before. `autopilot status` reports `read_first` and `read_first_missing` (entries that match
   nothing), and the `taskrail-autopilot` skill reads the governing documents from them (T061).
+- **`autopilot approve-governing`.** Records a governing edit the human approved: each approved
+  path is stored in the task's lane with the blob ID of its content (the worktree file, else the
+  branch tip). `autopilot status` reports those files in `governing_approved` and raises
+  `governing` only for governing files not approved, naming only them in `ESCALATE: governing …`;
+  a later change to an approved file flags it again. The autopilot skill records approvals this
+  way (T059).
 
 ## 0.1.0
 

@@ -113,6 +113,42 @@ def _changed_in_worktree(worktree: str | None) -> list[str]:
     return paths
 
 
+def current_blobs(root: Path, worktree: str | None, head: str | None, paths: list[str]) -> dict[str, str | None]:
+    """The blob ID of each path's current content, as `approve-governing` records it (T059).
+
+    From the file in the lane's worktree when that directory exists, so uncommitted content counts;
+    else from the branch tip. A path absent from where it is read is `None`.
+    """
+    blobs: dict[str, str | None] = {path: None for path in paths}
+    if not paths:
+        return blobs
+    if worktree and Path(worktree).is_dir():
+        present = [path for path in paths if (Path(worktree) / path).is_file()]
+        if present:
+            result = gitutil.run(Path(worktree), "hash-object", "--", *present, check=False)
+            if result.returncode == 0:
+                blobs.update(zip(present, result.stdout.split()))
+        return blobs
+    if head:
+        listing = gitutil.run(root, "ls-tree", "-r", "-z", head, "--", *paths, check=False).stdout
+        for entry in listing.split("\0"):
+            meta, _, path = entry.partition("\t")
+            parts = meta.split()
+            if path in blobs and len(parts) == 3 and parts[1] == "blob":
+                blobs[path] = parts[2]
+    return blobs
+
+
+def _approved(root: Path, lane: dict, worktree: str | None, head: str | None, touched: set[str]) -> list[str]:
+    """The touched files whose content still has the blob ID the lane's approval recorded."""
+    recorded = lane.get("governing_approved")
+    if not isinstance(recorded, dict):
+        return []
+    candidates = sorted(path for path in recorded if path in touched)
+    current = current_blobs(root, worktree, head, candidates)
+    return [path for path in candidates if current[path] == recorded[path]]
+
+
 def _branch_ref(root: Path, branch: str | None) -> str | None:
     if branch and gitutil.branch_exists(root, branch):
         return f"refs/heads/{branch}"
@@ -197,6 +233,7 @@ def _lane_details(task: Task, project: Project, run: dict, claim: Claim | None, 
         "idle_minutes": idle,
         "silent": silent,
         "touched": sorted(touched),
+        "governing_approved": _approved(root, lane, worktree, head, touched),
     }
 
 
@@ -254,7 +291,7 @@ def _flag_escalations(rows: list[dict], config) -> None:
     """Add the computed escalation reasons of §12.6 to each task row (T032)."""
     for row in rows:
         if row["state"] is not None:
-            row.update(escalation.flags(row["kind"], row["state"], row["gate"], row["touched"], config.autopilot))
+            row.update(escalation.flags(row["kind"], row["state"], row["gate"], row["touched"], config.autopilot, row["governing_approved"]))
 
 
 def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: datetime | None = None, worktrees: dict | None = None) -> dict:

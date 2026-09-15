@@ -104,8 +104,9 @@ it into every affected task's record, and give it to every live lane when you ne
 
 Stop and ask the human when:
 
-1. a lane's branch touches a governing path (`governing` in `escalation` in `status`, until the
-   task is `done-branch`; the close review checks `governing_touched` after that);
+1. a lane's branch touches a governing path not yet approved (`governing` in `escalation` in
+   `status`, until the task is `done-branch`; the close review checks `governing_touched` after
+   that);
 2. the gate is listed in `escalate_gates` (`escalate_gate` in `status`);
 3. the governing documents reserve the decision to humans;
 4. two lanes contradict each other;
@@ -116,7 +117,11 @@ Stop and ask the human when:
 To escalate: record `taskrail autopilot lane <ID> --run <R> --state escalated --reason <why>`, run
 `taskrail autopilot notify --event escalation --run <R> --task <ID>`, and ask the human a direct
 question with the options and your recommendation. Record the answer in the task's record, naming
-who gave it. Other lanes keep going meanwhile. Reopening a task needs the human's say-so, as the
+who gave it. When the answer approves a governing edit, read the edited files, and once they hold
+what was approved, run `taskrail autopilot approve-governing <ID> --run <R>` (with `--path` for each
+file when the answer covers only some), so later gates do not raise it again. A flagged file whose
+content the task's record already shows approved is not a new escalation: record the approval the
+same way. A later change to an approved file flags it again. Other lanes keep going meanwhile. Reopening a task needs the human's say-so, as the
 `taskrail` skill says.
 
 A lane that cannot finish is recorded

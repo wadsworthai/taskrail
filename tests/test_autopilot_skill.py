@@ -424,6 +424,17 @@ def test_a_new_session_resumes_a_run_by_handle_and_restarts_from_the_branch(auto
     assert "everything between the two rules is the brief" in flat(brief)
 
 
+def test_an_approved_governing_edit_is_recorded_and_the_close_review_reads_it():
+    """T059: the orchestrator records an approved governing edit; the close review uses `governing_approved`."""
+    escalate = flat(re.search(r"^## Escalate$(.*?)^## ", source("SKILL.md"), re.MULTILINE | re.DOTALL).group(1))
+    condition = re.search(r"1\. (.*?)2\. ", escalate).group(1)
+    assert "governing path not yet approved" in condition
+    assert "taskrail autopilot approve-governing <id> --run <r>" in escalate
+    assert "a later change to an approved file flags it again" in escalate
+    close = flat(re.search(r"^## Close$(.*?)^## ", source("references/gate-review.md"), re.MULTILINE | re.DOTALL).group(1))
+    assert "`governing_approved`" in close
+
+
 def test_skill_starts_from_several_unmerged_dependencies_only_on_explicit_instruction():
     text = flat(source("SKILL.md"))
     assert "several unmerged dependencies" in text

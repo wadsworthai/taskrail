@@ -66,15 +66,22 @@ def governing_touched(touched: list[str], governing: tuple[str, ...]) -> list[st
     return sorted(path for path in touched if any(matches(pattern, path) for pattern in governing))
 
 
-def flags(kind: str | None, state: str | None, gate: str | None, touched: list[str], autopilot: AutopilotConfig) -> dict:
+def flags(
+    kind: str | None, state: str | None, gate: str | None, touched: list[str], autopilot: AutopilotConfig, approved: list[str] | tuple = ()
+) -> dict:
     """The escalation fields of one task row in `autopilot status`.
 
     `governing_touched` lists the matching files in every state, for the close review; `governing` is
     a reason only until the task moves on, as `escalate_gate` is set only while a lane is at a gate.
+    `approved` names the files whose approved content is unchanged (T059): `governing` is a reason
+    only while a governing file is not among them.
     """
     governing = governing_touched(touched, autopilot.governing)
+    approved = set(approved)
+    governing_approved = [path for path in governing if path in approved]
     escalate_gate = None
     if state in GATE_STATES and kind and gate and f"{kind}:{gate}" in autopilot.escalate_gates:
         escalate_gate = f"{kind}:{gate}"
-    reasons = (["governing"] if governing and state not in MOVED_ON else []) + (["escalate-gate"] if escalate_gate else [])
-    return {"governing_touched": governing, "escalate_gate": escalate_gate, "escalation": reasons}
+    unapproved = len(governing) > len(governing_approved)
+    reasons = (["governing"] if unapproved and state not in MOVED_ON else []) + (["escalate-gate"] if escalate_gate else [])
+    return {"governing_touched": governing, "governing_approved": governing_approved, "escalate_gate": escalate_gate, "escalation": reasons}

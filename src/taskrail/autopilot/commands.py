@@ -6,6 +6,8 @@ import sys
 
 from taskrail import claims, gitutil, ids, stack
 from taskrail.autopilot import dispatch, notify, runs
+from taskrail.autopilot.approve import add_arguments as approve_arguments
+from taskrail.autopilot.approve import cmd_approve_governing
 from taskrail.autopilot.merged import add_arguments as merged_arguments
 from taskrail.autopilot.merged import cmd_merged
 from taskrail.autopilot.status import status as compute_status
@@ -293,7 +295,8 @@ def _escalation_text(row: dict) -> list[str]:
     reasons = []  # only the reasons in `escalation`, so the text and the JSON agree (T049)
     escalation = row.get("escalation") or []
     if "governing" in escalation:
-        reasons.append(f"governing {', '.join(row['governing_touched'])}")
+        approved = set(row.get("governing_approved") or [])  # only the files still waiting for approval (T059)
+        reasons.append(f"governing {', '.join(path for path in row['governing_touched'] if path not in approved)}")
     if "escalate-gate" in escalation:
         reasons.append(f"gate {row['escalate_gate']}")
     return [f"ESCALATE: {'; '.join(reasons)}"] if reasons else []
@@ -364,6 +367,8 @@ def register(commands) -> None:
     decision.add_argument("--question", required=True)
     decision.add_argument("--decision", required=True)
     decision.add_argument("--reason", required=True)
+
+    approve_arguments(add("approve-governing", cmd_approve_governing, "Record a governing edit the human approved, so status stops flagging it until the file changes."))
 
     notify_ = add("notify", cmd_notify, "Run [autopilot].notify for an event in notify_on; a failing command is reported and never blocks.")
     notify_.add_argument("--event", required=True, choices=NOTIFY_EVENTS)
