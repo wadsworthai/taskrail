@@ -294,6 +294,86 @@ def test_status_text_marks_flagged_lanes(pilot, capsys):
     assert t003.endswith("ESCALATE: gate bug:fix")
 
 
+# 5b. T049: `governing` leaves `escalation` once a task has moved on, as `escalate_gate` does
+
+
+@pytest.mark.parametrize(
+    ("state", "reasons"),
+    [
+        ("running", ["governing"]),
+        ("gate", ["governing", "escalate-gate"]),
+        ("escalated", ["governing", "escalate-gate"]),
+        ("failed", ["governing"]),
+        ("done-branch", []),
+        ("handed-off", []),
+    ],
+)
+def test_flags_keep_governing_touched_but_drop_the_reason_after_done_branch(state, reasons):
+    from taskrail.config import AutopilotConfig
+
+    config = AutopilotConfig(governing=("docs/adr",), escalate_gates=("bug:fix",))
+    found = escalation_module().flags("bug", state, "fix", ["TODO.md", "docs/adr/0001.md"], config)
+    assert found["governing_touched"] == ["docs/adr/0001.md"]
+    assert found["escalation"] == reasons
+    assert found["escalate_gate"] == ("bug:fix" if "escalate-gate" in reasons else None)
+
+
+def test_status_drops_the_governing_escalation_at_done_branch_and_handed_off(pilot, capsys):
+    configure(pilot, ENABLED + 'governing = ["docs/adr"]\nescalate_gates = ["bug:fix"]\n')
+    run_id = start(pilot.root, capsys)
+    bug = pilot.lane("T003", run_id)
+    (bug / "docs" / "adr").mkdir(parents=True)
+    (bug / "docs" / "adr" / "0001.md").write_text("x")
+    commit_all(bug, "adr")
+    touched = ["docs/adr/0001.md"]
+
+    def lane(*argv):
+        data(pilot.root, "autopilot", "lane", "T003", "--run", run_id, *argv, capsys=capsys)
+
+    def flags():
+        found = row(status_of(pilot.root, capsys, run_id), "T003")
+        return found["state"], found["governing_touched"], found["escalate_gate"], found["escalation"]
+
+    assert flags() == ("running", touched, None, ["governing"])
+    lane("--state", "gate", "--gate", "fix")
+    assert flags() == ("gate", touched, "bug:fix", ["governing", "escalate-gate"])
+    lane("--state", "escalated", "--reason", "governing edit")
+    assert flags() == ("escalated", touched, "bug:fix", ["governing", "escalate-gate"])
+    lane("--state", "failed", "--reason", "stuck")
+    assert flags() == ("failed", touched, None, ["governing"])
+
+    lane("--state", "gate", "--gate", "fix")  # the last recorded gate is one `escalate_gates` lists
+    pilot.finish(bug, "T003")
+    assert flags() == ("done-branch", touched, None, [])
+    lane("--state", "handed-off")
+    assert flags() == ("handed-off", touched, None, [])
+
+
+def test_status_text_marks_no_governing_escalation_after_done_branch(pilot, capsys):
+    configure(pilot, ENABLED + 'governing = ["docs/adr"]\n')
+    run_id = start(pilot.root, capsys)
+    feature = pilot.lane("T001", run_id)
+    chore = pilot.lane("T004", run_id)
+    for lane_path, name in ((feature, "0001.md"), (chore, "0002.md")):
+        (lane_path / "docs" / "adr").mkdir(parents=True)
+        (lane_path / "docs" / "adr" / name).write_text("x")
+        commit_all(lane_path, "adr")
+    pilot.finish(chore, "T004")
+
+    def lines():
+        code, out, _ = run(pilot.root, "autopilot", "status", capsys=capsys)
+        assert code == 0
+        return {line.split()[0]: line for line in out.splitlines() if line.startswith("  T")}
+
+    found = lines()
+    assert found["T001"].endswith("ESCALATE: governing docs/adr/0001.md")
+    assert found["T004"].split()[1] == "done-branch" and "ESCALATE" not in found["T004"]
+    data(pilot.root, "autopilot", "lane", "T004", "--run", run_id, "--state", "handed-off", capsys=capsys)
+    found = lines()
+    assert found["T004"].split()[1] == "handed-off" and "ESCALATE" not in found["T004"]
+    assert row(status_of(pilot.root, capsys, run_id), "T004")["governing_touched"] == ["docs/adr/0002.md"]
+
+
 # 6
 
 

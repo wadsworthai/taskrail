@@ -145,6 +145,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   kind, even one whose kind is not defined, so the orchestrator can record the close it reviews;
   the other `--gate` rules are unchanged, and an unknown stage's message now lists `close` too. The
   `taskrail-autopilot` skill records the close stop this way (T050).
+- **No governing escalation after `done-branch`.** `autopilot status` no longer lists `governing`
+  in `escalation`, nor prints `ESCALATE: governing …`, for a `done-branch` or `handed-off` task, as
+  it already dropped `escalate_gate`; `governing_touched` still lists the paths. The autopilot
+  skill's close review escalates a governing path the task's decision record does not show
+  escalated. Behaviour change: such a task used to stay flagged until its merge (T049).
 
 ## 0.1.0
 

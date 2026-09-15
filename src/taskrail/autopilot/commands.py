@@ -250,10 +250,11 @@ def _status_text(report: dict) -> str:
 
 
 def _escalation_text(row: dict) -> list[str]:
-    reasons = []
-    if row.get("governing_touched"):
+    reasons = []  # only the reasons in `escalation`, so the text and the JSON agree (T049)
+    escalation = row.get("escalation") or []
+    if "governing" in escalation:
         reasons.append(f"governing {', '.join(row['governing_touched'])}")
-    if row.get("escalate_gate"):
+    if "escalate-gate" in escalation:
         reasons.append(f"gate {row['escalate_gate']}")
     return [f"ESCALATE: {'; '.join(reasons)}"] if reasons else []
 

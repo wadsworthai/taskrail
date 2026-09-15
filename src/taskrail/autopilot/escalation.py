@@ -12,6 +12,8 @@ from functools import lru_cache
 from taskrail.autopilot.runs import GATE_STATES  # a lane in these states is stopped at a gate
 from taskrail.config import AutopilotConfig
 
+MOVED_ON = ("done-branch", "handed-off")  # finished on the branch: its governing edit was escalated while it worked (T049)
+
 
 @lru_cache(maxsize=256)
 def _compile(pattern: str) -> re.Pattern:
@@ -65,10 +67,14 @@ def governing_touched(touched: list[str], governing: tuple[str, ...]) -> list[st
 
 
 def flags(kind: str | None, state: str | None, gate: str | None, touched: list[str], autopilot: AutopilotConfig) -> dict:
-    """The escalation fields of one task row in `autopilot status`."""
+    """The escalation fields of one task row in `autopilot status`.
+
+    `governing_touched` lists the matching files in every state, for the close review; `governing` is
+    a reason only until the task moves on, as `escalate_gate` is set only while a lane is at a gate.
+    """
     governing = governing_touched(touched, autopilot.governing)
     escalate_gate = None
     if state in GATE_STATES and kind and gate and f"{kind}:{gate}" in autopilot.escalate_gates:
         escalate_gate = f"{kind}:{gate}"
-    reasons = (["governing"] if governing else []) + (["escalate-gate"] if escalate_gate else [])
+    reasons = (["governing"] if governing and state not in MOVED_ON else []) + (["escalate-gate"] if escalate_gate else [])
     return {"governing_touched": governing, "escalate_gate": escalate_gate, "escalation": reasons}

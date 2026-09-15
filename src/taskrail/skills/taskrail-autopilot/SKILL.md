@@ -86,7 +86,8 @@ it into every affected task's record, and give it to every live lane when you ne
 
 Stop and ask the human when:
 
-1. a lane's branch touches a governing path (`governing_touched` in `status`);
+1. a lane's branch touches a governing path (`governing` in `escalation` in `status`, until the
+   task is `done-branch`; the close review checks `governing_touched` after that);
 2. the gate is listed in `escalate_gates` (`escalate_gate` in `status`);
 3. the governing documents reserve the decision to humans;
 4. two lanes contradict each other;

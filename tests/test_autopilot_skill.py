@@ -316,6 +316,15 @@ def test_skill_records_the_close_stop_as_a_gate():
     assert "taskrail autopilot lane <id> --run <r> --state gate --gate close" in close
 
 
+def test_governing_escalates_by_its_reason_and_the_close_review_checks_the_paths():
+    """T049: `status` drops `governing` from `escalation` at `done-branch`; the close review covers the paths."""
+    escalate = flat(re.search(r"^## Escalate$(.*?)^## ", source("SKILL.md"), re.MULTILINE | re.DOTALL).group(1))
+    condition = re.search(r"1\. (.*?)2\. ", escalate).group(1)
+    assert "governing path" in condition and "`governing` in `escalation`" in condition
+    close = flat(re.search(r"^## Close$(.*?)^## ", source("references/gate-review.md"), re.MULTILINE | re.DOTALL).group(1))
+    assert "`governing_touched`" in close and "escalates" in close
+
+
 def test_skill_starts_from_several_unmerged_dependencies_only_on_explicit_instruction():
     text = flat(source("SKILL.md"))
     assert "several unmerged dependencies" in text

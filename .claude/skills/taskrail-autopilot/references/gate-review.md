@@ -56,6 +56,9 @@ never on the lane's report alone.
   this task's row and rows the task added.
 - The checks pass, `taskrail validate` reports no errors, and the artifact, its index row and the
   decision record are committed.
+- Every path in the task's `governing_touched` was escalated and answered in its decision record.
+  `status` no longer flags a `done-branch` task, so a governing path changed after the last gate
+  escalates now.
 - The branch has no upstream tracking the mainline (`git rev-parse --abbrev-ref @{u}` fails), so no
   plain push can reach the mainline; otherwise `git branch --unset-upstream`.
 - Note the `rebase` that `review --json` reported, for the hand-off.
