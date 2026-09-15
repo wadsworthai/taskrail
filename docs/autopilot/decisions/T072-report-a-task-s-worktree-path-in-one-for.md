@@ -52,3 +52,18 @@ CHANGELOG bullet. No JSON field was added. Re-ran `taskrail checks T072 --stage 
 |---|---|---|---|---|
 | 1 | Approve the fix, with the first `git worktree list` entry as the main checkout (running root as fallback) and `.` for a branch checked out in the main checkout | approve · report the main checkout otherwise | as recommended | Git documents the main worktree as listed first, which holds with a separate git dir and in submodules where the common dir's parent does not; `.` is the consistent relative path. |
 | 2 | A separate regression test through `autopilot next` | no · add one | as recommended | `autopilot next` copies the field from `query.task_dict`, which the new tests cover, and `test_autopilot_named.py` already asserts the form through it. |
+
+## close
+
+Reviewed: the impact stage reproduced, in a scratch repository, `new --workspace` and `workspace` run
+inside a lane creating the new worktree below that lane, and opened T073 (bug, E02) for it (`064dd85`,
+the row only; the artifact's *Impact* section in `9f54030`). `taskrail done` is committed on its own
+(`daa19c8`); the backlog differs from `origin/main` only in this task's row, as `✅`, and T073's row.
+`governing_touched` is empty, the branch has no upstream, and `review --json` reported
+`rebase.needed: false`. The fix-stage checks passed at `34edbdc` and only the backlog and the artifact
+changed since.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | `fix(cli)` · `feat(cli)` | **`fix(cli)`** | It corrects a field that depended on the running checkout. |
+| 2 | Mark the change breaking | not breaking · `--breaking` | **not breaking** | From the main checkout, where the skills read it, the value is unchanged for every worktree under it; only runs from inside a worktree or for a worktree outside the repository change, and the skill and lane brief that consume the field were updated in the same change. The human can still mark it breaking in the pull request title before merging. |
