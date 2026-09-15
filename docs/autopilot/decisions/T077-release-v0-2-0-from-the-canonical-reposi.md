@@ -56,3 +56,32 @@ the wrapper there, with no tag and no `uv tool install`. Re-ran `taskrail checks
 |---|---|---|---|---|
 | 1 | The T030 bullet lost the fact that `autopilot lane --group` exits 2 unless the name is a configured judgement group | keep it removed · re-add the fact without the label | **re-add the fact, without "Behaviour change"** | D2 removed labels comparing against unreleased behaviour, not the behaviour itself; the exit code is part of the CLI contract a 0.2.0 reader needs. |
 | 2 | Approve the implementation | approve · request changes | **approved, with decision 1 applied** | The diff matches the approved change set, and the checks pass. |
+
+## close
+
+Reviewed: the T030 correction (`b91cabf`: the bullet keeps "`autopilot lane --group` exits 2 unless the
+name is a configured judgement group" without the label); the docs stage, which found nothing to change
+(`2b8d52e`); `taskrail done` committed on its own (`8cea457`). The backlog differs from the base only in
+this task's row (its description, as `✅`) and T078's row. `governing_touched` is empty and the branch has
+no upstream. `review --json` then reported no rebase, before T076 merged.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Re-add to the T051 bullet that `overlaps` does not list known-class files (noticed by the lane) | leave it · re-add | **leave it** | "printed under their own heading after the real overlaps" already says it; the T030 fact was an exit code with no such cue. |
+| 2 | Pull request title | `chore(release): release v0.2.0 from the canonical repository (T077)` · edit it to `chore(release): release v0.2.0 (T077)` | **the generated title with `--type chore --scope release`** | It keeps the task title `taskrail review` uses, and still names the release. |
+
+## rebase after T076
+
+T076 was merged into `main` (`618474b`). The branch was rebased onto `origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `TODO.md` (three commits: rows added on both sides, T077's edited description and T078's row, T077's `✅`) | unite by ID · stop | **unite by ID: T076 `✅`, T077 with its edited description and `✅`, T078** | Backlog rows, a known class; neither side has a `Reopens:` commit. |
+| 2 | Conflicts in `docs/chores/README.md` and `docs/autopilot/decisions/README.md` | keep both · stop | **keep both** | Rows appended to an index by both sides, a known class. |
+
+`CHANGELOG.md` and `DESIGN.md` merged without conflict: the preamble names `wadsworthai/taskrail`,
+`## Unreleased` is empty above `## 0.2.0`, and `## 0.1.0` carries T076's note. After the rebase:
+`git diff --check origin/main` reports nothing, `git diff origin/main --stat` lists only this task's files,
+`grep alexkander` finds nothing in CHANGELOG.md, DESIGN.md or README.md, `taskrail checks T077` gave
+`1052 passed in 155.63s` (`lint` not configured), and `taskrail validate` reports
+`67 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
