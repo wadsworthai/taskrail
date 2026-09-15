@@ -11,3 +11,4 @@
 | T062 | Treat a task discarded on its unmerged branch as closed in status and next | [T062-treat-a-task-discarded-on-its-unmerged-b.md](T062-treat-a-task-discarded-on-its-unmerged-b.md) |
 | T064 | Skip a task merged on the remote mainline but not pulled in autopilot next | [T064-skip-a-task-merged-on-the-remote-mainlin.md](T064-skip-a-task-merged-on-the-remote-mainlin.md) |
 | T072 | Report a task's worktree path in one form whichever checkout runs the command | [T072-report-a-task-s-worktree-path-in-one-for.md](T072-report-a-task-s-worktree-path-in-one-for.md) |
+| T073 | Create a task worktree under the main checkout when new or workspace runs inside another worktree | [T073-create-a-task-worktree-under-the-main-ch.md](T073-create-a-task-worktree-under-the-main-ch.md) |
