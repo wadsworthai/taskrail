@@ -444,3 +444,21 @@ T074 in <worktree>: passed
 ```
 
 `lint` is listed for the fix stage but not defined in the `checks` map.
+
+The fix gate approved the change as it stands (see the decision record).
+
+## Impact
+
+Nothing outside this fix was found, and no follow-up task was opened.
+
+- The only other worktree removal in taskrail, `_close_workspace` in `cli.py`, undoes a worktree
+  created moments earlier in the same command at a path that did not exist, so nothing can be
+  registered inside it (see *Ruled out*).
+- `DESIGN.md` §12.8 describes the cleanup without listing its refusals; the command table's
+  `autopilot merged` row, which does, was updated in this fix.
+- The `taskrail-autopilot` skill already tells the orchestrator that exit 5 names what stopped the
+  cleanup, so it needs no change.
+- Ignored content that is not a registered worktree, such as a standalone repository placed by hand
+  in an ignored directory, is still deleted with the worktree, as `git worktree remove` does; the
+  diagnose gate decided that it does not block and needs no follow-up.
+- No specification (`never_edit`: `specs`) is involved.
