@@ -266,6 +266,9 @@ def _status_text(report: dict) -> str:
     if report["overlaps"]:
         lines.append("files touched by more than one lane:")
         lines += [f"  {path}: {', '.join(task_ids)}" for path, task_ids in report["overlaps"].items()]
+    if report["known_overlaps"]:
+        lines.append("known conflict classes touched by more than one lane (resolved at hand-off):")
+        lines += [f"  {path} ({known['class']}): {', '.join(known['tasks'])}" for path, known in report["known_overlaps"].items()]
     return "\n".join(lines)
 
 

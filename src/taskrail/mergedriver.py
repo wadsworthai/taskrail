@@ -591,25 +591,41 @@ def attribute_line(path: str) -> str:
 
 def attribute_paths(config) -> list[str]:
     """Backlog files, epic files, artifact indexes and changelogs the driver applies to."""
-    from taskrail.kinds import PLACEHOLDER_RE
     from taskrail.project import load_project
 
     project, _ = load_project(config)
-    paths: set[str] = set()
+    return sorted(known_conflict_paths(project))
+
+
+def known_conflict_paths(project) -> dict[str, str]:
+    """The driver's paths, each with its known conflict class (§12.8): `backlog`, `index` or `changelog`."""
+    from taskrail.kinds import PLACEHOLDER_RE
+
+    config = project.config
+    classes: dict[str, str] = {}
+
+    def add(path: str, kind: str) -> None:
+        normal = Path(path).as_posix().removeprefix("./") if path else ""
+        if normal and normal != "." and not normal.startswith("../"):
+            classes.setdefault(normal, kind)  # the first class wins: backlog, then index, then changelog
+
     templates = [kind.artifact_index for kind in project.kinds.values()] + [config.autopilot.decisions_index]
     for backlog in project.backlogs:
-        paths.add(backlog.config.file)
-        paths.update(epic.file for epic in backlog.epics if epic.file)
+        add(backlog.config.file, "backlog")
+        for epic in backlog.epics:
+            if epic.file:
+                add(epic.file, "backlog")
+    for backlog in project.backlogs:
         for template in filter(None, templates):
             placeholders = set(PLACEHOLDER_RE.findall(template))
             if placeholders - {"artifacts", "backlog", "epic"}:
                 continue  # a per-task index cannot be listed
             epics = [epic.id for epic in backlog.epics] if "epic" in placeholders else [""]
             for epic_id in epics:
-                paths.add(template.format(artifacts=backlog.config.artifacts, backlog=backlog.config.name, epic=epic_id))
-    paths.update(changelog_paths(config.root, config.worktree_dir))
-    normal = {Path(path).as_posix().removeprefix("./") for path in paths if path}
-    return sorted(path for path in normal if path != "." and not path.startswith("../"))
+                add(template.format(artifacts=backlog.config.artifacts, backlog=backlog.config.name, epic=epic_id), "index")
+    for path in changelog_paths(config.root, config.worktree_dir):
+        add(path, "changelog")
+    return classes
 
 
 def changelog_paths(root: Path, worktree_dir: str = "") -> list[str]:

@@ -74,7 +74,8 @@ Nothing wakes you on a timer. Whenever you wake — a lane stopped, the human wr
 - `silent: true`: read its worktree (`git log`, `git status`, its artifact); if it is stuck,
   escalate;
 - `overlaps`: compare them with the touch map; an overlap the map does not cover is a question for
-  the lanes involved, or an escalation when they contradict each other;
+  the lanes involved, or an escalation when they contradict each other. `known_overlaps` are files
+  of the known conflict classes: expected, and resolved at hand-off;
 - `escalation` not empty: escalate.
 
 ## Answer a gate

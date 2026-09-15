@@ -182,6 +182,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   OpenCode note has the orchestrator end its turn with the question at an escalation instead of
   starting another blocking batch of task calls, and record handles and check `silent` lanes as
   soon as a batch returns (T056).
+- **Known conflict classes apart in `autopilot status`.** Files several lanes touch that belong to a
+  known conflict class — backlog and epic files, artifact and decision-record indexes, changelogs,
+  and `.taskrail/installed.json` with the skill copies it records — are reported in
+  `known_overlaps`, each with its `class` and `tasks`, and printed under their own heading after
+  the real overlaps. Behaviour change: `overlaps` no longer lists known-class files (T051).
 
 ## 0.1.0
 

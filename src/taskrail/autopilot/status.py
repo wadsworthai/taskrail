@@ -309,5 +309,30 @@ def status(project: Project, runs: list[dict], claimed: dict[str, Claim], now: d
         for row in report["tasks"]:
             for path in row.get("touched") or []:
                 touched_by.setdefault(path, set()).add(row["id"])
-    overlaps = {path: sorted(task_ids) for path, task_ids in sorted(touched_by.items()) if len(task_ids) > 1}
-    return {"runs": reports, "overlaps": overlaps}
+    shared = {path: sorted(task_ids) for path, task_ids in sorted(touched_by.items()) if len(task_ids) > 1}
+    known = _known_conflicts(project) if shared else {}
+    overlaps, known_overlaps = {}, {}
+    for path, task_ids in shared.items():
+        kind = known.get(path) or ("changelog" if Path(path).name.lower() == "changelog.md" else None)
+        if kind is None:
+            overlaps[path] = task_ids
+        else:
+            known_overlaps[path] = {"class": kind, "tasks": task_ids}
+    return {"runs": reports, "overlaps": overlaps, "known_overlaps": known_overlaps}
+
+
+def _known_conflicts(project: Project) -> dict[str, str]:
+    """Paths of the known conflict classes (§12.8) by class; a file created only on lane branches
+    counts as `changelog` by its name, and an unreadable install manifest gives no `installed` path (T051)."""
+    from taskrail import install, mergedriver
+    from taskrail.issues import ConfigError
+
+    known = mergedriver.known_conflict_paths(project)
+    try:
+        manifest = install.read_manifest(project.config.root)
+    except ConfigError:
+        return known
+    files = manifest.get("files")
+    for path in [install.MANIFEST, *(files if isinstance(files, dict) else [])]:
+        known.setdefault(path, "installed")
+    return known

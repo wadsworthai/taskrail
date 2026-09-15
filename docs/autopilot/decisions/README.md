@@ -40,3 +40,4 @@
 | T053 | Order the autopilot hand-off queue by completion, not branch tip time | [T053-order-the-autopilot-hand-off-queue-by-co.md](T053-order-the-autopilot-hand-off-queue-by-co.md) |
 | T056 | Add an OpenCode note on escalations during blocking lane batches | [T056-add-an-opencode-note-on-escalations-duri.md](T056-add-an-opencode-note-on-escalations-duri.md) |
 | T048 | Add autopilot close to abandon a run | [T048-add-autopilot-close-to-abandon-a-run.md](T048-add-autopilot-close-to-abandon-a-run.md) |
+| T051 | Label overlaps in known conflict-class files | [T051-label-overlaps-in-known-conflict-class-f.md](T051-label-overlaps-in-known-conflict-class-f.md) |

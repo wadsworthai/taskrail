@@ -621,7 +621,7 @@ def test_status_renders_decision_record_paths(pilot, capsys):
 
 
 def test_status_without_runs_and_for_an_unknown_run(pilot, capsys):
-    assert status_of(pilot.root, capsys) == {"runs": [], "overlaps": {}, "fetched": []}
+    assert status_of(pilot.root, capsys) == {"runs": [], "overlaps": {}, "known_overlaps": {}, "fetched": []}
     code, out, _ = run(pilot.root, "autopilot", "status", capsys=capsys)
     assert code == 0 and "no autopilot runs" in out
     code, _, err = run(pilot.root, "autopilot", "status", "--run", "20000101-1", capsys=capsys)
