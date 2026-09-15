@@ -155,6 +155,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   claim is released — with its `touched` files, instead of `pending`. `autopilot next` skips any
   candidate that still occupies a lane (`running`, `gate` or `escalated` without a claim, as well as
   `dispatched`), with the reason `<state> in run R`, so such a task is not dispatched twice (T054).
+- **Autopilot skill text from the T033 trial.** The `taskrail-autopilot` skill hands a branch off
+  with its ID, branch, pull request title, body and link; refills a lane once its close is
+  reviewed instead of at hand-off; says that `taskrail new` IDs never collide across lanes and that
+  an unclaimed dispatch expires after `[git].claim_grace_minutes`; and resumes a run from a new
+  session by lane handle, restarting a lane from its branch with a new restart section of the lane
+  brief when the handle no longer reaches it (T055).
 
 ## 0.1.0
 

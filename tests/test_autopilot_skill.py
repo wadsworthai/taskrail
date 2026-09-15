@@ -325,6 +325,77 @@ def test_governing_escalates_by_its_reason_and_the_close_review_checks_the_paths
     assert "`governing_touched`" in close and "escalates" in close
 
 
+# --- 11b. Skill text found wrong in the T033 trial (T055) --------------------------------------------
+
+
+def section(text: str, heading: str) -> str:
+    """The whitespace-collapsed body of `## <heading>`, up to the next `## ` heading or a `---` rule."""
+    match = re.search(rf"^## {re.escape(heading)}\n(.*?)(?=^## |^---$|\Z)", text, re.MULTILINE | re.DOTALL)
+    assert match, f"no section {heading!r}"
+    return flat(match.group(1))
+
+
+@pytest.fixture(params=["source", "claude", "opencode"])
+def autopilot_copy(request, empty_repo, capsys):
+    """A reader of one autopilot skill file: the shipped source, or the copy `init` installs for an integration."""
+    if request.param == "source":
+        return source
+    init(empty_repo, "--integration", request.param, capsys=capsys)
+    skills = empty_repo / (".claude/skills" if request.param == "claude" else ".opencode/skills")
+    return lambda name: (skills / SKILL / name).read_text(encoding="utf-8")
+
+
+def test_hand_off_message_carries_branch_title_body_and_link(autopilot_copy):
+    """T033 F4: the first hand-off reached the human without the branch or the title."""
+    close = section(autopilot_copy("SKILL.md"), "Close and hand off")
+    for phrase in ("the branch", "`pull_request.title`", "`pull_request.body`", "`pull_request.url`", "never send one"):
+        assert phrase in close, phrase
+
+
+def test_refill_runs_once_a_close_is_reviewed_not_at_hand_off(autopilot_copy):
+    """T033 F5: a lane is free at `done-branch`, but the skill refilled only after the hand-off."""
+    text = autopilot_copy("SKILL.md")
+    dispatch = section(text, "Dispatch")
+    assert "without waiting for its hand-off" in dispatch
+    assert "`done-branch`" in dispatch
+    assert "values that no lane in use holds" in section(text, "Close and hand off")
+    assert "resource values as at hand-off" in section(text, "After a merge")
+
+
+def test_task_ids_are_unique_across_lanes(autopilot_copy):
+    """T033 F6: a run decision assumed each branch allocates IDs from its own backlog."""
+    dispatch = section(autopilot_copy("SKILL.md"), "Dispatch")
+    for phrase in ("`taskrail new` reserves each id", "lock shared by every worktree of the clone", "never forbid lanes to create tasks"):
+        assert phrase in dispatch, phrase
+    assert "`taskrail new` are reserved across every worktree" in section(autopilot_copy("references/lane-brief.md"), "How to work")
+
+
+def test_a_dispatch_expires_after_the_claim_grace(autopilot_copy):
+    """T033 F7: the skill never said that an unclaimed dispatch stops holding its lane."""
+    dispatch = section(autopilot_copy("SKILL.md"), "Dispatch")
+    for phrase in ("a dispatch expires", "`[git].claim_grace_minutes`", "reads `pending` again", "may dispatch it again"):
+        assert phrase in dispatch, phrase
+
+
+def test_a_new_session_resumes_a_run_by_handle_and_restarts_from_the_branch(autopilot_copy):
+    """T033 F2: a new session restarted a lane from its branch, with no procedure in the skill."""
+    resume = section(autopilot_copy("SKILL.md"), "Resume a run")
+    for phrase in (
+        "never runs `autopilot start`",
+        "by the handle",
+        "restart the lane from its branch",
+        "only once `status` reports it `silent`",
+        "restart workspace section",
+        "taskrail autopilot lane <id> --run <r> --handle <h> --state running",
+    ):
+        assert phrase in resume, phrase
+    brief = autopilot_copy("references/lane-brief.md")
+    restart = section(brief, "Workspace (restart from the branch)")
+    for phrase in ("already exist", "do not stop because the branch exists", "claim <id> --run <run>", "resume point: <resume_point>", "never discard"):
+        assert phrase in restart, phrase
+    assert "everything between the two rules is the brief" in flat(brief)
+
+
 def test_skill_starts_from_several_unmerged_dependencies_only_on_explicit_instruction():
     text = flat(source("SKILL.md"))
     assert "several unmerged dependencies" in text

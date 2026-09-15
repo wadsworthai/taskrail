@@ -1046,14 +1046,21 @@ kind filter. The human chose to install it always, so every consumer receives th
 ### 12.3 Orchestrator and lanes
 
 **The orchestrator** is the session the human talks to. It keeps a lane handle per task in the
-run file, so a compacted or new orchestrator session can resume the lanes.
+run file, and a lane commits everything it finishes on its branch. A compacted or new
+orchestrator session therefore rebuilds the run from `autopilot status` and the decision
+records, resumes each lane by its handle while the agent can still reach it, and otherwise
+restarts the lane from its branch with the lane brief's restart section, once the lane is
+stopped at a gate or `silent` (T033 F2, *implemented, T055*). In the T033 trial a new Claude
+Code session restarted a lane rather than resuming it; whether an earlier session's handle
+still reaches a lane is not verified.
 
 **A lane** is a sub-session, and its contract is the same on every agent. The skill's lane brief
 (`references/lane-brief.md`), filled from `autopilot next --json`, gives it to each lane
 (*implemented, T024*). It:
 
 - runs the `taskrail` skill and the task's executor skill for one task ID;
-- creates its worktree with git and claims inside it (§8);
+- creates its worktree with git and claims inside it (§8), or, restarted from its branch, works in
+  the existing worktree and claims again;
 - ends its turn at every gate with the full gate report;
 - is resumed with `continue <ID>` plus the answers;
 - stops after `taskrail done` and `review --json` without rebasing, since the orchestrator rebases
@@ -1239,8 +1246,10 @@ reading its worktree, and escalated if it is stuck. An agent that can wait on a 
   port, an emulator. A lane holds its values while it is in use. **Release is lazy**: the next
   `next --run` clears the `resources` of every lane, in any run, that is no longer in use, and
   reports them in `released`, so a lane resumed later or a reopened task never shares a value with
-  another lane. The orchestrator therefore re-runs a lane's checks — at a gate or at hand-off
-  (§12.8) — before its next `next`, while the lane's values are still its own.
+  another lane. The orchestrator therefore re-runs a lane's checks at each gate, the close review
+  included, before its next `next`, while the lane's values are still its own. It refills as soon
+  as a close is reviewed, not at hand-off (T033 F5), so the checks it re-runs at hand-off or after
+  a merge (§12.8) use values no lane in use holds.
 - **Shared services** are started by the orchestrator, never by lanes.
 - **Sequential numbers:** task IDs go through `reserve-id` (§6.3), already safe across lanes.
   Other sequences stay out until a consumer needs them; a value pool covers small cases.
@@ -1254,7 +1263,8 @@ procedure (*implemented, T024*); detection and cleanup are the CLI's (*implement
   when needed, re-runs the checks, then runs `review --publish --type … --scope …` in the lane's
   worktree, which pushes with a lease when `push_task_branch` is set.
 - **Hand-off is sequential** (`handoff = "sequential"`, the only value at first): one branch at a
-  time, dependencies first, then in completion order, each with its exact title and link. Every
+  time, dependencies first, then in completion order, each announced to the human with its task
+  ID, branch, exact pull request title and body, and link (T033 F4). Every
   later branch costs one rebase and retest onto a mainline carrying every earlier merge; in
   exchange, every pull request is tested on the real mainline before review.
 - **When the human says a branch is merged,** the orchestrator runs

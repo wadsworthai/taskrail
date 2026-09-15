@@ -47,8 +47,23 @@ installed. This rule lives here, in the text every agent reads, not only in meta
 4. A group assigned by judgement (such as "touches the user interface") is set before `next`, with
    `taskrail autopilot lane <ID> --run <R> --group <G>`.
 5. `skipped` and `limited_by` say why a task did not start; mention them when they matter.
-6. When a lane ends — handed off, failed, discarded — run `next --run <R>` again to fill the free
-   lane. The run's count caps what starts; never start more tasks than the human asked for.
+6. Refill as soon as a lane frees, without waiting for its hand-off: once you have reviewed a
+   lane's close (its task is `done-branch`), recorded it failed, or its task was discarded, run
+   `next --run <R>` again. The run's count caps what starts; never start more tasks than the human
+   asked for.
+7. A dispatch expires. A task `next` dispatched that no lane has claimed within
+   `[git].claim_grace_minutes` (15 by default) reads `pending` again: it no longer holds a lane or
+   its resource values, and a later `next`, in any run, may dispatch it again. So launch each lane
+   as soon as `next` returns, and let it claim before anything else. A lane launched after its
+   dispatch expired can find its branch already created by another lane; it then stops and
+   reports, as its brief says. A run a lost session left behind stops holding the lanes it
+   dispatched but never claimed in the same way; lanes that claimed keep theirs.
+
+**Task IDs across lanes.** `taskrail new` reserves each ID under a lock shared by every worktree of
+the clone, above every ID on any local branch and every reservation not yet used, so two lanes
+never receive the same ID: a branch does not allocate from its own backlog alone. A lane may open
+a follow-up task with `taskrail new` on its own branch when a gate approves it. Never forbid lanes
+to create tasks, or defer follow-ups to the hand-off, for fear of colliding IDs.
 
 ## Supervise
 
@@ -116,13 +131,17 @@ Record that stop as a gate named `close`:
 
 1. In the lane's worktree, run `taskrail review <ID> --json`. If `rebase.needed` is true, run
    `git rebase <rebase.onto>`, resolve only the known classes, re-run the checks and
-   `taskrail validate`, record the rebase in the task's record and commit it.
+   `taskrail validate`, record the rebase in the task's record and commit it. The refill after the
+   close may have released the lane's resource values: run the checks with values that no lane in
+   use holds in `status`.
 2. Run `taskrail review <ID> --publish --json --type <type> --scope <scope>` there, choosing the
    type and scope as the `taskrail` skill says. Exit 4, a rejected push, escalates.
 3. Record `taskrail autopilot lane <ID> --run <R> --state handed-off` and run
    `taskrail autopilot notify --event lane-done --run <R> --task <ID>`.
-4. Give the human the exact pull request title and link, and the body when the link cannot carry
-   it. Never merge.
+4. Tell the human, in one message: the task ID, the branch and the base it now sits on, the exact
+   pull request title (`pull_request.title`), its body (`pull_request.body`), and the link
+   (`pull_request.url`) — or that `review --publish` returned none. A hand-off message without the
+   branch, the title or the body is incomplete: never send one. Never merge.
 
 ## After a merge
 
@@ -131,11 +150,35 @@ When the human says a branch is merged:
 1. Run `taskrail autopilot merged <ID> --cleanup --json`. When `merged` is false, report what was
    checked and clean up nothing; exit 5 names what stopped the cleanup.
 2. For each stacked dependent it lists, run its `git rebase --onto` command in that dependent's
-   worktree, resolve only the known classes, re-run the checks, and record the rebase. A dependent
+   worktree, resolve only the known classes, re-run the checks with resource values as at hand-off,
+   and record the rebase. A dependent
    already published is published again with `taskrail review <ID> --publish --json`, which pushes
    with a lease.
 3. Hand off the next branch.
 4. When `status` reports the run `complete`, report what the run delivered and stop.
+
+## Resume a run
+
+A run outlives the session that started it: its state is in the run file and on the task
+branches. When the human asks a new or compacted session to continue a run, resume it rather than
+starting another. Resuming needs the human's request but no new count, and never runs
+`autopilot start`.
+
+1. Run `taskrail autopilot status --json` and take the run the human names; if more than one run
+   could be it, ask. Read the governing documents, the run's `decisions` and each run task's
+   decision record, as before the first dispatch.
+2. For each lane that is `running`, `gate` or `escalated`, first try to reach it by the handle
+   `status` shows. While the handle reaches it, supervise it and answer its gates as usual.
+3. When the handle no longer reaches it, restart the lane from its branch, where everything it
+   finished is committed. Restart a `running` lane only once `status` reports it `silent`, so an
+   earlier sub-session that may still be working never shares the worktree with a new one. Answer
+   a `gate` lane's gate first, and an `escalated` lane's once the human has. Fill
+   `references/lane-brief.md` with its restart workspace section, naming the last gate the record
+   answers and the answers to apply, launch the lane, and record the new handle:
+   `taskrail autopilot lane <ID> --run <R> --handle <H> --state running`.
+4. Go on as usual for the rest: a `done-branch` task has its close reviewed and is handed off, a
+   `dispatched` task whose lane never started expires as *Dispatch* says, and
+   `next --run <R>` fills the lanes that are free.
 
 ## Known conflict classes
 

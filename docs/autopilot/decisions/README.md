@@ -35,3 +35,4 @@
 | T049 | Stop flagging governing paths once a task is done on its branch | [T049-stop-flagging-governing-paths-once-a-tas.md](T049-stop-flagging-governing-paths-once-a-tas.md) |
 | T060 | Remove DESIGN.md and CLAUDE.md from the autopilot's governing paths | [T060-remove-design-md-and-claude-md-from-the.md](T060-remove-design-md-and-claude-md-from-the.md) |
 | T054 | Keep a closing lane from reading as pending between done and its commit | [T054-keep-a-closing-lane-from-reading-as-pend.md](T054-keep-a-closing-lane-from-reading-as-pend.md) |
+| T055 | Fix the autopilot skill text found wrong in the T033 trial | [T055-fix-the-autopilot-skill-text-found-wrong.md](T055-fix-the-autopilot-skill-text-found-wrong.md) |
