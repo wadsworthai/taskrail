@@ -73,7 +73,7 @@ Done when: backlog conflicts resolve automatically, existing backlogs import, an
 | ✅ | T072 | bug     | —   | —          | Report a task's worktree path in one form whichever checkout runs the command | query.worktree_path returns a path relative to the root for a worktree under it or not yet created, but an absolute one when the command runs inside that worktree, as autopilot next --json showed at T071's plan gate; report one form and verify with a pytest on both cases. |
 | ✅ | T073 | bug     | —   | —          | Create a task worktree under the main checkout when new or workspace runs inside another worktree | new --workspace and workspace run inside a task worktree place the new worktree below that worktree instead of under the main checkout's worktree_dir, where show reports it (found in T072). |
 | ✅ | T074 | bug     | —   | —          | Refuse merged --cleanup for a worktree that contains other registered worktrees | autopilot merged --cleanup removes a task worktree whose ignored worktree_dir holds other worktrees, deleting their uncommitted work (found in T073). |
-| ⬜ | T075 | bug     | —   | —          | Report and create task worktrees outside the bare directory of a bare repository | In a bare clone with worktrees, git worktree list names the bare directory first, so show reads worktree paths against it and new --workspace places worktrees inside it (found in T073). |
+| ✅ | T075 | bug     | —   | —          | Report and create task worktrees outside the bare directory of a bare repository | In a bare clone with worktrees, git worktree list names the bare directory first, so show reads worktree paths against it and new --workspace places worktrees inside it (found in T073). |
 
 ## E05 — Adoption
 
