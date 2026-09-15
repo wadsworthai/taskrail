@@ -386,8 +386,15 @@ def test_refill_runs_once_a_close_is_reviewed_not_at_hand_off(autopilot_copy):
     dispatch = section(text, "Dispatch")
     assert "without waiting for its hand-off" in dispatch
     assert "`done-branch`" in dispatch
-    assert "values that no lane in use holds" in section(text, "Close and hand off")
+    close = section(text, "Close and hand off")
+    assert "values that no lane in use holds" in close
     assert "resource values as at hand-off" in section(text, "After a merge")
+    # T066: chosen values go through `--resource`, not an environment prefix (T033 F11).
+    assert "`taskrail checks <id> --resource name=value`" in close  # `section` lowercases
+    assert "set as `taskrail_resource_<name>`" not in close
+    assert "adding `--resource name=value` for each value the lane no longer holds" in section(
+        autopilot_copy("references/gate-review.md"), "Rebase: at hand-off or after a merge"
+    )
 
 
 def test_task_ids_are_unique_across_lanes(autopilot_copy):
@@ -536,7 +543,7 @@ def test_the_brief_and_the_re_run_steps_name_taskrail_checks(autopilot_copy):
     skill = autopilot_copy("SKILL.md")
     close = section(skill, "Close and hand off")
     assert "re-run the checks with `taskrail checks <id>`" in close
-    assert "set as `taskrail_resource_<name>`" in close
+    assert "with `taskrail checks <id> --resource name=value`" in close  # T066 replaced the environment prefix
     assert "`taskrail checks <id>` for that dependent" in section(skill, "After a merge")
     review = autopilot_copy("references/gate-review.md")
     assert "yourself with `taskrail checks <id>`" in section(review, "Every gate")

@@ -151,8 +151,9 @@ is in review.
    `git rebase <rebase.onto>`, resolve only the known classes, re-run the checks with
    `taskrail checks <ID>` and run `taskrail validate`, record the rebase in the task's record and
    commit it. `taskrail checks` passes the lane's resource values while its run still records them,
-   but the refill after the close may have released them (its `resources` is then empty): run the
-   checks with values that no lane in use holds in `status`, set as `TASKRAIL_RESOURCE_<NAME>`.
+   but the refill after the close may have released them (its `resources` is then empty): pass
+   values that no lane in use holds in `status` with `taskrail checks <ID> --resource NAME=VALUE`,
+   one flag per resource; it refuses a value another lane holds.
 2. Run `taskrail review <ID> --publish --json --type <type> --scope <scope>` there, choosing the
    type and scope as the `taskrail` skill says. Exit 4, a rejected push, escalates.
 3. Record `taskrail autopilot lane <ID> --run <R> --state handed-off` and run

@@ -505,7 +505,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
-| `taskrail checks <ID> [--stage STAGE] [--check NAME]…` | Run a task's configured checks in its worktree with its autopilot lane's resources, from anywhere in the clone (§7.5) |
+| `taskrail checks <ID> [--stage STAGE] [--check NAME]… [--resource NAME=VALUE]…` | Run a task's configured checks in its worktree with its autopilot lane's resources, or chosen ones, from anywhere in the clone (§7.5) |
 | `taskrail import <FILE> [--write] [--column CORE=HEADER]… [--status VALUE=STATUS]… [--kind VALUE=KIND]… [--default-kind KIND] [--epic-level N] [--epic-name NAME]` | Convert a table-based Markdown backlog without epics into this backlog; a dry run unless `--write` (§7.3) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
 | `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds; install a local kind |
@@ -889,13 +889,19 @@ only the `--check` names. It runs them in the task's worktree: the one its claim
 that directory exists, else the one that has its branch checked out; the commands and kinds
 come from that worktree's own configuration. Each runs through the platform shell with the
 worktree as working directory and, when an autopilot run lists the task (the claim's run, else
-the newest run), its lane's resource values as `TASKRAIL_RESOURCE_<NAME>` (§12.7). Every
-selected check runs; one that `[checks]` does not define is reported `not-configured` and does
-not fail. `--json` returns each check's `name`, `command`, `status`, `exit` and combined
-`output`, with `worktree`, `run`, `resources`, `environment` and `passed`. Exit 0 when every
-check that ran passed, 6 when one failed, 2 for an unknown stage, 3 for an unknown task, 5 when
-the task has no worktree. It reads run files and never writes them, so one allowlist entry
-covers a lane's checks without `cd` or variables in the command.
+the newest run), its lane's resource values as `TASKRAIL_RESOURCE_<NAME>` (§12.7).
+`--resource NAME=VALUE`, repeatable, passes a chosen value instead, replacing that name's lane
+value if any — for a lane whose values `next` has released, at hand-off or after a merge. The
+name must be an `[[autopilot.resource]]` and the value one of its `values` (exit 2 otherwise),
+and a value that a lane of another task in use holds is refused with exit 4, naming it; no
+check runs in either case. Every selected check runs; one that `[checks]` does not define is
+reported `not-configured` and does not fail. `--json` returns each check's `name`, `command`,
+`status`, `exit` and combined `output`, with `worktree`, `run`, `resources` and `environment`
+(the values passed), `chosen` (the `--resource` pairs) and `passed`. Exit 0 when every check that
+ran passed, 6 when one failed, 2 for an unknown stage or a rejected `--resource`, 3 for an unknown
+task, 4 for a value another lane holds, 5 when the task has no worktree. It reads run files and
+never writes them, so one allowlist entry covers a lane's checks without `cd` or variables in the
+command.
 
 ## 8. Skills
 
@@ -1300,7 +1306,8 @@ reading its worktree, and escalated if it is stuck. An agent that can wait on a 
   another lane. The orchestrator therefore re-runs a lane's checks at each gate, the close review
   included, before its next `next`, while the lane's values are still its own. It refills as soon
   as a close is reviewed, not at hand-off (T033 F5), so the checks it re-runs at hand-off or after
-  a merge (§12.8) use values no lane in use holds.
+  a merge (§12.8) use values no lane in use holds, passed with
+  `taskrail checks <ID> --resource NAME=VALUE` (§7.5).
 - **Shared services** are started by the orchestrator, never by lanes.
 - **Sequential numbers:** task IDs go through `reserve-id` (§6.3), already safe across lanes.
   Other sequences stay out until a consumer needs them; a value pool covers small cases.

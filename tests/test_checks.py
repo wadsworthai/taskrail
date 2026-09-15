@@ -206,3 +206,114 @@ def test_text_mode_streams_each_check_and_summarises(pilot, capfd):
     code = main(["--root", str(pilot.root), "checks", "T001", "--stage", "verify"])
     out, err = capfd.readouterr()
     assert code == 6 and "failed broken (exit 3)" in out + err
+
+
+# `--resource NAME=VALUE`: chosen values for a lane whose values were released (T066).
+
+POOLS = '[[autopilot.resource]]\nname = "PORT"\nvalues = ["5433", "5434"]\n'
+ECHO_RESOURCES = '[checks]\ntest = "echo port=$TASKRAIL_RESOURCE_PORT db=$TASKRAIL_RESOURCE_DB; touch ran-$TASKRAIL_RESOURCE_PORT"\nlint = "true"\n'
+
+
+def released_lane(pilot, capfd):
+    """T004 finished in a run whose refill gave its released PORT=5433 to another lane."""
+    publish(pilot, ECHO_RESOURCES, "max_lanes = 1\n" + POOLS, kind=None)
+    run_id = start(pilot.root, capfd)
+    first = data(pilot.root, "autopilot", "next", "--run", run_id, capsys=capfd)
+    assert [(t["id"], t["resources"]) for t in first["dispatch"]] == [("T004", {"PORT": "5433"})]
+    worktree = pilot.lane("T004", run_id)
+    pilot.finish(worktree, "T004")
+    refill = data(pilot.root, "autopilot", "next", "--run", run_id, capsys=capfd)
+    assert refill["released"] == [{"id": "T004", "run": run_id, "resources": {"PORT": "5433"}}]
+    [holder] = refill["dispatch"]
+    assert holder["resources"] == {"PORT": "5433"}
+    return run_id, worktree, holder["id"]
+
+
+# 8
+
+
+def test_a_chosen_value_reaches_the_checks_of_a_lane_whose_values_were_released(pilot, capfd):
+    run_id, worktree, _ = released_lane(pilot, capfd)
+
+    code, result, err = checks(pilot.root, capfd, "T004", "--stage", "implement")
+    assert code == 0, err
+    assert (result["run"], result["resources"], result["environment"], result["chosen"]) == (run_id, {}, {}, {})
+
+    code, result, err = checks(pilot.root, capfd, "T004", "--stage", "implement", "--resource", "PORT=5434")
+    assert code == 0, err
+    assert result["resources"] == {"PORT": "5434"}
+    assert result["environment"] == {"TASKRAIL_RESOURCE_PORT": "5434"}
+    assert result["chosen"] == {"PORT": "5434"}
+    assert by_name(result)["test"]["output"].strip() == "port=5434 db="
+    assert (worktree / "ran-5434").exists()
+
+
+# 9
+
+
+def test_a_chosen_value_replaces_its_name_and_keeps_the_lane_s_other_values(pilot, capfd):
+    pools = POOLS + '[[autopilot.resource]]\nname = "DB"\nvalues = ["db_a", "db_b"]\n'
+    publish(pilot, ECHO_RESOURCES, "max_lanes = 1\n" + pools, kind=None)
+    run_id = start(pilot.root, capfd)
+    dispatched = data(pilot.root, "autopilot", "next", "--run", run_id, capsys=capfd)
+    assert dispatched["dispatch"][0]["resources"] == {"PORT": "5433", "DB": "db_a"}
+    pilot.lane("T004", run_id)
+
+    code, result, err = checks(pilot.root, capfd, "T004", "--stage", "implement", "--resource", "PORT=5434")
+    assert code == 0, err
+    assert result["resources"] == {"PORT": "5434", "DB": "db_a"} and result["chosen"] == {"PORT": "5434"}
+    assert by_name(result)["test"]["output"].strip() == "port=5434 db=db_a"
+
+    code, result, err = checks(pilot.root, capfd, "T004", "--stage", "implement", "--resource", "PORT=5433")  # its own held value
+    assert code == 0, err
+    assert by_name(result)["test"]["output"].strip() == "port=5433 db=db_a"
+
+
+# 10
+
+
+def test_a_value_another_lane_holds_exits_4_and_runs_nothing(pilot, capfd):
+    _, worktree, holder = released_lane(pilot, capfd)
+
+    code, result, err = checks(pilot.root, capfd, "T004", "--resource", "PORT=5433")
+
+    assert code == 4 and result is None
+    assert "PORT=5433" in err and holder in err
+    assert not (worktree / "ran-5433").exists()
+
+
+# 11
+
+
+def test_a_rejected_resource_pair_exits_2_and_runs_nothing(pilot, capfd):
+    publish(pilot, ECHO_RESOURCES, POOLS, kind=None)
+    worktree = pilot.lane("T001")
+
+    for pair, expected in (
+        (["PORT"], "NAME=VALUE"),
+        (["CACHE=1"], "PORT"),  # names the configured resources
+        (["PORT=9999"], "5433, 5434"),  # names the pool's values
+        (["PORT=5433", "PORT=5434"], "more than once"),
+    ):
+        argv = [arg for value in pair for arg in ("--resource", value)]
+        code, result, err = checks(pilot.root, capfd, "T001", *argv)
+        assert (code, result) == (2, None), (pair, err)
+        assert "--resource" in err and expected in err, (pair, err)
+    assert not list(worktree.glob("ran-*"))
+
+
+# 12
+
+
+def test_text_mode_passes_chosen_values_and_refuses_held_ones(pilot, capfd):
+    _, _, holder = released_lane(pilot, capfd)
+    capfd.readouterr()
+
+    code = main(["--root", str(pilot.root), "checks", "T004", "--stage", "implement", "--resource", "PORT=5434"])
+    out, err = capfd.readouterr()
+    assert code == 0, err
+    assert "port=5434" in out + err and "passed test" in out
+
+    code = main(["--root", str(pilot.root), "checks", "T004", "--resource", "PORT=5433"])
+    out, err = capfd.readouterr()
+    assert code == 4 and holder in err and "== test" not in out

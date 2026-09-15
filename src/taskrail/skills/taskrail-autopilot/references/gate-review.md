@@ -71,5 +71,6 @@ never on the lane's report alone.
 - No conflict markers remain (`git diff --check`), a commit left empty is dropped, and an entry
   duplicated by a move is kept once.
 - After class 3, run `taskrail upgrade --force` and commit what it rewrites.
-- Re-run the checks with `taskrail checks <ID>` and run `taskrail validate`, then record the rebase
-  in the task's record.
+- Re-run the checks with `taskrail checks <ID>`, adding `--resource NAME=VALUE` for each value
+  the lane no longer holds, and run `taskrail validate`, then record the rebase in the task's
+  record.

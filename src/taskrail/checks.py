@@ -3,7 +3,9 @@
 The worktree is the one the task's claim records, else the one that has its branch checked out.
 Its own configuration and kinds decide the commands, so a branch that changes its checks runs
 them. When an autopilot run lists the task, its lane's resource values are passed as
-`TASKRAIL_RESOURCE_<NAME>`. Run files are read, never written.
+`TASKRAIL_RESOURCE_<NAME>`; `--resource NAME=VALUE` passes a chosen pool value instead, for a lane
+whose values were released, and is refused when another lane in use holds it. Run files are read,
+never written.
 """
 
 from __future__ import annotations
@@ -14,7 +16,7 @@ import sys
 from pathlib import Path
 
 from taskrail import branches, claims, gitutil
-from taskrail.autopilot import runs
+from taskrail.autopilot import dispatch, runs
 from taskrail.autopilot.dispatch import ENVIRONMENT_PREFIX
 from taskrail.config import load_config
 from taskrail.model import Project, Task
@@ -71,6 +73,37 @@ def lane_resources(project: Project, task_id: str, claim) -> tuple[str | None, d
     return None, {}
 
 
+def chosen_resources(project: Project, task_id: str, pairs: list[str] | None) -> dict[str, str]:
+    """`--resource NAME=VALUE` pairs, each a value of a configured pool that no other task's lane in use holds."""
+    if not pairs:
+        return {}
+    pools = {resource.name: resource.values for resource in project.config.autopilot.resources}
+    chosen: dict[str, str] = {}
+    for pair in pairs:
+        name, sep, value = pair.partition("=")
+        if not sep:
+            raise ChecksRefused(f"--resource expects NAME=VALUE, got `{pair}`", 2)
+        if name not in pools:
+            configured = ", ".join(pools) or "none"
+            raise ChecksRefused(f"--resource: `{name}` is not an [[autopilot.resource]] (configured: {configured})", 2)
+        if value not in pools[name]:
+            raise ChecksRefused(f"--resource: `{value}` is not a value of {name} ({', '.join(pools[name])})", 2)
+        if name in chosen:
+            raise ChecksRefused(f"--resource: {name} is given more than once", 2)
+        chosen[name] = value
+    try:
+        claimed = claims.read_all(project.config)
+    except gitutil.GitError:
+        claimed = {}
+    preview = dispatch.next_lanes(project, None, claimed)  # read-only: no run, no lock, nothing written
+    held = {resource["name"]: resource["held"] for resource in preview["resources"]}
+    for name, value in chosen.items():
+        holder = held.get(name, {}).get(value)
+        if holder is not None and holder != task_id:
+            raise ChecksRefused(f"--resource {name}={value}: the lane of {holder} holds it; choose a value no lane in use holds", 4)
+    return chosen
+
+
 def _worktree_project(project: Project, path: Path) -> Project:
     """The worktree's own project when it has a configuration, else the caller's."""
     if path.resolve() == project.config.root.resolve() or not (path / ".taskrail" / "config.toml").is_file():
@@ -100,14 +133,19 @@ def select(project: Project, task: Task, stage: str | None, names: list[str] | N
     return selected
 
 
-def run_checks(project: Project, task: Task, stage: str | None, names: list[str] | None, capture: bool) -> dict:
-    """Run the selected checks; with `capture`, each check's output goes into the result instead of the terminal."""
+def run_checks(project: Project, task: Task, stage: str | None, names: list[str] | None, capture: bool, resource_pairs: list[str] | None = None) -> dict:
+    """Run the selected checks; with `capture`, each check's output goes into the result instead of the terminal.
+
+    `resource_pairs` are `--resource NAME=VALUE` values, each replacing that name's lane value.
+    """
     claim = _claim(project, task.id)
     path = worktree(project, task, claim)
     own = _worktree_project(project, path)
     own_task = own.task(task.id) or task
     selected = select(own, own_task, stage, names)
+    chosen = chosen_resources(project, task.id, resource_pairs)
     run_id, resources = lane_resources(project, task.id, claim)
+    resources.update(chosen)
     environment = {f"{ENVIRONMENT_PREFIX}{name}": value for name, value in resources.items()}
     results = []
     for name in selected:
@@ -145,6 +183,7 @@ def run_checks(project: Project, task: Task, stage: str | None, names: list[str]
         "run": run_id,
         "resources": resources,
         "environment": environment,
+        "chosen": chosen,
         "stage": stage,
         "checks": results,
         "passed": all(result["status"] != FAILED for result in results),

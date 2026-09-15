@@ -1032,7 +1032,7 @@ def cmd_checks(args) -> int:
         print(f"taskrail: no task `{args.id}`", file=sys.stderr)
         return EXIT_NOT_FOUND
     try:
-        result = checks.run_checks(project, task, args.stage, args.check, capture=args.json)
+        result = checks.run_checks(project, task, args.stage, args.check, capture=args.json, resource_pairs=args.resource)
     except checks.ChecksRefused as exc:
         print(f"taskrail: {exc}", file=sys.stderr)
         return exc.code
@@ -1322,6 +1322,9 @@ def build_parser() -> argparse.ArgumentParser:
     checks_cmd.add_argument("id")
     checks_cmd.add_argument("--stage", help="only this stage's checks")
     checks_cmd.add_argument("--check", action="append", metavar="NAME", help="only this check; repeatable")
+    checks_cmd.add_argument(
+        "--resource", action="append", metavar="NAME=VALUE", help="pass this pool value as TASKRAIL_RESOURCE_<NAME>, replacing the lane's; refused when another lane holds it; repeatable"
+    )
     checks_cmd.add_argument("--allow-invalid", action="store_true")
 
     epic = commands.add_parser("epic", help="Manage epics.")
