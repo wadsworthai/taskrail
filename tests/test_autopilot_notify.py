@@ -12,6 +12,7 @@ import pytest
 from test_autopilot import ENABLED, TODO, commit_all, configure, data, pilot, row, run, start, status_of  # noqa: F401
 
 from taskrail.autopilot import runs
+from taskrail.cli import main
 from taskrail.config import load_config
 
 
@@ -347,6 +348,27 @@ def test_status_drops_the_governing_escalation_at_done_branch_and_handed_off(pil
     assert flags() == ("done-branch", touched, None, [])
     lane("--state", "handed-off")
     assert flags() == ("handed-off", touched, None, [])
+
+
+def test_status_drops_the_governing_escalation_at_discarded_branch(pilot, capsys):
+    """T065: a task discarded on its branch has moved on too; its governing files stay listed."""
+    configure(pilot, ENABLED + 'governing = ["docs/adr"]\n')
+    run_id = start(pilot.root, capsys)
+    bug = pilot.lane("T003", run_id)
+    (bug / "docs" / "adr").mkdir(parents=True)
+    (bug / "docs" / "adr" / "0001.md").write_text("x")
+    commit_all(bug, "adr")
+
+    def flags():
+        found = row(status_of(pilot.root, capsys, run_id), "T003")
+        return found["state"], found["governing_touched"], found["escalation"]
+
+    assert flags() == ("running", ["docs/adr/0001.md"], ["governing"])
+    assert main(["--root", str(bug), "discard", "T003", "--owner", "lane"]) == 0
+    commit_all(bug, "chore(T003): discard")
+    assert flags() == ("discarded-branch", ["docs/adr/0001.md"], [])
+    data(pilot.root, "autopilot", "lane", "T003", "--run", run_id, "--state", "handed-off", capsys=capsys)
+    assert flags() == ("discarded-branch", ["docs/adr/0001.md"], [])
 
 
 def test_status_text_marks_no_governing_escalation_after_done_branch(pilot, capsys):

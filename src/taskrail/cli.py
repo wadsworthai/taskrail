@@ -916,8 +916,8 @@ def cmd_review(args) -> int:
     if current != head:
         print(f"taskrail: run review on the task branch {head} (current: {current or 'detached HEAD'})", file=sys.stderr)
         return EXIT_REFUSED
-    if task.status is not Status.DONE:
-        print(f"taskrail: {task.id} is {task.status.label} on this branch; run `taskrail done {task.id}` first", file=sys.stderr)
+    if task.status not in (Status.DONE, Status.DISCARDED):
+        print(f"taskrail: {task.id} is {task.status.label} on this branch; run `taskrail done {task.id}` or `taskrail discard {task.id}` first", file=sys.stderr)
         return EXIT_REFUSED
 
     settings = config.review
@@ -958,7 +958,8 @@ def cmd_review(args) -> int:
     provider = review.detect_provider(settings, parsed)
     title = review.pr_title(
         task,
-        args.type or (kind.commit_type if kind and kind.commit_type else "chore"),
+        # A discard delivers none of the kind's change, so its squash commit is a chore by default (T065).
+        args.type or (kind.commit_type if kind and kind.commit_type and task.status is Status.DONE else "chore"),
         args.scope if args.scope is not None else settings.scope,
         args.breaking,
     )

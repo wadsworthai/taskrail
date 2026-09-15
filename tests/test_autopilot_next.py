@@ -608,9 +608,9 @@ def test_a_task_discarded_on_its_unmerged_branch_is_closed_and_not_dispatched_ag
     branch = data(pilot.root, "show", "T001", capsys=capsys)["branch"]
 
     lane = row(pilot.root, capsys, run_id, "T001")
-    assert (lane["state"], lane["claim"], lane["branch"], lane["touched"]) == ("discarded-branch", None, branch, [])
+    assert (lane["state"], lane["claim"], lane["branch"], lane["touched"]) == ("discarded-branch", None, branch, ["TODO.md"])
     report = data(pilot.root, "autopilot", "status", "--run", run_id, capsys=capsys)
-    assert report["runs"][0]["handoff"]["queue"] == []  # hand-off of a discarded branch is not queued yet
+    assert report["runs"][0]["handoff"]["queue"] == ["T001"]  # its branch waits for hand-off (T065)
     assert "T001" not in [task["id"] for task in data(pilot.root, "next", capsys=capsys)]
     result = dispatch(pilot.root, capsys, run_id)
     assert "T001" not in skipped(result)

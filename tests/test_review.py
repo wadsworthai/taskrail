@@ -62,7 +62,22 @@ def test_review_requires_the_task_to_be_done(task_repo, capsys):
     git(task_repo.root, "checkout", "-q", "-b", "T003-rounding-error")
     code, _, err = run(task_repo.root, "review", "T003", "--no-fetch", capsys=capsys)
     assert code == 5
-    assert "run `taskrail done T003` first" in err
+    assert "run `taskrail done T003` or `taskrail discard T003` first" in err
+
+
+def test_review_prepares_a_task_discarded_on_its_branch_as_a_chore(task_repo, capsys):
+    """T065: a branch whose task was discarded on it is reviewed and handed off like a done one."""
+    git(task_repo.root, "checkout", "-q", "main")
+    git(task_repo.root, "branch", "-q", "-D", BRANCH)
+    git(task_repo.root, "checkout", "-q", "-b", BRANCH)
+    task_repo.write("TODO.md", BASE_TODO.replace("| ⬜ | T002 |", "| ❌ | T002 |"))
+    commit_all(task_repo.root, "chore(T002): discard")
+    data = review_json(task_repo.root, capsys=capsys)
+    assert (data["head"], data["target"], data["rebase"]["onto"], data["rebase"]["needed"]) == (BRANCH, "main", "origin/main", False)
+    assert data["pull_request"]["title"] == "chore: repricing (T002)"
+    assert review_json(task_repo.root, "--type", "fix", capsys=capsys)["pull_request"]["title"] == "fix: repricing (T002)"
+    published = review_json(task_repo.root, "--publish", capsys=capsys)
+    assert published["published"] and published["push"]["pushed"]
 
 
 def test_prepare_reports_target_head_and_title(task_repo, capsys):

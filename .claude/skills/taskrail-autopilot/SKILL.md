@@ -105,7 +105,7 @@ it into every affected task's record, and give it to every live lane when you ne
 Stop and ask the human when:
 
 1. a lane's branch touches a governing path not yet approved (`governing` in `escalation` in
-   `status`, until the task is `done-branch`; the close review checks `governing_touched` after
+   `status`, until the task is `done-branch` or `discarded-branch`; the close review checks `governing_touched` after
    that);
 2. the gate is listed in `escalate_gates` (`escalate_gate` in `status`);
 3. the governing documents reserve the decision to humans;
@@ -141,6 +141,11 @@ Record that stop as a gate named `close`:
 `taskrail autopilot lane <ID> --run <R> --state gate --gate close`. Review the close by
 `references/gate-review.md`. Then hand branches off **one branch at a time**:
 `status` names the next one in `handoff.next`, and none while `handoff.in_review` is set.
+
+A lane whose task was discarded stops after `taskrail discard` the same way; its task reads
+`discarded-branch`, is queued and handed off like a `done-branch` one, and is published with
+`--type chore`. Once handed off it keeps reading `discarded-branch`: `handoff.in_review` says it
+is in review.
 
 1. In the lane's worktree, run `taskrail review <ID> --json`. If `rebase.needed` is true, run
    `git rebase <rebase.onto>`, resolve only the known classes, re-run the checks with
@@ -190,7 +195,7 @@ starting another. Resuming needs the human's request but no new count, and never
    `references/lane-brief.md` with its restart workspace section, naming the last gate the record
    answers and the answers to apply, launch the lane, and record the new handle:
    `taskrail autopilot lane <ID> --run <R> --handle <H> --state running`.
-4. Go on as usual for the rest: a `done-branch` task has its close reviewed and is handed off, a
+4. Go on as usual for the rest: a `done-branch` or `discarded-branch` task in `handoff.queue` has its close reviewed and is handed off, a
    `dispatched` task whose lane never started expires as *Dispatch* says, and
    `next --run <R>` fills the lanes that are free.
 

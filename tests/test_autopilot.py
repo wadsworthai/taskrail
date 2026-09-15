@@ -636,6 +636,66 @@ def test_handoff_queue_orders_a_branch_left_only_on_the_remote(pilot, capsys):
     assert (report["runs"][0]["handoff"]["queue"], report["runs"][0]["handoff"]["next"]) == (["T003", "T004"], "T003")
 
 
+# 13b. T065: a branch whose task was discarded on it is queued and handed off like a done one
+
+
+def discard_in(path, task_id, date=None):
+    assert main(["--root", str(path), "discard", task_id, "--owner", "lane"]) == 0
+    commit_all(path, f"chore({task_id}): discard", date=date)
+
+
+def test_a_branch_discarded_on_it_is_queued_handed_off_and_leaves_review_once_merged(pilot, capsys):
+    run_id = start(pilot.root, capsys)
+    bug = pilot.lane("T003", run_id)
+    (bug / "fix.py").write_text("fix")
+    commit_all(bug, "work", date="2026-01-01T09:00:00+00:00")
+    discard_in(bug, "T003", date="2026-01-01T10:00:00+00:00")
+    chore = pilot.lane("T004", run_id)
+    assert main(["--root", str(chore), "done", "T004", "--owner", "lane"]) == 0
+    commit_all(chore, "chore(T004): mark done", date="2026-01-01T11:00:00+00:00")
+
+    report = status_of(pilot.root, capsys, run_id)
+    found = row(report, "T003")
+    assert (found["state"], found["claim"], found["touched"]) == ("discarded-branch", None, ["TODO.md", "fix.py"])
+    assert report["runs"][0]["handoff"] == {"mode": "sequential", "in_review": None, "queue": ["T003", "T004"], "next": "T003"}
+
+    handed = data(pilot.root, "autopilot", "lane", "T003", "--run", run_id, "--state", "handed-off", capsys=capsys)
+    assert handed["handed_off"] == ["T003"]
+    report = status_of(pilot.root, capsys, run_id)
+    assert row(report, "T003")["state"] == "discarded-branch"  # the hand-off shows in `handoff`, not in the state
+    handoff = report["runs"][0]["handoff"]
+    assert (handoff["in_review"], handoff["queue"], handoff["next"]) == ("T003", ["T004"], None)
+
+    git(pilot.root, "push", "-q", "origin", f"{BRANCHES['T003']}:main")  # merged; the local mainline is not pulled
+    git(pilot.root, "fetch", "-q", "origin")
+    report = status_of(pilot.root, capsys, run_id)
+    assert row(report, "T003")["state"] == "discarded"
+    handoff = report["runs"][0]["handoff"]
+    assert (handoff["in_review"], handoff["queue"], handoff["next"]) == (None, ["T004"], "T004")
+
+
+def test_handed_off_refuses_a_task_neither_done_nor_discarded_on_its_branch(pilot, capsys):
+    run_id = start(pilot.root, capsys)
+    pilot.lane("T003", run_id)
+    code, _, err = run(pilot.root, "autopilot", "lane", "T003", "--run", run_id, "--state", "handed-off", capsys=capsys)
+    assert code == 5
+    assert "T003 is neither done nor discarded on its branch (done-branch or discarded-branch)" in err
+    assert runs.read(load_config(pilot.root), run_id)["handed_off"] == []
+
+
+def test_handoff_queue_orders_a_discard_by_its_discard_commit(pilot, capsys):
+    run_id = start(pilot.root, capsys)
+    bug = pilot.lane("T003", run_id)
+    discard_in(bug, "T003", date="2026-01-01T09:00:00+00:00")
+    chore = pilot.lane("T004", run_id)
+    assert main(["--root", str(chore), "done", "T004", "--owner", "lane"]) == 0
+    commit_all(chore, "chore(T004): mark done", date="2026-01-01T10:00:00+00:00")
+    (bug / "decision.md").write_text("decision")
+    commit_all(bug, "docs(T003): record decision", date="2026-01-01T12:00:00+00:00")  # the tip is now later than T004's done
+    handoff = status_of(pilot.root, capsys, run_id)["runs"][0]["handoff"]
+    assert (handoff["queue"], handoff["next"]) == (["T003", "T004"], "T003")
+
+
 # 14
 
 

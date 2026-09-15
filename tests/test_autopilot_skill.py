@@ -435,6 +435,20 @@ def test_an_approved_governing_edit_is_recorded_and_the_close_review_reads_it():
     assert "`governing_approved`" in close
 
 
+def test_a_discarded_branch_is_handed_off_like_a_done_one(autopilot_copy):
+    """T065: a task discarded on its branch is queued, handed off as a chore and read through `handoff.in_review`."""
+    text = autopilot_copy("SKILL.md")
+    close = section(text, "Close and hand off")
+    for phrase in ("stops after `taskrail discard`", "`discarded-branch`", "`--type chore`", "`handoff.in_review` says it is in review"):
+        assert phrase in close, phrase
+    assert close.index("stops after `taskrail discard`") < close.index("1. in the lane's worktree")
+    escalate = section(text, "Escalate")
+    assert "until the task is `done-branch` or `discarded-branch`" in re.search(r"1\. (.*?)2\. ", escalate).group(1)
+    assert "a `done-branch` or `discarded-branch` task in `handoff.queue` has its close reviewed" in section(text, "Resume a run")
+    close_review = flat(re.search(r"^## Close$(.*?)^## ", autopilot_copy("references/gate-review.md"), re.MULTILINE | re.DOTALL).group(1))
+    assert "no longer flags a `done-branch` or `discarded-branch` task" in close_review
+
+
 def test_skill_starts_from_several_unmerged_dependencies_only_on_explicit_instruction():
     text = flat(source("SKILL.md"))
     assert "several unmerged dependencies" in text

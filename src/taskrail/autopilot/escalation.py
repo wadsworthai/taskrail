@@ -12,7 +12,7 @@ from functools import lru_cache
 from taskrail.autopilot.runs import GATE_STATES  # a lane in these states is stopped at a gate
 from taskrail.config import AutopilotConfig
 
-MOVED_ON = ("done-branch", "handed-off")  # finished on the branch: its governing edit was escalated while it worked (T049)
+MOVED_ON = ("done-branch", "handed-off", "discarded-branch")  # closed on the branch: its governing edit was escalated while it worked (T049, T065)
 
 
 @lru_cache(maxsize=256)

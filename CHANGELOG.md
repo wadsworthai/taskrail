@@ -217,6 +217,14 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   with `taskrail checks <ID>`, which passes its resource values itself, and the
   `taskrail-autopilot` skill's gate, rebase, hand-off and after-merge steps re-run a lane's checks
   with it (T063).
+- **A branch whose task was discarded on it is handed off.** `autopilot status` queues a
+  `discarded-branch` task with the `done-branch` ones, ordered by the author time of its discard
+  commit, reports its `touched` files (so it joins `overlaps`) and its `governing_touched` without
+  the `governing` escalation. `autopilot lane <ID> --state handed-off` accepts it; it keeps reading
+  `discarded-branch`, and `handoff.in_review` names it until its `❌` reaches a mainline ref.
+  `taskrail review` prepares and publishes a task discarded on its branch, with `chore` as the
+  default title type. Behaviour change: a discarded branch used to have no `touched` files and
+  never entered the hand-off queue (T065).
 
 ## 0.1.0
 

@@ -84,8 +84,8 @@ def cmd_lane(args) -> int:
     state = None if handed_off else args.state
     if state in runs.REASON_REQUIRED and not (args.reason or "").strip():
         return _fail(f"--state {state} needs --reason", EXIT_USAGE)
-    if handed_off and task.id not in stack.done_on_branch(project):
-        return _fail(f"{task.id} is not done on its branch (done-branch), so it cannot be handed off", EXIT_REFUSED)
+    if handed_off and task.id not in stack.done_on_branch(project) and task.id not in stack.discarded_on_branch(project):
+        return _fail(f"{task.id} is neither done nor discarded on its branch (done-branch or discarded-branch), so it cannot be handed off", EXIT_REFUSED)
     current = stored["tasks"].get(task.id, {}).get("state", "running")
     if args.reason is not None and (state or current) == "running":
         return _fail("a running lane has no reason; pass --state gate, escalated or failed with --reason", EXIT_USAGE)
