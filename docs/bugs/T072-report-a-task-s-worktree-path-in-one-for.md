@@ -1,6 +1,6 @@
 # T072 — Report a task's worktree path in one form whichever checkout runs the command
 
-Kind: bug · Epic: E02 · Status: diagnosed
+Kind: bug · Epic: E02 · Status: fixed
 
 Source: opened during T071, whose plan gate showed `autopilot next --json` reporting a prepared
 task's `worktree` as a relative path from one checkout and an absolute one from another. T071's
@@ -199,3 +199,138 @@ does not exist, run with `show --json` from the main checkout and from inside th
   relative from the main checkout, absolute from inside);
 - the uncreated one's `worktree` is absolute and equals `<running root>/.worktrees/<branch>` from
   both (fails today: relative).
+
+## Decision at the diagnose gate
+
+The human departed from the proposal above (see
+[the decision record](../autopilot/decisions/T072-report-a-task-s-worktree-path-in-one-for.md)):
+
+1. `worktree` is **relative to the repository's main checkout**, computed the same from every
+   checkout; a worktree outside it gets `..` segments, and the running checkout's own worktree is
+   reported like any other.
+2. A worktree not created yet stays `<worktree_dir>/<branch>`, read against the main checkout.
+3. The nesting of worktrees that `new --workspace` and `workspace` create from inside a lane becomes
+   a follow-up task, opened at the impact stage; it is not changed here.
+
+**Which directory is the main checkout.** The first `worktree` entry of
+`git worktree list --porcelain`, rather than the parent of `git rev-parse --git-common-dir`. Git
+documents that the main worktree is listed first, and it is right in every layout: the parent of the
+common directory is not the main worktree when the repository's git directory lives elsewhere
+(`git init --separate-git-dir`, `GIT_DIR`) or for a submodule, whose common directory is
+`.git/modules/<name>` inside the superproject. `query.py` already reads the same listing to find the
+worktree that has a branch checked out. If git cannot list worktrees, the running checkout's root is
+used, as the lookup of checked-out branches already falls back to nothing.
+
+## Fix
+
+- `src/taskrail/gitutil.py`: `main_worktree(root)` returns the first `worktree` entry of
+  `git worktree list --porcelain`, resolved.
+- `src/taskrail/query.py`: `worktree_path` returns an existing worktree as
+  `os.path.relpath(<worktree>, <main worktree>)` in POSIX form (cached per project as
+  `main_worktree`), and `<worktree_dir>/<branch>` for one not created yet, unchanged. The only
+  exception is a worktree on another drive than the main worktree's (Windows), for which no
+  relative path exists: it is reported absolute.
+- Tests: `tests/test_worktree_path.py` (new) is the regression test. In
+  `tests/test_task_branch.py::test_renaming_inside_the_worktree_renames_the_branch_and_follows_the_claim`,
+  `show`'s `worktree` for a lane outside the repository is now checked as a `../` path that
+  resolves, from the main checkout, to the lane. The existing relative assertions
+  (`test_task_branch.py` lines 96 and 103, `test_autopilot_named.py` line 193) are unchanged.
+- Consumers:
+  - the `taskrail` skill's workspace step says the path is relative to the main checkout (the first
+    `worktree` line of `git worktree list --porcelain`) and runs
+    `git -C <main checkout> worktree add --no-track <worktree> -b <branch> <base.onto>`;
+  - the lane brief (`references/lane-brief.md`) says the orchestrator fills `<WORKTREE>` as an
+    absolute path, the main checkout joined with `worktree`;
+  - the installed copies were refreshed with `taskrail upgrade`;
+  - `DESIGN.md` §7 describes the form in `show`'s row and says `list` and `next` entries carry the
+    same field (`autopilot next` already carries `show --json`'s fields);
+  - a CHANGELOG entry under Unreleased.
+
+No consumer needed a new JSON field: the main checkout comes from git.
+
+## Verification
+
+The regression test, run against the unfixed code
+(`uv run --project <worktree> pytest <worktree>/tests/test_worktree_path.py -q`; `<tmp>` abbreviates
+pytest's temporary directory). It asserts, from the main checkout, a worktree under `.worktrees/`
+and one outside the repository, that `show --json` and `list --json` give `T001`
+`.worktrees/T001-wanted` (not created), `T002` `.worktrees/T002-nested` and `T003`
+`../elsewhere<n>/T003-outside`:
+
+```text
+FFFFFF                                                                   [100%]
+___ test_show_reports_the_same_worktree_from_every_checkout[main checkout] ___
+E         Differing items:
+E         {'T003': '<tmp>/elsewhere0/T003-outside'} != {'T003': '../elsewhere0/T003-outside'}
+___ test_show_reports_the_same_worktree_from_every_checkout[nested worktree] ___
+E         Differing items:
+E         {'T002': '<tmp>/test_show_reports_the_same_wor1/.worktrees/T002-nested'} != {'T002': '.worktrees/T002-nested'}
+E         {'T003': '<tmp>/elsewhere1/T003-outside'} != {'T003': '../elsewhere1/T003-outside'}
+___ test_show_reports_the_same_worktree_from_every_checkout[outside worktree] ___
+E         Differing items:
+E         {'T002': '<tmp>/test_show_reports_the_same_wor2/.worktrees/T002-nested'} != {'T002': '.worktrees/T002-nested'}
+E         {'T003': '<tmp>/elsewhere2/T003-outside'} != {'T003': '../elsewhere2/T003-outside'}
+___ test_list_reports_the_same_worktree_from_every_checkout[main checkout] ___
+E         Differing items:
+E         {'T003': '<tmp>/elsewhere3/T003-outside'} != {'T003': '../elsewhere3/T003-outside'}
+___ test_list_reports_the_same_worktree_from_every_checkout[nested worktree] ___
+E         Differing items:
+E         {'T002': '<tmp>/test_list_reports_the_same_wor1/.worktrees/T002-nested'} != {'T002': '.worktrees/T002-nested'}
+E         {'T003': '<tmp>/elsewhere4/T003-outside'} != {'T003': '../elsewhere4/T003-outside'}
+___ test_list_reports_the_same_worktree_from_every_checkout[outside worktree] ___
+E         Differing items:
+E         {'T002': '<tmp>/test_list_reports_the_same_wor2/.worktrees/T002-nested'} != {'T002': '.worktrees/T002-nested'}
+E         {'T003': '<tmp>/elsewhere5/T003-outside'} != {'T003': '../elsewhere5/T003-outside'}
+6 failed in 1.90s
+```
+
+It fails for the root cause: the path is made relative to the running checkout, and only for a
+worktree strictly below it.
+
+After the fix, the regression test with the two test files that assert the field:
+
+```text
+$ uv run --project <worktree> pytest <worktree>/tests/test_worktree_path.py <worktree>/tests/test_task_branch.py <worktree>/tests/test_autopilot_named.py -q
+.......F.........................................................        [100%]
+E       At index 1 diff: PosixPath('../lanes0/lane') != PosixPath('<tmp>/lanes0/lane')
+FAILED .worktrees/T072-report-a-task-s-worktree-path-in-one-for/tests/test_task_branch.py::test_renaming_inside_the_worktree_renames_the_branch_and_follows_the_claim
+1 failed, 64 passed in 16.49s
+```
+
+That assertion expected the old absolute form for a lane outside the repository; it was updated as
+described in *Fix*. The stage's checks then:
+
+```text
+$ taskrail checks T072 --stage fix
+== test: uv run pytest -q
+1028 passed in 150.55s (0:02:30)
+== lint: not configured
+passed test
+not configured lint
+T072 in <worktree>: passed
+```
+
+`lint` is listed for the fix stage but not defined in the `checks` map.
+
+The reproduction matrix again, with the fixed source:
+
+```text
+--root main checkout
+  T001 (not created)         worktree = '.worktrees/T001-wanted'
+  T002 (under .worktrees)    worktree = '.worktrees/T002-nested'
+  T003 (outside the root)    worktree = '../elsewhere/T003-outside'
+
+--root T002 worktree (under .worktrees)
+  T001 (not created)         worktree = '.worktrees/T001-wanted'
+  T002 (under .worktrees)    worktree = '.worktrees/T002-nested'
+  T003 (outside the root)    worktree = '../elsewhere/T003-outside'
+
+--root T003 worktree (outside)
+  T001 (not created)         worktree = '.worktrees/T001-wanted'
+  T002 (under .worktrees)    worktree = '.worktrees/T002-nested'
+  T003 (outside the root)    worktree = '../elsewhere/T003-outside'
+```
+
+In this clone, `show T072 --json` with the fixed source gives
+`.worktrees/T072-report-a-task-s-worktree-path-in-one-for` from both the main checkout and the task's
+worktree.

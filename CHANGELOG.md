@@ -8,6 +8,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **A task's `worktree` is one path from every checkout.** `show`, `list`, `next` and
+  `autopilot next` report it relative to the repository's main checkout (the first entry of
+  `git worktree list`), with `..` segments for a worktree outside it, whichever checkout runs the
+  command; before, an existing worktree came out absolute when read from inside it or from another
+  worktree. The `taskrail` skill creates a worktree with `git -C <main checkout> worktree add`, and
+  the lane brief's worktree is the main checkout joined with it (T072).
 - **Named autopilot runs, extended runs and prepared workspaces.** `autopilot start --tasks IDs`
   starts a run that works only those tasks, in the order given, with their number as its count;
   `autopilot extend R --tasks IDs` adds tasks to such a run and `--count N` sets a count-only run's

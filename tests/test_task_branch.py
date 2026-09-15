@@ -123,7 +123,8 @@ def test_renaming_inside_the_worktree_renames_the_branch_and_follows_the_claim(l
     [row] = data(lanes.root, "claims", capsys=capsys)["local"]
     assert row["stale"] is None
     shown = data(lanes.root, "show", "T001", capsys=capsys)
-    assert (shown["branch"], Path(shown["worktree"])) == (NAME, lane.resolve())
+    assert (shown["branch"], (lanes.root / shown["worktree"]).resolve()) == (NAME, lane.resolve())  # relative to the main checkout (T072)
+    assert shown["worktree"].startswith("../")
     assert shown["claim"]["branch"] == NAME
     # claiming again from the renamed branch is the same claim
     again = data(lane, "claim", "T001", "--owner", "lane", capsys=capsys)

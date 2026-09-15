@@ -67,6 +67,15 @@ def worktrees(root: Path) -> set[Path]:
     return {Path(line[len("worktree "):]).resolve() for line in output.splitlines() if line.startswith("worktree ")}
 
 
+def main_worktree(root: Path) -> Path:
+    """The clone's main worktree: the first entry `git worktree list` gives, from any of its worktrees."""
+    output = run(root, "worktree", "list", "--porcelain").stdout
+    first = next((line for line in output.splitlines() if line.startswith("worktree ")), None)
+    if first is None:
+        raise GitError(f"git worktree list found no worktree for {root}")
+    return Path(first[len("worktree "):]).resolve()
+
+
 def worktree_branches(root: Path) -> dict[str, Path]:
     """Each local branch checked out in a worktree of this clone, with that worktree's path."""
     output = run(root, "worktree", "list", "--porcelain").stdout
