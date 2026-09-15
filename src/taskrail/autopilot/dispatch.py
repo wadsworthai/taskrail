@@ -157,6 +157,9 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
                 base = base_dict(task, project)
                 if base is None or not base["onto"]:
                     reason = ("base diverged: " if base and base["diverged"] else "no base: ") + (base["reason"] if base else "no mainline")
+                elif base["row"] == "missing":
+                    # Only this checkout has the row: a lane's workspace from `onto` could not claim it (T070).
+                    reason = f"row not on {base['onto']}: run taskrail workspace {task.id}"
             if reason:
                 skipped.append({"id": task.id, "reason": reason})
                 continue

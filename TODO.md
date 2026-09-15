@@ -85,6 +85,7 @@ Done when: a consumer project runs its backlog through taskrail with its own kin
 | ✅ | T023 | feature | 2   | —          | Report signs of prior work on a task in show | Informational only: an existing artifact, or commits whose subject names the task ID. |
 | ✅ | T025 | feature | 2   | T018       | Skip installing skills for kinds a repository does not allow | init and upgrade should not install executor skills for kinds outside [kinds].allowed. |
 | ✅ | T034 | bug     | 1   | T017       | Clear done-branch for a task reopened on its mainline | A stale task branch with ✅ hides a task reopened on the mainline; a mainline Reopens: <ID> commit the branch lacks should clear the state. |
+| ✅ | T070 | feature | —   | —          | Detect a task whose row is missing from its base and carry the row into its workspace | show, next and autopilot next report a row absent from base.onto (such as one left uncommitted on the mainline checkout); a command moves that row, with its ID, into the task's new branch and worktree; new without --workspace on a mainline warns. |
 
 ## E06 — Repository tooling
 

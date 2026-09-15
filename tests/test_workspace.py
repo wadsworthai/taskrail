@@ -58,7 +58,7 @@ def test_show_reports_the_base(remote_repo, tmp_path_factory, capsys):
     assert data["base"] == {
         "onto": "origin/main", "diverged": False, "reason": "origin/main is up to date with or ahead of main",
         "remote": "origin", "remote_source": "[review].remote",
-        "commit": git(remote_repo.root, "rev-parse", "origin/main"), "dependency": None,
+        "commit": git(remote_repo.root, "rev-parse", "origin/main"), "dependency": None, "row": "on-base",
     }
     advance_remote(remote_repo, tmp_path_factory)
     assert json.loads(run(remote_repo.root, "show", "T002", "--json", capsys=capsys)[1])["base"]["onto"] == "origin/main"

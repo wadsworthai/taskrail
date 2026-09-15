@@ -14,6 +14,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   `taskrail self upgrade`, the pin that `init` and `upgrade` write and the installed skills'
   `source` all follow. Reinstall from the new repository, then run `taskrail upgrade` in each
   repository to move its wrapper and pin.
+- **A row missing from its base.** `show`, `list` and `next` report `base.row` (`on-base`,
+  `on-branch` or `missing`), `autopilot next` skips a task whose row only the checkout has,
+  `taskrail workspace <ID>` moves such a row with its ID into the task's own branch and worktree,
+  and `new` without `--workspace` warns on a mainline checkout (T070).
 - **`autopilot merged` for a branch whose task was discarded on it.** The content checks now run for
   a head whose row is `✅` or `❌`, and a proven merge reports `closed` (`done` or `discarded`),
   `confirmations.row_discarded_on_mainline`, and is recorded with that `status`. A recorded discard

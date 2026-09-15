@@ -159,6 +159,8 @@ def cmd_show(args) -> int:
     if data["base"]:
         base = data["base"]
         lines.append(f"  base {base['onto'] or '—'} ({base['reason']})")
+        if base["row"] == "missing":
+            lines.append(f"  row not on {base['onto']}: only this checkout has it; run `taskrail workspace {task.id}`")
     if data["claim"]:
         claim = data["claim"]
         lines.append(f"  claimed by {claim['owner']} on {claim['branch'] or '—'} since {claim['created']}")
@@ -192,12 +194,18 @@ def cmd_next(args) -> int:
         _fetch_records(project)
     claimed = _local_claims(project)
     tasks = eligible(project, args.backlog, claimed)[: args.limit]
+    entries = [task_dict(t, project, claimed) for t in tasks]
     _emit(
-        [task_dict(t, project, claimed) for t in tasks],
+        entries,
         args.json,
-        "\n".join(_line(t, project, claimed) for t in tasks) or "no eligible tasks",
+        "\n".join(_line(t, project, claimed) + _row_mark(entry["base"]) for t, entry in zip(tasks, entries)) or "no eligible tasks",
     )
     return EXIT_OK
+
+
+def _row_mark(base: dict | None) -> str:
+    """`next`'s note for a task whose row its base lacks and only this checkout has (T070)."""
+    return f"  (row not on {base['onto']})" if base and base["row"] == "missing" else ""
 
 
 def cmd_claim(args) -> int:
@@ -474,13 +482,14 @@ def cmd_new(args) -> int:
     task_id = ids.reserve(config, backlog.config, args.owner or claims.default_owner())
     values["ID"] = task_id
     values["✓"] = Status.PENDING.value
-    result = {"id": task_id, "backlog": backlog.config.name, "epic": epic.id}
+    result = {"id": task_id, "backlog": backlog.config.name, "epic": epic.id, "warning": None}
 
     workspace = None
     if args.workspace:
         try:
             depends_on = [item.strip() for item in (args.depends_on or "").split(",") if item.strip()]
-            workspace = _open_workspace(project, backlog.config, kind, epic.id, task_id, args.title, depends_on, args.branch)
+            probe = _probe_task(backlog.config, kind, epic.id, task_id, args.title, depends_on)
+            workspace = _open_workspace(project, backlog.config, probe, args.branch)
         except _WorkspaceRefused as exc:
             ids.cancel_reservation(config, backlog.config, task_id)
             print(f"taskrail: {exc}", file=sys.stderr)
@@ -512,11 +521,20 @@ def cmd_new(args) -> int:
             written = branches.write(origin_config, task_id, args.branch)
             result["record_remote"] = _mirror_record(origin_config, written)
 
+    warning = None
+    if not workspace and gitutil.current_branch(config.root) == backlog.config.mainline:
+        warning = (
+            f"{task_id} was written to this checkout of {backlog.config.mainline}, uncommitted; commit it to "
+            f"{backlog.config.mainline}, or run `taskrail workspace {task_id}` to move it into its own branch"
+        )
+        result["warning"] = warning
     code = _write(edits, args.json, result, text, on_written=record_branch)
     if code != EXIT_OK:
         if workspace:
             _close_workspace(workspace)
         ids.cancel_reservation(origin_config, backlog.config, task_id)
+    elif warning:
+        print(f"taskrail: warning: {warning}", file=sys.stderr)
     return code
 
 
@@ -526,53 +544,221 @@ class _WorkspaceRefused(Exception):
         self.code = code
 
 
-def _open_workspace(
-    project: Project, backlog_config, kind, epic_id: str, task_id: str, title: str, depends_on: list[str], branch: str | None = None
-) -> dict:
-    """Create the branch (and worktree) a new task will be worked in, from the base `show` would report."""
+def _probe_task(backlog_config, kind, epic_id: str, task_id: str, title: str, depends_on: list[str]):
+    """A task not written yet, enough to resolve its branch and base."""
     from taskrail.model import Task
 
-    config = project.config
-    probe = Task(
+    return Task(
         id=task_id, status=Status.PENDING, status_raw=Status.PENDING.value, kind=kind.name, points=None, points_raw="",
         depends_on=depends_on, title=title, description="", columns={}, backlog=backlog_config.name, epic=epic_id,
         file=backlog_config.file, line=0, order=0,
     )
-    branch = branch or branches.task_branch(probe, project)
+
+
+def _workspace_target(project: Project, backlog_config, task, branch: str | None = None) -> tuple[str, str, Path | None]:
+    """The branch, base and worktree path (None without worktrees) a task's workspace gets; refuses what cannot be created."""
+    config = project.config
+    branch = branch or branches.task_branch(task, project)
     gitutil.common_dir(config.root)
-    chosen = base_dict(probe, project)
+    chosen = base_dict(task, project)
     if chosen is None:
         raise _WorkspaceRefused(f"could not determine the base of {backlog_config.mainline}", EXIT_USAGE)
     base = review.Base(chosen["onto"], chosen["diverged"], chosen["reason"])
     if base.diverged:
         raise _WorkspaceRefused(f"{base.reason}; decide which one to branch from")
-    if len(unmerged_dependencies(probe, project)) > 1:
+    if len(unmerged_dependencies(task, project)) > 1:
         raise _WorkspaceRefused(base.reason)
     if base.onto is None:
         raise _WorkspaceRefused(base.reason, EXIT_USAGE)
     if gitutil.branch_exists(config.root, branch):
         raise _WorkspaceRefused(f"branch {branch} already exists")
+    path = None
     if config.worktree == "required":
         path = (config.root / config.worktree_dir / branch).resolve()
         if path.exists():
             raise _WorkspaceRefused(f"{path} already exists")
-        gitutil.run(config.root, "worktree", "add", "--quiet", "--no-track", str(path), "-b", branch, base.onto)
-        return {"path": path, "branch": branch, "base": base.onto, "worktree": True, "origin": config.root}
+    return branch, base.onto, path
+
+
+def _open_workspace(project: Project, backlog_config, task, branch: str | None = None) -> dict:
+    """Create the branch (and worktree) a task will be worked in, from the base `show` would report."""
+    config = project.config
+    branch, onto, path = _workspace_target(project, backlog_config, task, branch)
+    if path is not None:
+        gitutil.run(config.root, "worktree", "add", "--quiet", "--no-track", str(path), "-b", branch, onto)
+        return {"path": path, "branch": branch, "base": onto, "worktree": True, "origin": config.root}
     if gitutil.run(config.root, "status", "--porcelain").stdout.strip():
         raise _WorkspaceRefused("this checkout has uncommitted changes; commit or set them aside before switching branch")
     previous = gitutil.current_branch(config.root)
-    gitutil.run(config.root, "switch", "--quiet", "--no-track", "-c", branch, base.onto)
-    return {"path": config.root, "branch": branch, "base": base.onto, "worktree": False, "origin": config.root, "previous": previous}
+    gitutil.run(config.root, "switch", "--quiet", "--no-track", "-c", branch, onto)
+    return {"path": config.root, "branch": branch, "base": onto, "worktree": False, "origin": config.root, "previous": previous}
 
 
 def _close_workspace(workspace: dict) -> None:
-    """Undo a workspace that `new --workspace` just created and nothing else has used."""
+    """Undo a workspace that `new --workspace` or `workspace` just created and nothing else has used."""
     origin = workspace["origin"]
     if workspace["worktree"]:
         gitutil.run(origin, "worktree", "remove", "--force", str(workspace["path"]), check=False)
     elif workspace.get("previous"):
         gitutil.run(origin, "switch", "--quiet", workspace["previous"], check=False)
     gitutil.run(origin, "branch", "-D", workspace["branch"], check=False)
+
+
+def _print_issues(issues: list[Issue], what: str) -> None:
+    for issue in issues:
+        print(issue.format(), file=sys.stderr)
+    print(f"taskrail: {what} would leave the backlog invalid; nothing was written", file=sys.stderr)
+
+
+def cmd_workspace(args) -> int:
+    """Carry a row only this checkout has into its task's own branch and worktree, with its ID (T070)."""
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    task = project.task(args.id)
+    if task is None:
+        print(f"taskrail: no task `{args.id}`", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    if task.status is not Status.PENDING:
+        label = task.status.label if task.status else f"`{task.status_raw}`"
+        print(f"taskrail: {task.id} is {label}, not pending", file=sys.stderr)
+        return EXIT_REFUSED
+    config = project.config
+    backlog_config = config.backlog(task.backlog)
+    _fetch_records(project)
+    if args.branch is not None:
+        gitutil.common_dir(config.root)
+        problem = branches.invalid_name(project, args.branch)
+        if problem:
+            print(f"taskrail: {problem}", file=sys.stderr)
+            return EXIT_USAGE
+        other = branches.owner_of(project, args.branch, except_id=task.id)
+        if other:
+            print(f"taskrail: {args.branch} is the branch of {other}", file=sys.stderr)
+            return EXIT_REFUSED
+    for found, label in ((stack.done_on_branch(project), "done"), (stack.discarded_on_branch(project), "discarded")):
+        if task.id in found:
+            print(f"taskrail: {task.id} is {label} on branch {', '.join(found[task.id].refs)}", file=sys.stderr)
+            return EXIT_REFUSED
+    owner = args.owner or claims.default_owner()
+    try:
+        claim = claims.read(config, task.id)
+    except gitutil.GitError:
+        claim = None
+    if claim is not None and claim.owner != owner:
+        print(f"taskrail: {task.id} is claimed by {claim.owner}", file=sys.stderr)
+        return EXIT_CONFLICT
+    if claim is not None:
+        print(f"taskrail: {task.id} is claimed by {owner} in this checkout; release it first with `taskrail release {task.id}`", file=sys.stderr)
+        return EXIT_REFUSED
+    base = base_dict(task, project)
+    if base is not None and base["row"] == "on-base":
+        print(
+            f"taskrail: {task.id} is already on {base['onto']}; nothing to carry: create its workspace as the taskrail skill's workspace step says",
+            file=sys.stderr,
+        )
+        return EXIT_REFUSED
+    if base is not None and base["row"] == "on-branch":
+        print(f"taskrail: branch {branches.task_branch(task, project)} already exists", file=sys.stderr)
+        return EXIT_REFUSED
+    try:
+        _workspace_target(project, backlog_config, task, args.branch)
+        values = writer.row_values(writer.Edits(config), task)
+        removal = writer.Edits(config)
+        writer.remove_task(removal, task)
+    except _WorkspaceRefused as exc:
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return exc.code
+    except writer.WriteError as exc:
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    errors = [issue for issue in load_project(config, overlay=removal.files)[1] if issue.severity == "error"]
+    if errors:
+        _print_issues(errors, f"removing {task.id} from this checkout")
+        return EXIT_INVALID
+
+    # Checked: now change things, undoing each step if a later one fails.
+    originals = {relative: (config.root / relative).read_text(encoding="utf-8") for relative in removal.files}
+    added = ids.keep_reservation(config, backlog_config, task.id, owner)
+    state = {"workspace": None, "removed": False}
+
+    def undo() -> None:
+        if state["workspace"]:
+            _close_workspace(state["workspace"])
+        if state["removed"]:
+            for relative, content in originals.items():
+                (config.root / relative).write_text(content, encoding="utf-8")
+        if added:
+            ids.cancel_reservation(config, backlog_config, task.id)
+
+    def uncommitted() -> bool:
+        return bool(gitutil.run(config.root, "status", "--porcelain", "--", *removal.files).stdout.strip())
+
+    worktrees = config.worktree == "required"
+    left_uncommitted = False
+    if not worktrees:  # the branch is switched in this checkout, which must be clean once the row is gone
+        writer.apply(removal)
+        state["removed"] = True
+        left_uncommitted = uncommitted()
+    try:
+        state["workspace"] = workspace = _open_workspace(project, backlog_config, task, args.branch)
+    except _WorkspaceRefused as exc:
+        undo()
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return exc.code
+
+    target = dataclasses.replace(config, root=workspace["path"])
+    target_project, _ = load_project(target)
+    epic = next(
+        (e for b in target_project.backlogs for e in b.epics if b.config.name == backlog_config.name and e.id == task.epic), None
+    )
+    if epic is None:
+        undo()
+        print(f"taskrail: epic `{task.epic}` does not exist on {workspace['base']}", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    edits = writer.Edits(target)
+    try:
+        writer.add_task(edits, target_project, epic, values)
+    except writer.WriteError as exc:
+        undo()
+        print(f"taskrail: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    errors = writer.apply(edits)
+    if errors:
+        undo()
+        _print_issues(errors, f"adding {task.id} on {workspace['base']}")
+        return EXIT_INVALID
+    if worktrees:
+        errors = writer.apply(removal)
+        if errors:
+            undo()
+            _print_issues(errors, f"removing {task.id} from this checkout")
+            return EXIT_INVALID
+        left_uncommitted = uncommitted()
+
+    # Recorded like `new --workspace` records its branch, so the row living only there is found by its branch.
+    record_remote = _mirror_record(config, branches.write(config, task.id, workspace["branch"]))
+    result = {
+        "id": task.id,
+        "backlog": backlog_config.name,
+        "epic": task.epic,
+        "branch": workspace["branch"],
+        "workspace": str(workspace["path"]),
+        "base": workspace["base"],
+        "files": sorted(edits.files),
+        "removed_from": {"path": str(config.root), "files": sorted(removal.files), "uncommitted": left_uncommitted},
+        "reservation_added": added,
+        "record_remote": record_remote,
+    }
+    text = [
+        task.id,
+        f"workspace {workspace['path']} on branch {workspace['branch']} from {workspace['base']}",
+        f"removed from {config.root}: {', '.join(sorted(removal.files))}",
+    ]
+    if left_uncommitted:
+        text.append(f"the removal is not committed in {config.root}")
+    _emit(result, args.json, "\n".join(text))
+    return EXIT_OK
 
 
 def _change_status(args, status: Status) -> int:
@@ -1271,6 +1457,13 @@ def build_parser() -> argparse.ArgumentParser:
     new.add_argument("--workspace", action="store_true", help="create the task's branch and worktree from the mainline and add the row there")
     new.add_argument("--branch", help="with --workspace, the branch name to use instead of the kind's template")
     new.add_argument("--allow-invalid", action="store_true")
+
+    workspace = add(
+        "workspace", cmd_workspace, "Move the row of a task missing from its base, with its ID, into the task's own branch and worktree."
+    )
+    workspace.add_argument("id")
+    workspace.add_argument("--branch", help="the branch name to use instead of the kind's template")
+    workspace.add_argument("--owner", help="who is moving it, checked against a claim and kept on the reservation (default: $TASKRAIL_OWNER or user@host)")
 
     done = add("done", cmd_done, "Mark a claimed task done and release its claim.")
     done.add_argument("id")
