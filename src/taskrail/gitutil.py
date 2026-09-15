@@ -68,12 +68,17 @@ def worktrees(root: Path) -> set[Path]:
 
 
 def main_worktree(root: Path) -> Path:
-    """The clone's main worktree: the first entry `git worktree list` gives, from any of its worktrees."""
+    """The clone's main worktree: the first entry `git worktree list` gives, from any of its worktrees.
+
+    A bare repository has none, and git lists the bare directory in that slot, marked `bare`: then the
+    directory holding it stands in, so task worktrees are never placed inside git's own directory (T075).
+    """
     output = run(root, "worktree", "list", "--porcelain").stdout
-    first = next((line for line in output.splitlines() if line.startswith("worktree ")), None)
+    first = next((block.splitlines() for block in output.split("\n\n") if block.startswith("worktree ")), None)
     if first is None:
         raise GitError(f"git worktree list found no worktree for {root}")
-    return Path(first[len("worktree "):]).resolve()
+    path = Path(first[0][len("worktree "):]).resolve()
+    return path.parent if "bare" in first[1:] else path
 
 
 def worktree_branches(root: Path) -> dict[str, Path]:

@@ -1,6 +1,6 @@
 # T075 — Report and create task worktrees outside the bare directory of a bare repository
 
-Kind: bug · Epic: E02 · Status: diagnosed
+Kind: bug · Epic: E02 · Status: fixed
 
 Source: found in T073 (see the *Impact* section of
 [T073's document](T073-create-a-task-worktree-under-the-main-ch.md)). T072 made `show`, `list`,
@@ -394,3 +394,159 @@ reporting case. It asserts, running from the worktree:
   (fails today: exit 0, it creates it inside the bare directory);
 - the ordinary-clone tests (`test_worktree_path.py`, `test_workspace_placement.py`) keep passing
   unchanged.
+
+## Decision at the diagnose gate
+
+Recorded in [the decision record](../autopilot/decisions/T075-report-and-create-task-worktrees-outside.md):
+
+1. The worktree base of a bare repository is **the directory containing it** (option 1); an ordinary
+   clone keeps its main checkout. `worktree_dir` combines as `<base>/<worktree_dir>/<branch>`.
+2. Departing from the proposal's consumer option (a): the CLI reports the base as an absolute
+   **`worktree_base`** field beside `worktree` in `show`, `list`, `next` and `autopilot next`
+   (`null` whenever `worktree` is), because `DESIGN.md` §8 says skills never compute paths. The
+   `taskrail` skill creates the worktree with
+   `git -C <this checkout> worktree add --no-track <worktree_base>/<worktree> -b <branch> <base.onto>`,
+   the lane brief fills `<WORKTREE>` as `worktree_base` joined with `worktree`, and neither reads
+   `git worktree list` any more.
+3. Touch map as proposed, plus `query.task_dict`; `autopilot/merged.py` belongs to T074.
+
+## Fix
+
+- `src/taskrail/gitutil.py`, `main_worktree`: reads the first block of `git worktree list --porcelain`
+  and returns the parent of its path when the block has a `bare` line, else the path as before.
+- `src/taskrail/query.py`: `task_dict` adds `worktree_base`, `str(main_checkout(project))` when
+  `worktree` is not `null`, else `null`; `list`, `next` and `autopilot next` get it through
+  `task_dict`. Docstrings of `main_checkout` and `worktree_path` name the base.
+- `src/taskrail/cli.py`: `_workspace_target`'s comment only; creation follows `query.main_checkout`.
+- `src/taskrail/skills/taskrail/SKILL.md` (workspace step) and
+  `src/taskrail/skills/taskrail-autopilot/references/lane-brief.md` (`<WORKTREE>` note) use
+  `worktree_base`; the installed copies were refreshed with `taskrail upgrade`
+  (`updated .claude/skills/taskrail/SKILL.md`, `updated .claude/skills/taskrail-autopilot/references/lane-brief.md`).
+- `DESIGN.md` §7: `show`'s row documents `worktree_base`, `list`'s names it (and `next` and
+  `autopilot next` carry the same fields), and the `new` row and the `taskrail workspace` paragraph
+  place the worktree under `worktree_base`.
+- `CHANGELOG.md`: one bullet under Unreleased.
+- `tests/test_bare_layout.py` (new) is the regression test. The bare fixture clones the repository
+  with `git clone --bare` to `layout/repo.git` and adds three worktrees, each used as a runner:
+  `layout/main` (sibling, on `main`), `layout/T002-repricing` (next to the bare directory) and
+  `layout/repo.git/T003-rounding-error` (inside it). The ordinary fixture is a clone with a lane at
+  `.worktrees/T002-repricing`. Tests:
+  - `gitutil.main_worktree` from each bare runner is `layout`;
+  - `show` and `list` report `T002` as `T002-repricing`, `T003` as `repo.git/T003-rounding-error`, and
+    `worktree_base` `layout` for every task;
+  - `new --workspace` creates `layout/.worktrees/<branch>`, and `show` from inside it gives
+    `.worktrees/<branch>` with `worktree_base` joined to it equal to the workspace;
+  - `workspace <ID>` exits 5 with "already exists" and creates no branch when
+    `layout/.worktrees/<branch>` exists;
+  - an ordinary clone reports `worktree_base` as its main checkout in `show`, `list` and `next`, from
+    the main checkout and from the lane;
+  - with `worktree = "never"`, `worktree` and `worktree_base` are both `null`.
+
+## Verification
+
+The regression test against the unfixed code
+(`uv run --project <worktree> pytest <worktree>/tests/test_bare_layout.py -q --tb=line -p no:cacheprovider`;
+`<tmp>` abbreviates pytest's temporary directory, and repeated source locations are omitted):
+
+```text
+FFFFFFFFFFFFFFF                                                          [100%]
+=================================== FAILURES ===================================
+E   AssertionError: assert PosixPath('<tmp>/layout0/repo.git') == PosixPath('<tmp>/layout0')
+     +  where PosixPath('<tmp>/layout0/repo.git') = <function main_worktree at 0x7efea2a26700>(PosixPath('<tmp>/layout0/main'))
+E   AssertionError: assert PosixPath('<tmp>/layout1/repo.git') == PosixPath('<tmp>/layout1')
+     +  where PosixPath('<tmp>/layout1/repo.git') = <function main_worktree at 0x7efea2a26700>(PosixPath('<tmp>/layout1/T002-repricing'))
+E   AssertionError: assert PosixPath('<tmp>/layout2/repo.git') == PosixPath('<tmp>/layout2')
+     +  where PosixPath('<tmp>/layout2/repo.git') = <function main_worktree at 0x7efea2a26700>(PosixPath('<tmp>/layout2/repo.git/T003-rounding-error'))
+E   AssertionError: assert {'T002': '../...unding-error'} == {'T002': 'T00...unding-error'}
+      Differing items:
+      {'T003': 'T003-rounding-error'} != {'T003': 'repo.git/T003-rounding-error'}
+      {'T002': '../T002-repricing'} != {'T002': 'T002-repricing'}
+  (the same for the other two runners)
+E   AssertionError: assert PosixPath('<tmp>/layout6/repo.git/.worktrees/T004-placed') == ((PosixPath('<tmp>/layout6') / '.worktrees') / 'T004-placed')
+E   AssertionError: assert PosixPath('<tmp>/layout7/repo.git/.worktrees/T004-placed') == ((PosixPath('<tmp>/layout7') / '.worktrees') / 'T004-placed')
+E   AssertionError: assert PosixPath('<tmp>/layout8/repo.git/.worktrees/T004-placed') == ((PosixPath('<tmp>/layout8') / '.worktrees') / 'T004-placed')
+E   AssertionError:
+    assert 0 == 5
+  (three times, one per runner, at test_bare_layout.py:101)
+E   KeyError: 'worktree_base'
+  (test_bare_layout.py:110, main checkout and lane)
+E   KeyError: 'worktree_base'
+  (test_bare_layout.py:120)
+15 failed in 2.67s
+```
+
+Every bare case fails for the root cause: the base is `repo.git`, so `show` reads `../T002-repricing`
+and `T003-rounding-error`, `new --workspace` creates `repo.git/.worktrees/T004-placed`, and `workspace`
+does not see the taken path next to the bare repository and succeeds (exit 0). The ordinary-clone and
+`worktree = "never"` cases fail because `worktree_base` does not exist yet.
+
+After the fix:
+
+```text
+$ uv run --project <worktree> pytest <worktree>/tests/test_bare_layout.py -q -p no:cacheprovider
+...............                                                          [100%]
+15 passed in 2.65s
+```
+
+The stage's checks (no existing assertion compared the whole task dictionary; none needed a change):
+
+```text
+$ taskrail checks T075 --stage fix
+== test: uv run pytest -q
+1051 passed in 143.24s (0:02:23)
+== lint: not configured
+passed test
+not configured lint
+T075 in <worktree>: passed
+```
+
+`lint` is listed for the fix stage but not defined in the `checks` map.
+
+The reproduction again with the fixed source, following the new skill step
+(`repro_t075_fixed.py`: the same layouts as `repro_t075.py`; the manual step now runs
+`git -C <this checkout> -c safe.bareRepository=explicit worktree add --no-track <worktree_base>/<worktree> -b T001-first <base.onto>`,
+and `show T001` is read from the layout's checkout, the new workspace and T001's own worktree):
+
+```text
+######## control: ordinary clone control/repo
+T001 worktree (not created): .worktrees/T001-first   worktree_base: control/repo   base.onto: origin/main
+workspace: control/repo/.worktrees/T002-placed
+T002 worktree, from inside it: .worktrees/T002-placed   worktree_base: control/repo
+$ git -C control/repo -c safe.bareRepository=explicit worktree add --no-track control/repo/.worktrees/T001-first -b T001-first origin/main
+exit 0
+T001 worktree: .worktrees/T001-first   lane brief <WORKTREE> = worktree_base/worktree: control/repo/.worktrees/T001-first  exists: True   (from each of the three runners)
+
+######## A: bare clone sibling/repo.git, worktree sibling/main
+T001 worktree (not created): .worktrees/T001-first   worktree_base: sibling   base.onto: main
+workspace: sibling/.worktrees/T002-placed
+T002 worktree, from inside it: .worktrees/T002-placed   worktree_base: sibling
+$ git -C sibling/main -c safe.bareRepository=explicit worktree add --no-track sibling/.worktrees/T001-first -b T001-first main
+exit 0
+T001 worktree: .worktrees/T001-first   lane brief <WORKTREE> = worktree_base/worktree: sibling/.worktrees/T001-first  exists: True   (from each of the three runners)
+$ git -C sibling/main worktree list --porcelain   (worktree/bare lines)
+  worktree sibling/repo.git
+  bare
+  worktree sibling/.worktrees/T001-first
+  worktree sibling/.worktrees/T002-placed
+  worktree sibling/main
+
+######## B: dotbare/project/.bare with dotbare/project/.git, worktree dotbare/project/main
+T001 worktree (not created): .worktrees/T001-first   worktree_base: dotbare/project   base.onto: main
+workspace: dotbare/project/.worktrees/T002-placed
+T002 worktree, from inside it: .worktrees/T002-placed   worktree_base: dotbare/project
+$ git -C dotbare/project/main -c safe.bareRepository=explicit worktree add --no-track dotbare/project/.worktrees/T001-first -b T001-first main
+exit 0
+T001 worktree: .worktrees/T001-first   lane brief <WORKTREE> = worktree_base/worktree: dotbare/project/.worktrees/T001-first  exists: True   (from each of the three runners)
+
+######## C: bare clone inside/repo.git, worktree inside/repo.git/main
+T001 worktree (not created): .worktrees/T001-first   worktree_base: inside   base.onto: main
+workspace: inside/.worktrees/T002-placed
+T002 worktree, from inside it: .worktrees/T002-placed   worktree_base: inside
+$ git -C inside/repo.git/main -c safe.bareRepository=explicit worktree add --no-track inside/.worktrees/T001-first -b T001-first main
+exit 0
+T001 worktree: .worktrees/T001-first   lane brief <WORKTREE> = worktree_base/worktree: inside/.worktrees/T001-first  exists: True   (from each of the three runners)
+```
+
+In this clone, `show T075 --json` with the fixed source reports
+`"worktree": ".worktrees/T075-report-and-create-task-worktrees-outside"` and
+`"worktree_base": "<clone>"`.

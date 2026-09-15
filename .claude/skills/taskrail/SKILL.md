@@ -63,9 +63,9 @@ of `taskrail show`) supplies what happens inside each stage.
    worktree from `base.onto`, moves the row there with its ID and removes it from this checkout;
    commit the row inside the workspace, and the removal here when `removed_from.uncommitted` is
    true and this checkout's branch needs it. If `worktree` is set, create it. The path is relative
-   to the repository's main checkout — the first `worktree` line of `git worktree list --porcelain`,
-   whichever checkout you run it from — so run
-   `git -C <main checkout> worktree add --no-track <worktree> -b <branch> <base.onto>`; otherwise
+   to `worktree_base`, an absolute directory `show` reports the same from every checkout, so run
+   `git -C <this checkout> worktree add --no-track <worktree_base>/<worktree> -b <branch> <base.onto>`
+   from the checkout you are in; otherwise
    `git switch --no-track -c <branch> <base.onto>`. `--no-track` keeps the base from becoming the
    branch's upstream, so a plain `git push` cannot land on the mainline or a dependency's branch;
    `taskrail review --publish` sets the task's own remote branch as upstream. If the branch
