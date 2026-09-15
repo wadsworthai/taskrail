@@ -57,3 +57,34 @@ against the unfixed code. The touched files match the touch map. Re-ran `taskrai
 |---|---|---|---|---|
 | 1 | Approve the fix | approve · request changes | as recommended | It implements both of the human's decisions under regression tests observed failing for the root cause. |
 | 2 | Name the worktree base in DESIGN.md §8's "Skills never compute paths" sentence | leave it · add it | as recommended | The sentence still holds with `worktree_base` reported by `show`, and §7 documents the field. |
+
+## close
+
+Reviewed: the impact stage recorded what it checked — other readers of the base, other text deriving it
+from `git worktree list`, T074's merged guard in a bare layout, tests naming the main checkout — and
+opened no follow-up (`b1352bf`, the artifact only). `taskrail done` is committed on its own (`f46b0d8`);
+the backlog differed from the base only in this task's row, as `✅`. `governing_touched` is empty and the
+branch has no upstream. `review --json` reported `rebase.needed: true` onto `origin/main`, which had gained
+T074.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Reword T072's unreleased CHANGELOG bullet, which still describes joining against the main checkout | keep it · reword it | as recommended: **keep it** | It records T072's change, and T075's bullet in the same *Unreleased* section describes the result. |
+| 2 | Pull request type and scope | `fix(cli)` · `feat(cli)` | **`fix(cli)`** | It corrects where worktrees are reported and created in a bare layout; `worktree_base` is the contract that fix needs. |
+
+## rebase after T074
+
+T074 was merged into `main` (`fe270eb`). The branch was rebased onto `origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/bugs/README.md` | keep both · stop | **keep both** | Rows appended to an index by both sides, a known class. |
+| 2 | Conflict in `docs/autopilot/decisions/README.md` | keep both · stop | **keep both** | Rows appended to an index by both sides, a known class. |
+| 3 | Conflict in `CHANGELOG.md` | keep both · stop | **keep both, each once** | Bullets added under *Unreleased* by both sides, a known class. |
+| 4 | Conflict in `TODO.md` (T074 `✅` on the base, T075 `✅` on the branch) | both `✅` · stop | **both `✅`** | Backlog rows, a known class: a `✅` on either side stays, and neither side has a `Reopens:` commit. |
+
+`DESIGN.md` merged without conflict (T074's `autopilot merged` row and T075's rows are separate lines).
+After the rebase: `git diff --check origin/main` reports nothing, `git diff origin/main --stat` lists only
+this task's files, `taskrail upgrade` reports every file up to date, `taskrail checks T075` gave
+`1052 passed in 146.95s` (`lint` not configured), and `taskrail validate` reports
+`64 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
