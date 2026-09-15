@@ -8,6 +8,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **`autopilot merged --cleanup` keeps worktrees nested in the one it removes.** It now refuses (exit
+  5) and removes nothing when another registered worktree lies inside the task's worktree, naming
+  those worktrees; before, one in an ignored directory such as a `.worktrees/` that an earlier
+  `new --workspace` nested there was deleted with its uncommitted work (T074).
 - **A task worktree is created under the main checkout from any checkout.** `new --workspace` and
   `workspace <ID>` run inside another worktree now create the task's worktree at
   `<worktree_dir>/<branch>` under the repository's main checkout, where `show` reports it, and refuse
