@@ -334,3 +334,50 @@ The reproduction matrix again, with the fixed source:
 In this clone, `show T072 --json` with the fixed source gives
 `.worktrees/T072-report-a-task-s-worktree-path-in-one-for` from both the main checkout and the task's
 worktree.
+
+## Impact
+
+The fix gate approved the change as it stands (see the decision record). One item outside this fix,
+decided at the diagnose gate, became a follow-up task:
+
+- **T073 — Create a task worktree under the main checkout when new or workspace runs inside another
+  worktree** (bug, E02). `cli._workspace_target` places the worktree at
+  `config.root / config.worktree_dir / branch`, `config.root` being the checkout that runs the
+  command, so from inside a lane it lands below that lane — not at `<worktree_dir>/<branch>` under the
+  main checkout, where `show` now reports a worktree not created yet.
+
+Reproduced with a throwaway script outside the repository (`repro_nesting.py`, run with this branch's
+source as `uv run --project <worktree> python repro_nesting.py <scratch>/nesting`). It builds a
+repository with one pending task `T001 Lane`, `.worktrees/` ignored and one commit, adds the lane
+worktree `repo/.worktrees/T001-lane` with `git worktree add`, and calls `taskrail.cli.main` with
+`--root` at the lane; paths are printed relative to the scratch directory:
+
+```text
+== new --workspace from inside the lane
+$ taskrail --root repo/.worktrees/T001-lane new --epic E01 --kind bug --title From lane --workspace --json
+exit 0
+workspace: repo/.worktrees/T001-lane/.worktrees/T002-from-lane
+
+== workspace <ID> from inside the lane, for a row only the lane has
+$ taskrail --root repo/.worktrees/T001-lane new --epic E01 --kind bug --title Moved row --json
+exit 0
+$ taskrail --root repo/.worktrees/T001-lane workspace T003 --json
+exit 0
+workspace: repo/.worktrees/T001-lane/.worktrees/T003-moved-row
+
+== show from each new workspace (its row lives there)
+$ taskrail --root repo/.worktrees/T001-lane/.worktrees/T002-from-lane show T002 --json
+exit 0
+T002 worktree: .worktrees/T001-lane/.worktrees/T002-from-lane
+$ taskrail --root repo/.worktrees/T001-lane/.worktrees/T003-moved-row show T003 --json
+exit 0
+T003 worktree: .worktrees/T001-lane/.worktrees/T003-moved-row
+
+== git worktree list --porcelain (worktree lines)
+repo
+repo/.worktrees/T001-lane
+repo/.worktrees/T001-lane/.worktrees/T002-from-lane
+repo/.worktrees/T001-lane/.worktrees/T003-moved-row
+```
+
+Not changed in T072.
