@@ -29,3 +29,19 @@ nothing reads it back. The stage defines no checks.
 The verification plan (checks 1–12 in the artifact) is approved as proposed: every install from the tag in a
 fresh cache, wrapper checks with a restricted `PATH` so the human's installed CLI is never used, no tag
 created, moved or pushed, and no `uv tool install`.
+
+## implement gate
+
+Reviewed: commit `754ab82` (`git show`): `pyproject.toml` and the taskrail entry of `uv.lock` at `0.3.0.dev0`,
+E01's *Done when* naming `v0.2.0` (the prose line only), and the artifact with the verification results;
+`installed.json` and CHANGELOG.md unchanged. The recorded checks show, against the published tag: `uvx` and a
+scratch virtual environment install `taskrail 0.2.0` from `wadsworthai/taskrail@v0.2.0` (commit `23e62e8`);
+`init` pins `v0.2.0`; the wrapper runs the matching CLI, and with no taskrail on `PATH` falls back to `uvx` at
+`v0.2.0` with an empty cache; `self upgrade --dry-run` resolves `v0.2.0`; after the bump, a
+`0.3.0.dev0` wheel first on `PATH` is rejected by the `v0.2.0` pin and the wrapper falls back to `v0.2.0`.
+Re-ran `taskrail checks T078 --stage implement`: `test` gave `1052 passed in 149.84s`; `lint` is not configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the implementation | approve · request changes | as recommended | The diff is the approved change set, and the checks pass. |
+| 2 | Running checks 4 and 5 as `--root <scratch> validate` instead of the plan's `validate --root <scratch>` | accept · reword the plan | as recommended: **accept** | `--root` is a global option; the check verifies the same thing, and the artifact records the correction. |
