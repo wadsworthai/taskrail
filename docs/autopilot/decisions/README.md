@@ -59,3 +59,4 @@
 | T075 | Report and create task worktrees outside the bare directory of a bare repository | [T075-report-and-create-task-worktrees-outside.md](T075-report-and-create-task-worktrees-outside.md) |
 | T076 | Name wadsworthai/taskrail as the canonical repository in the CLI, skills and docs | [T076-name-wadsworthai-taskrail-as-the-canonic.md](T076-name-wadsworthai-taskrail-as-the-canonic.md) |
 | T077 | Release v0.2.0 from the canonical repository | [T077-release-v0-2-0-from-the-canonical-reposi.md](T077-release-v0-2-0-from-the-canonical-reposi.md) |
+| T078 | Bump main to 0.3.0.dev0 after the v0.2.0 tag | [T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md](T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md) |
