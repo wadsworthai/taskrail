@@ -46,3 +46,4 @@
 | T059 | Record an approved governing edit so autopilot status stops flagging it | [T059-record-an-approved-governing-edit-so-aut.md](T059-record-an-approved-governing-edit-so-aut.md) |
 | T062 | Treat a task discarded on its unmerged branch as closed in status and next | [T062-treat-a-task-discarded-on-its-unmerged-b.md](T062-treat-a-task-discarded-on-its-unmerged-b.md) |
 | T063 | Name taskrail checks in the lane brief and the autopilot skill's re-run steps | [T063-name-taskrail-checks-in-the-lane-brief-a.md](T063-name-taskrail-checks-in-the-lane-brief-a.md) |
+| T064 | Skip a task merged on the remote mainline but not pulled in autopilot next | [T064-skip-a-task-merged-on-the-remote-mainlin.md](T064-skip-a-task-merged-on-the-remote-mainlin.md) |

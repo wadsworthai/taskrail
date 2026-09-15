@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from taskrail import claims as claims_module
 from taskrail import prior, stack
 from taskrail.autopilot import runs
-from taskrail.autopilot.status import done_on_mainline, task_state
+from taskrail.autopilot.status import discarded_on_mainline, done_on_mainline, task_state
 from taskrail.claims import Claim
 from taskrail.config import GroupConfig
 from taskrail.model import Project, Task
@@ -64,7 +64,7 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
     autopilot = config.autopilot
     candidates = eligible(project, None, claimed)
     stack.done_on_branch(project)  # read git before the lock; both are cached per project
-    done_on_mainline(project)
+    merged, discarded = done_on_mainline(project), discarded_on_mainline(project)
 
     with runs.update_all(config) if run_id else _read_only(config) as stored:
         run = stored.get(run_id) if run_id else None
@@ -144,7 +144,10 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
             occupying_in = [(record_id, state) for (record_id, task_id), state in states.items() if task_id == task.id and state in OCCUPYING]
             groups = _groups_of(task, recorded_group(task.id, run_id), autopilot.groups)
             full = next((name for name in groups if len(members[name]) >= limits[name]), None)
-            if failed_in:
+            if task.id in merged or task.id in discarded:
+                # Closed on a mainline ref the checkout has not pulled: `autopilot status` reads it closed (T064).
+                reason = ("done-merged" if task.id in merged else "discarded") + " on the mainline, not in this checkout"
+            elif failed_in:
                 reason = f"failed in run {failed_in[0]}"
             elif occupying_in:
                 reason = f"{occupying_in[0][1]} in run {occupying_in[0][0]}"

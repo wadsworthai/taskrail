@@ -8,6 +8,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **`autopilot next` skips a task closed on an unpulled mainline.** A candidate whose row is `✅` or
+  `❌` on the local mainline or `<remote>/<mainline>` but still `⬜` in the checkout — a merge that
+  was not pulled — is reported in `skipped` as `done-merged` or `discarded` instead of being
+  dispatched again; `autopilot status` no longer reads a task as closed on one mainline ref when the
+  other has a `Reopens: <ID>` commit that ref lacks (T064).
 - **`autopilot close` abandons a run.** `taskrail autopilot close <R> --reason …` records who closed
   the run, when and why, and releases its dispatches and resources. `next` then ignores the run, so
   its lanes, group places and resource values are free again, and `status` lists it only when named

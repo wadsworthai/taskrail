@@ -633,3 +633,65 @@ def test_a_lane_between_discard_and_its_commit_is_running(pilot, capsys):
     assert (lane["state"], lane["claim"], lane["touched"]) == ("running", None, ["TODO.md"])
     commit_all(path, "chore(T001): discard")
     assert row(pilot.root, capsys, run_id, "T001")["state"] == "discarded-branch"
+
+
+# T064
+
+
+def merge_without_pull(pilot, capsys, task_id, closing):
+    """Close a task in its lane, push its branch to origin/main and fetch, leaving the local main behind."""
+    path = pilot.worktrees[task_id]
+    assert main(["--root", str(path), closing, task_id, "--owner", "lane"]) == 0
+    commit_all(path, f"chore({task_id}): {closing}")
+    branch = data(pilot.root, "show", task_id, capsys=capsys)["branch"]
+    git(pilot.root, "push", "-q", "origin", f"{branch}:main")
+    git(pilot.root, "fetch", "-q", "origin")
+    return path, branch
+
+
+@pytest.mark.parametrize("closing, state", [("done", "done-merged"), ("discard", "discarded")])
+def test_a_task_closed_on_the_remote_mainline_but_not_pulled_is_not_dispatched(pilot, capsys, closing, state):
+    run_id = start(pilot.root, capsys, count=6)
+    assert ids(dispatch(pilot.root, capsys, run_id)) == ["T001", "T002", "T003", "T005", "T006"]
+    pilot.lane("T001", run_id)
+    path, branch = merge_without_pull(pilot, capsys, "T001", closing)
+    backdate(pilot.root, run_id, "T001", 16)  # claim_grace_minutes is 15
+    dispatched = stored(pilot.root, run_id)["tasks"]["T001"]["dispatched"]
+    reason = f"{state} on the mainline, not in this checkout"
+
+    assert row(pilot.root, capsys, run_id, "T001")["state"] == state
+    assert data(pilot.root, "show", "T001", capsys=capsys)["state"] == "pending"  # plain commands read the checkout (§7)
+    preview = dispatch(pilot.root, capsys)
+    assert (ids(preview), skipped(preview).get("T001")) == ([], reason)
+    result = dispatch(pilot.root, capsys, run_id)
+    assert (ids(result), skipped(result).get("T001")) == ([], reason)
+    assert stored(pilot.root, run_id)["tasks"]["T001"]["dispatched"] == dispatched  # not recorded again
+
+    git(pilot.root, "worktree", "remove", "--force", str(path))  # as `autopilot merged --cleanup` does
+    git(pilot.root, "branch", "-D", branch)
+    assert skipped(dispatch(pilot.root, capsys))["T001"] == reason
+
+    git(pilot.root, "merge", "-q", "--ff-only", "origin/main")  # pulled: no longer a candidate at all
+    preview = dispatch(pilot.root, capsys)
+    assert "T001" not in ids(preview) and "T001" not in skipped(preview)
+
+
+def test_a_task_reopened_on_the_local_mainline_is_offered_while_the_remote_is_still_closed(pilot, capsys):
+    run_id = start(pilot.root, capsys, count=6)
+    dispatch(pilot.root, capsys, run_id)
+    pilot.lane("T001", run_id)
+    path, branch = merge_without_pull(pilot, capsys, "T001", "done")
+    git(pilot.root, "worktree", "remove", "--force", str(path))
+    git(pilot.root, "branch", "-D", branch)
+    git(pilot.root, "merge", "-q", "--ff-only", "origin/main")
+    backdate(pilot.root, run_id, "T001", 16)
+
+    reopened = data(pilot.root, "reopen", "T001", "--reason", "not finished", capsys=capsys)
+    git(pilot.root, "commit", "-q", "-am", reopened["commit_message"])  # not pushed: origin/main still has ✅
+    assert row(pilot.root, capsys, run_id, "T001")["state"] == "pending"
+    preview = dispatch(pilot.root, capsys)
+    assert "T001" in ids(preview) and "T001" not in skipped(preview)
+
+    git(pilot.root, "push", "-q", "origin", "main")  # the reopen reaches origin/main, and the local main falls behind
+    git(pilot.root, "reset", "-q", "--hard", "HEAD~1")
+    assert row(pilot.root, capsys, run_id, "T001")["state"] == "pending"

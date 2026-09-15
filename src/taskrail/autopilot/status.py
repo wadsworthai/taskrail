@@ -13,7 +13,7 @@ from taskrail.autopilot import runs as runs_module
 from taskrail.claims import Claim
 from taskrail.model import Project, Status, Task
 from taskrail.query import base_dict, blocked_by
-from taskrail.review import resolve_remote
+from taskrail.review import REOPENS, resolve_remote
 from taskrail.templates import render
 
 STATES = ("pending", "dispatched", "running", "gate", "escalated", "failed", "done-branch", "handed-off", "done-merged", "discarded-branch", "discarded")
@@ -40,7 +40,10 @@ def discarded_on_mainline(project: Project) -> set[str]:
 
 
 def _on_mainline(project: Project, status: Status) -> set[str]:
-    """Tasks whose row has `status` on a mainline ref, read once per project for both statuses."""
+    """Tasks whose row has `status` on a mainline ref, read once per project for both statuses.
+
+    A row on one mainline ref does not count when the other has a `Reopens: <ID>` commit it lacks (T064).
+    """
     if MAINLINE_KEY not in project.cache:
         config = project.config
         root = config.root
@@ -61,10 +64,22 @@ def _on_mainline(project: Project, status: Status) -> set[str]:
                     found |= {task.id for task in backlog.tasks if task.status is closed}
                 continue
             statuses = stack._read_statuses(project, backlog.config.file, refs)
+            reopened = {ref: _reopened_elsewhere(root, ref, refs) for ref in refs}
             for closed, found in rows.items():
-                found |= {task_id for ref in refs for task_id, cell in statuses[ref].items() if cell == closed.value}
+                found |= {
+                    task_id for ref in refs for task_id, cell in statuses[ref].items() if cell == closed.value and task_id not in reopened[ref]
+                }
         project.cache[MAINLINE_KEY] = rows
     return project.cache[MAINLINE_KEY][status]
+
+
+def _reopened_elsewhere(root: Path, ref: str, refs: list[str]) -> set[str]:
+    """Tasks with a `Reopens: <ID>` commit on another mainline ref that `ref` lacks: a closed row on `ref` predates it (T064)."""
+    others = [other for other in refs if other != ref]
+    if not others:
+        return set()
+    log = gitutil.run(root, "log", "--format=%B", "--grep=^Reopens:", *others, "--not", ref, check=False).stdout
+    return set(REOPENS.findall(log))
 
 
 def _closing(task: Task, project: Project) -> bool:
