@@ -44,6 +44,23 @@ apply unchanged. A named task that is not eligible and not already one of the ru
 A task that is not named is never dispatched by a named run. `status` lists a named run's `named` and
 every named task, dispatched or not. Count-only runs behave exactly as today.
 
+**Extending a live run** (added at the plan gate, decision 3).
+`taskrail autopilot extend <R> [--tasks IDs] [--count N] [--json]` changes an open run in place,
+under the common-directory lock:
+
+- `--tasks` on a named run appends the IDs to `named`, dropping duplicates and IDs already named, and
+  raises `count` by the number added, with `start`'s refusals for each new ID (exit 3 unknown, exit 5
+  closed or of a kind the autopilot does not drive). Naming only tasks already named changes nothing
+  and exits 0 with `added: []`.
+- `--count N` on a count-only run sets `count` to N; N below 1 exits 2, and N lower than the run's
+  tasks already counted toward its count (§12.7: `dispatched`, `running`, `gate`, `escalated`,
+  `failed`, `done-branch`, `handed-off`, `done-merged`) exits 5.
+- `--count` on a named run, `--tasks` on a count-only run, or neither flag exits 2; an unknown run
+  exits 3; a closed run exits 5. Like `start`, it exits 5 while the autopilot is disabled (checked
+  first) and 1 for an invalid backlog.
+- `--json` returns the updated `run`, `added` (the IDs appended) and `previous_count`. `next` and
+  `status` read the run file, so they reflect the new count and named list at once.
+
 **Rows that live only on their task's branch.** The autopilot commands — `start`, `next`, `status`,
 `lane`, `notify`, `approve-governing`, `merged` — and `taskrail checks <ID>` find a task whose row is
 absent from the checkout they run in on the task's own branch: the branch of its live claim, else its
@@ -73,8 +90,9 @@ listing the branch; `show`'s text adds `(prepared: only the task's row)` to its 
 
 - `taskrail-autopilot` `SKILL.md`: the autopilot runs when the human explicitly asks and gives a task
   count **or names the tasks** (description and *When to run*); step 1 runs `start --tasks <IDs>` for
-  named tasks and `--count <N>` otherwise; a run's count and named tasks do not change, so more tasks
-  mean another run; exit 3 on a named task is reported to the human with the `taskrail branch` hint;
+  named tasks and `--count <N>` otherwise; when the human adds tasks to a run or raises its count,
+  the orchestrator extends that run with `autopilot extend` rather than starting another, which still
+  needs the human's explicit request; exit 3 on a named task is reported to the human with the `taskrail branch` hint;
   *Dispatch* step 1 fills the brief's prepared Workspace section when the entry's
   `prior_work.prepared` is set.
 - `references/lane-brief.md`: the Workspace section keeps "If the branch already exists, stop and
@@ -127,14 +145,26 @@ listing the branch; `show`'s text adds `(prepared: only the task's row)` to its 
     or other backlog text changes, once a row is removed, and when the branch does not exist. A task
     with a `prepared` branch still lists it in `branches`.
 11. The shipped skill sources say: `SKILL.md` — `autopilot start --tasks`, "names the tasks" in the
-    description and in *When to run*, that a run's count and named tasks do not change, and that the
+    description and in *When to run*, `autopilot extend` for tasks added to a run or a raised count,
+    and that the
     prepared Workspace section is used when `prior_work.prepared` is set; `lane-brief.md` — a
     `Workspace (prepared by taskrail new --workspace)` section with "do not stop because the branch
     exists", `claim <ID> --run <RUN>` and `taskrail checks <ID>`; the `taskrail` skill — `prior_work.prepared`.
     `taskrail upgrade` leaves the installed copies equal to the sources.
 12. `uv run pytest -q` and `taskrail validate` pass.
+13. `autopilot extend R --tasks T006,T005 --json` on a run named `T005,T002` exits 0 with
+    `added == ["T006"]`, `run.named == ["T005", "T002", "T006"]`, `run.count == 3` and
+    `previous_count == 2`; the next `next --run R` can dispatch `T006`, and `status --run R` lists it
+    with `count` 3. `extend R --tasks T005` exits 0 with `added: []` and the count unchanged.
+14. `extend R --tasks` exits 3 for an unknown ID and 5 for a closed task or a kind not driven, writing
+    nothing; a task whose row is only on its branch can be added from the main checkout.
+15. `extend R --count 4` on a count-only run with one lane `running` exits 0 with `run.count == 4`,
+    and the next `next --run R` dispatches up to the new count; `--count 0` exits 2; with two tasks
+    counted toward the run, `--count 1` exits 5 and `--count 2` exits 0.
+16. `extend` exits 2 for `--count` on a named run, `--tasks` on a count-only run, and neither flag;
+    3 for an unknown run; 5 for a closed run and while the autopilot is disabled.
 
-Criteria 1–8 and 10 are verified by pytest in a new `tests/test_autopilot_named.py` (reusing the
+Criteria 1–8, 10 and 13–16 are verified by pytest in a new `tests/test_autopilot_named.py` (reusing the
 `pilot` pattern of `tests/test_autopilot_next.py`, with a worktree created by `new --workspace`) and
 `tests/test_prior.py`; criterion 11 by `tests/test_autopilot_skill.py`.
 
@@ -143,12 +173,15 @@ Criteria 1–8 and 10 are verified by pytest in a new `tests/test_autopilot_name
 - `src/taskrail/branchrows.py` (new): `find(project, task_id, claimed) -> Task | None` and
   `adopt(project, task_ids, claimed)`, which appends the rows found on task branches to the loaded
   project (their epic too, when the checkout lacks it) with status `⬜`.
-- `src/taskrail/autopilot/commands.py`: `cmd_start` (`--tasks`, validation, `named`), `register`
-  (`start --tasks`), `cmd_lane` and `cmd_notify` (adopt before the lookup), `_status_text` (named line).
-- `src/taskrail/autopilot/runs.py`: `create(…, named)`, `_normalize` (`named` defaults to `[]`).
+- `src/taskrail/autopilot/commands.py`: `cmd_start` (`--tasks`, validation, `named`), a new
+  `cmd_extend`, `register` (`start --tasks`, `extend`), `cmd_lane` and `cmd_notify` (adopt before the
+  lookup), `_status_text` (named line).
+- `src/taskrail/autopilot/runs.py`: `create(…, named)`, `_normalize` (`named` defaults to `[]`), a new
+  `extend` helper.
 - `src/taskrail/autopilot/dispatch.py`: `next_lanes` (adopt members; named candidates and their skip
   reasons; a rowless claimed member occupies a lane), `_members` (adds `named`), `_entry` (passes what
-  `prepared` needs).
+  `prepared` needs). The candidate loop's final `else` is left as it is, for T070's missing-row skip
+  (touch map).
 - `src/taskrail/autopilot/status.py`: `run_status` (members include `named`; rows adopted).
 - `src/taskrail/autopilot/approve.py` `cmd_approve_governing`, `src/taskrail/autopilot/merged.py`
   `cmd_merged`: adopt before the lookup.
@@ -161,17 +194,16 @@ Criteria 1–8 and 10 are verified by pytest in a new `tests/test_autopilot_name
   step 1), `src/taskrail/skills/taskrail-autopilot/references/lane-brief.md` (introduction, Workspace,
   new prepared section), `src/taskrail/skills/taskrail/SKILL.md` (step 2, one sentence); installed
   copies under `.claude/skills/` through `taskrail upgrade`.
-- `DESIGN.md`: §6.4 (record writers), §7 (the `new` row), §7.2 (`prepared`), §12.1 (`start`, `next`,
-  and a paragraph on rows absent from the checkout), §12.3 (the lane's workspace), §12.4 (`named`),
-  §12.7 (a rowless claimed lane).
+- `DESIGN.md`: §6.4 (record writers), the §7 `autopilot` row, §7.2 (`prepared`), §12.1 (`start`,
+  `extend`, `next` — whose cell also carries T070's clause "skips a task whose `base.row` is `missing`,
+  with the reason" — and a paragraph on rows absent from the checkout), §12.3 (the lane's workspace),
+  §12.4 (`named`), §12.7 (a rowless claimed lane). The §7 `new` row is T070's.
 - `README.md`: the `autopilot start` line of the command list. `CHANGELOG.md`: Unreleased bullets.
 - Tests: `tests/test_autopilot_named.py` (new), `tests/test_prior.py`, `tests/test_autopilot_skill.py`.
 
 ## Out of scope
 
-- **Changing a live run** — raising its count or adding named tasks. A follow-up task, if approved:
-  "Add tasks to a live autopilot run" (`autopilot extend R --tasks … | --count N`). Until then the
-  skill says to start another run.
+- Lowering a named run's count, removing named tasks, or turning a count-only run into a named one.
 - `show`, `list`, plain `next`, `claim`, `edit`, `done` and `review` still read only their checkout's
   rows; they run inside the task's worktree. Detecting a row absent from `base.onto` and carrying a row
   into a workspace are T070's.
@@ -185,5 +217,5 @@ Criteria 1–8 and 10 are verified by pytest in a new `tests/test_autopilot_name
   cost grows with those members only. A worktree backlog that fails to parse falls back to the tip.
 - `cli.py` and the `taskrail` skill are shared with T070; the edits above are confined to the named
   functions and one sentence.
-- The plan is at the upper end of a feature; the prepared-workspace part (`prior_work.prepared`, the
-  brief section) could be split off if the gate prefers.
+- The plan is at the upper end of a feature; the plan gate kept it as one task, `autopilot extend`
+  included (decisions 3 and 8).
