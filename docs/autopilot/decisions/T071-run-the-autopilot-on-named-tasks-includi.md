@@ -63,3 +63,35 @@ missing-row skip does not hide it. The touched files match the touch map. Re-ran
 | 2 | `runs.members` (every task a run holds) beside `dispatch._members` (its lanes) | accept · one function with a flag | as recommended | The two answer different questions, and the docstrings say which. |
 | 3 | The integration notes' "Lanes create their worktrees with git" | leave unchanged · "create or use" | **change it to say lanes create or use their worktrees with git, never through the agent's worktree isolation, in `src/taskrail/integrations/claude.md` and `opencode.md` where the sentence appears, then `taskrail upgrade`** | A prepared lane uses an existing worktree, so the sentence is now inaccurate for the case this task adds; the files are outside T070's areas, so the touch map extends to them for T071. |
 | 4 | T072 opened on this branch | — | noted | Opened as instructed at the plan gate. |
+
+## close
+
+Reviewed: the integration note change (`8c2154d`: `integrations/claude.md`, its installed copy and the
+manifest; `opencode.md` has no such sentence), the verify stage run in a scratch repository and
+recorded in the artifact (`14c509e`), with no gap against the plan; `taskrail done` committed on its
+own (`f18a653`); the backlog differs from the base only in this task's row, as `✅`, and the T072 row
+this task opened. `governing_touched` is empty and the branch has no upstream. `review --json`
+reported `rebase.needed: true` onto `origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | `feat(autopilot)` · `feat(cli)` | **`feat(autopilot)`** | The change is the autopilot's named runs, `extend` and prepared workspaces; the CLI edits serve them. |
+
+## rebase after T069 and T070
+
+T069 (`877f687`) and T070 (`9d04f08`) were merged into `main`. The branch was rebased onto
+`origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/features/README.md` | keep both · stop | **keep both** | Rows appended to an index by both sides, a known class. |
+| 2 | Conflict in `docs/autopilot/decisions/README.md` | keep both · stop | **keep both** | Rows appended to an index by both sides, a known class. |
+| 3 | Conflict in `.taskrail/installed.json` (the hash of `.claude/skills/taskrail/SKILL.md`) | make the manifest valid and run `upgrade --force` · stop | **took one side, ran `taskrail upgrade --force`, which rewrote the hash from the merged copy** | The installed-copies class. |
+
+`src/taskrail/cli.py` (`cmd_new` next to T070's warning, `cmd_show`, `cmd_checks`),
+`src/taskrail/autopilot/dispatch.py`, DESIGN.md, the `taskrail` skill source and copy, README,
+CHANGELOG and TODO.md merged without conflict; the §12.1 `autopilot next` cell carries T070's clause
+once. No textual conflict outside the known classes arose, so run decision 3 was not needed. After
+the rebase: `git diff --check origin/main` reports nothing, a second `taskrail upgrade` reports every
+file up to date, `taskrail checks T071` gave `1022 passed in 154.25s` (`lint` not configured), and
+`taskrail validate` reports `61 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
