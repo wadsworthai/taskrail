@@ -1,8 +1,10 @@
 # T070 — Detect a task whose row is missing from its base and carry the row into its workspace
 
-Kind: feature · Epic: E05 · Status: implemented (plan approved: D1–D10 as recommended, except that
+Kind: feature · Epic: E05 · Status: verified (plan approved: D1–D10 as recommended, except that
 DESIGN.md §12.1's `autopilot next` cell is left to T071; decision 11 added: `workspace` always records
-its branch). Run `20260915-2`. Record:
+its branch; implementation approved, including the two whole-object `base` assertions,
+`reservation_added`, the *Creating tasks* paragraph placement and the `worktree = "never"`
+limitation for a row committed at `HEAD`). Run `20260915-2`. Record:
 `docs/autopilot/decisions/T070-detect-a-task-whose-row-is-missing-from.md`.
 
 ## Today
@@ -184,6 +186,93 @@ Implementation notes:
 - `.claude/skills/taskrail/SKILL.md` and `.taskrail/installed.json` were updated with
   `taskrail upgrade`.
 - DESIGN.md §12.1 is not edited (decision 9): *A row missing from its base* in §7 only points to it.
+
+## Verify
+
+The real CLI from this branch (`uv run --project <worktree> taskrail`), in two scratch repositories
+outside this clone: `main` with `T001` (✅) and `T002` (⬜, depends on `T001`), pushed to a bare
+`origin` it tracks, `[autopilot]` enabled, `.worktrees/` ignored. Output trimmed only where marked.
+
+**A. `worktree = "required"`.**
+
+```text
+$ taskrail new --epic E01 --kind bug --title "Negative totals" --pts 2 --depends-on T001 --description "Refunds | credits" --json
+taskrail: warning: T003 was written to this checkout of main, uncommitted; commit it to main, or run `taskrail workspace T003` to move it into its own branch
+{ "id": "T003", "backlog": "main", "epic": "E01",
+  "warning": "T003 was written to this checkout of main, uncommitted; commit it to main, or run `taskrail workspace T003` to move it into its own branch",
+  "files": ["TODO.md"] }                                                          # exit 0
+$ git status --porcelain
+ M TODO.md
+$ taskrail show T003                                                             # first 6 lines
+T003 — Negative totals
+  backlog main · epic E01 · kind bug · state pending
+  points 2 · depends on T001
+  base origin/main (origin/main is up to date with or ahead of main)
+  row not on origin/main: only this checkout has it; run `taskrail workspace T003`
+  skill taskrail-bug
+$ taskrail show T003 --json                                                      # base only
+{ "onto": "origin/main", "diverged": false, "reason": "origin/main is up to date with or ahead of main",
+  "remote": "origin", "remote_source": "branch.main.remote", "commit": "ac9af54…", "dependency": null, "row": "missing" }
+$ taskrail next
+T003   ⬜ pending     bug       2pt  E01   Negative totals  ← T001  (row not on origin/main)
+T002   ⬜ pending     feature   3pt  E01   Repricing  ← T001
+$ taskrail autopilot next --json                                                 # dispatch IDs and skipped
+{ "dispatch": ["T002"], "skipped": [{ "id": "T003", "reason": "row not on origin/main: run taskrail workspace T003" }] }
+$ taskrail workspace T002
+taskrail: T002 is already on origin/main; nothing to carry: create its workspace as the taskrail skill's workspace step says
+exit 5
+$ taskrail reserve-id                  # drops T003's reservation: T003 is in the working tree
+T004
+$ taskrail unreserve-id T004
+cancelled reservation T004
+$ taskrail workspace T003 --json
+{ "id": "T003", "backlog": "main", "epic": "E01", "branch": "T003-negative-totals",
+  "workspace": "<scratch>/a/.worktrees/T003-negative-totals", "base": "origin/main", "files": ["TODO.md"],
+  "removed_from": { "path": "<scratch>/a", "files": ["TODO.md"], "uncommitted": false },
+  "reservation_added": true, "record_remote": null }                              # exit 0
+$ git status --porcelain
+                                                                                  # clean
+$ grep T003 .worktrees/T003-negative-totals/TODO.md
+| ⬜ | T003 | bug     | 2   | T001       | Negative totals | Refunds \| credits |
+$ git -C .worktrees/T003-negative-totals status --porcelain
+ M TODO.md
+$ taskrail reserve-id                  # T003 is reserved again, so not handed out
+T004
+$ taskrail --root .worktrees/T003-negative-totals show T003 --json               # branch, branch_source, base.row
+T003-negative-totals recorded on-branch
+$ taskrail workspace T003              # the row has left this checkout
+taskrail: no task `T003`
+exit 3
+$ git -C .worktrees/T003-negative-totals commit …; taskrail --root .worktrees/T003-negative-totals claim T003
+claimed T003 as abigail@archlinux                                                # exit 0
+$ git switch -c topic; taskrail new --epic E01 --kind chore --title Follow-up --json
+{ "id": "T005", "backlog": "main", "epic": "E01", "warning": null, "files": ["TODO.md"] }   # exit 0, no stderr warning
+```
+
+**B. `worktree = "never"`.**
+
+```text
+$ taskrail new --epic E01 --kind bug --title "Negative totals"
+taskrail: warning: T003 was written to this checkout of main, uncommitted; commit it to main, or run `taskrail workspace T003` to move it into its own branch
+T003
+$ echo draft > NOTES.md; taskrail workspace T003
+taskrail: this checkout has uncommitted changes; commit or set them aside before switching branch
+exit 5
+$ git branch --show-current; git status --porcelain
+main
+ M TODO.md
+?? NOTES.md
+$ rm NOTES.md; taskrail workspace T003
+T003
+workspace <scratch>/b on branch T003-negative-totals from origin/main
+removed from <scratch>/b: TODO.md
+$ git branch --show-current; git status --porcelain; git show main:TODO.md | grep -c T003
+T003-negative-totals
+ M TODO.md
+0
+```
+
+No gap against the plan.
 
 ## Affected areas
 
