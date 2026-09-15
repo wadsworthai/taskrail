@@ -19,7 +19,14 @@
   You therefore answer gates in waves, once every lane in the batch has stopped: correct, but
   slower. The experimental background subagents (`OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS`)
   notify you when each lane stops instead; use them only when the human has enabled them.
+- While a batch of task calls blocks, you see neither the human nor `autopilot status`. When a
+  batch returns, before anything else, record the handle of every lane it started with
+  `autopilot lane --handle`, then run `autopilot status --run <R> --json` and deal with every
+  `silent` lane before you start the next batch.
 - Lanes cannot ask the human: the `question` permission is denied to the `general` subagent. At
-  an escalation, ask the human yourself in plain text and wait for the reply.
+  an escalation, ask the human yourself in plain text and end your turn with that question. Never
+  start another batch of blocking task calls in the same turn: it leaves the human no point at
+  which to answer. Resume the other lanes in the batch that follows the human's reply; with the
+  background subagents, which do not block, resume them before you ask.
 - A lane's model is the `model` of a lane agent definition.
 - Nothing wakes you on a timer.

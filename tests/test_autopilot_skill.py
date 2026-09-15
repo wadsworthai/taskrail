@@ -198,6 +198,25 @@ def test_with_both_integrations_the_shared_copy_carries_both_agents_notes(empty_
     assert "SendMessage" in autopilot and "task_id" in autopilot
 
 
+@pytest.mark.parametrize(("integrations", "skills_dir"), [(["opencode"], ".opencode/skills"), (["claude", "opencode"], ".claude/skills")])
+def test_opencode_note_ends_the_turn_at_an_escalation_and_checks_lanes_between_batches(empty_repo, capsys, integrations, skills_dir):
+    # T033 F3: blocking task calls left the human no point at which to answer an escalation.
+    init(empty_repo, *[arg for name in integrations for arg in ("--integration", name)], capsys=capsys)
+    skills = empty_repo / skills_dir
+    autopilot = (skills / SKILL / "SKILL.md").read_text()
+    note = flat(re.search(r"^## On OpenCode\n.*?(?=^## |\Z)", autopilot, re.MULTILINE | re.DOTALL).group(0))
+    for phrase in (
+        "end your turn with that question",
+        "never start another batch of blocking task calls in the same turn",
+        "resume the other lanes in the batch that follows the human's reply",
+        "when a batch returns, before anything else, record the handle of every lane it started with `autopilot lane --handle`",
+        "run `autopilot status --run <r> --json` and deal with every `silent` lane before you start the next batch",
+    ):
+        assert phrase in note, phrase
+    core = flat((skills / "taskrail/SKILL.md").read_text())
+    assert "blocking task calls" not in core and "`silent`" not in core
+
+
 # --- 5. The portable text names no agent -----------------------------------------------------------
 
 

@@ -918,7 +918,7 @@ portable text names no agent.
 | Integration | Skills directory | Notes in `taskrail` | Notes in `taskrail-autopilot` |
 |---|---|---|---|
 | `claude` | `.claude/skills/` | ask with AskUserQuestion; create task worktrees with git rather than subagent isolation; one allowlistable command per call, without `cd … &&` chains, and `taskrail checks` | lanes are background subagents resumed with `SendMessage`; the model per lane; no timer; the same command shape, and lane checks re-run with `taskrail checks` |
-| `opencode` | `.opencode/skills/` | ask in plain text; a subagent's final message returns to its caller | lanes are task tool calls resumed by `task_id`; gates answered in waves |
+| `opencode` | `.opencode/skills/` | ask in plain text; a subagent's final message returns to its caller | lanes are task tool calls resumed by `task_id`; gates answered in waves; at an escalation, end the turn with the question; record handles and run `status` when a batch returns |
 
 OpenCode also reads `.claude/skills/` and requires skill names to be unique across every
 location it reads. With both integrations installed, the skills are therefore written once, to
@@ -1097,7 +1097,10 @@ still reaches a lane is not verified.
 
 OpenCode's task calls block by default, so there the orchestrator answers gates in waves, once
 every lane in a batch has stopped: correct, but slower. Its integration note says so and names
-the experimental background flag without requiring it. Agent-specific text goes in the
+the experimental background flag without requiring it. While a batch blocks, the orchestrator sees
+neither the human nor `status`, so the note also has it record the handles and check `status` for
+`silent` lanes as soon as a batch returns, and end its turn with the question at an escalation
+instead of starting another batch (T033 F3, *implemented, T056*). Agent-specific text goes in the
 skill's section of the integration notes (§8, *implemented, T024*); agent definitions for pinning a lane model (`.claude/agents/`,
 `.opencode/agents/`) are adapter packaging, deferred until a consumer needs them.
 

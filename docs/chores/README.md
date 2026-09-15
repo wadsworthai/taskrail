@@ -11,3 +11,4 @@
 | T058 | Enable the autopilot in this repository | [T058-enable-the-autopilot-in-this-repository.md](T058-enable-the-autopilot-in-this-repository.md) |
 | T060 | Remove DESIGN.md and CLAUDE.md from the autopilot's governing paths | [T060-remove-design-md-and-claude-md-from-the.md](T060-remove-design-md-and-claude-md-from-the.md) |
 | T055 | Fix the autopilot skill text found wrong in the T033 trial | [T055-fix-the-autopilot-skill-text-found-wrong.md](T055-fix-the-autopilot-skill-text-found-wrong.md) |
+| T056 | Add an OpenCode note on escalations during blocking lane batches | [T056-add-an-opencode-note-on-escalations-duri.md](T056-add-an-opencode-note-on-escalations-duri.md) |

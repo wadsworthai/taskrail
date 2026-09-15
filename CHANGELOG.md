@@ -173,6 +173,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   branch tip's commit time, so rebasing a waiting branch or committing a decision record on it no
   longer moves the task to the back, and a branch left only on the remote no longer jumps to the
   front (T053).
+- **OpenCode note on escalations during blocking batches.** The `taskrail-autopilot` skill's
+  OpenCode note has the orchestrator end its turn with the question at an escalation instead of
+  starting another blocking batch of task calls, and record handles and check `silent` lanes as
+  soon as a batch returns (T056).
 
 ## 0.1.0
 
