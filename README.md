@@ -4,6 +4,11 @@ An agent-agnostic backlog tool. A deterministic CLI owns the backlog files — I
 claims, validation — and a set of skills tells an agent how to execute each kind of task.
 See [DESIGN.md](DESIGN.md) for the full model.
 
+> **Experimental.** taskrail is under active development and not yet stable: commands, flags,
+> file formats and skills may change incompatibly between releases, so pin a release and read
+> [CHANGELOG.md](CHANGELOG.md) before upgrading. It is developed with AI coding agents, under
+> human direction and review.
+
 ## Install
 
 taskrail needs [uv](https://docs.astral.sh/uv/).

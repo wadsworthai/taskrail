@@ -11,8 +11,11 @@ This chore adds a short, factual notice near the top of `README.md`.
 
 ## Change set
 
+Approved at the scope gate as proposed (decision record:
+`docs/autopilot/decisions/T069-warn-in-the-readme-that-taskrail-is-expe.md`).
+
 - `README.md` — one notice between the introductory paragraph (which ends with "See
-  [DESIGN.md](DESIGN.md) for the full model.") and `## Install`. Proposed wording:
+  [DESIGN.md](DESIGN.md) for the full model.") and `## Install`. Wording:
 
   ```markdown
   > **Experimental.** taskrail is under active development and not yet stable: commands, flags,
@@ -25,6 +28,9 @@ This chore adds a short, factual notice near the top of `README.md`.
 - This artifact and its row in `docs/chores/README.md`.
 
 ## Decisions needed
+
+Decided at the scope gate: the wording as proposed, a plain blockquote with a bold lead, placed
+after the introductory paragraph, and no CHANGELOG.md entry. The options that were put forward:
 
 1. **Wording.** Approve the text above, or amend it. Alternatives: drop the upgrade advice
    ("so pin a release and read CHANGELOG.md before upgrading") to keep only the two statements
@@ -50,7 +56,15 @@ This chore adds a short, factual notice near the top of `README.md`.
 
 ## Verification
 
-- `git diff origin/main -- README.md` shows only the added notice, in the approved place.
-- `taskrail checks T069 --stage implement`: `test` (`uv run pytest -q`) passes; `lint` is not
-  configured in the `checks` map.
-- `taskrail validate` exits 0.
+All commands run against the task's worktree (`<worktree>` below).
+
+- `git -C <worktree> diff origin/main -- README.md` shows one hunk, `@@ -4,6 +4,11 @@`: the four
+  lines of the notice and a blank line after them, between the introductory paragraph and
+  `## Install`. No other README line changes. The notice's link target, `CHANGELOG.md`, exists at
+  the repository root.
+- `git -C <worktree> diff origin/main --stat` lists only `README.md`, `TODO.md` (the task's row),
+  this artifact and its index row, and the decision record and its index row.
+- `taskrail checks T069 --stage implement`: `test` (`uv run pytest -q`) gave
+  `959 passed in 124.25s (0:02:04)`. `lint` is not configured in the `checks` map.
+- `taskrail --root <worktree> validate`: `58 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`,
+  exit 0.
