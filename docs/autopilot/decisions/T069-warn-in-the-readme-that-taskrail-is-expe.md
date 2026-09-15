@@ -29,3 +29,16 @@ no checks; none were re-run.
 | 4 | CHANGELOG.md entry | no entry · one bullet | **no entry** | Decided by the human; see above. |
 
 The change set is approved as listed: only the notice in `README.md`, besides the artifact.
+
+## implement gate
+
+Reviewed: commit `bb7f9bc` (`git show`): one hunk in `README.md` adding the approved notice, with the
+approved wording and markup, after the introductory paragraph and before `## Install`, and the
+artifact's change set, decisions and verification brought up to date. `autopilot status` lists no
+file outside the change set, the artifact, the backlog row and this record. Re-ran
+`taskrail checks T069 --stage implement`: `test` gave `959 passed in 124.92s`; `lint` is not
+configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the implementation and go on to the docs stage | approve · amend | as recommended | The diff matches the approved change set exactly and the checks pass. |
