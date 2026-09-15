@@ -3,7 +3,7 @@ name: taskrail-spike
 description: Execute a taskrail task of kind spike — a time-boxed investigation that ends in a documented, reproducible decision rather than production code. Use when working a backlog task whose kind is spike, such as evaluating a tool, library or approach.
 license: MIT
 metadata:
-  source: https://github.com/alexkander/taskrail
+  source: https://github.com/wadsworthai/taskrail
 ---
 
 # taskrail-spike

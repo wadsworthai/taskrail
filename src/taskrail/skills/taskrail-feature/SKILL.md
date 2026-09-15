@@ -3,7 +3,7 @@ name: taskrail-feature
 description: Execute a taskrail task of kind feature — new behaviour delivered from a short approved plan with testable acceptance criteria, without a separate specification process. Use when working a backlog task whose kind is feature.
 license: MIT
 metadata:
-  source: https://github.com/alexkander/taskrail
+  source: https://github.com/wadsworthai/taskrail
 ---
 
 # taskrail-feature

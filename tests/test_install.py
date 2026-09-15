@@ -277,10 +277,10 @@ def test_unknown_integration(empty_repo, capsys):
 
 
 def test_self_upgrade_dry_run(capsys, monkeypatch):
-    code = main(["self", "upgrade", "--tag", "v0.1.0", "--dry-run"])
+    code = main(["self", "upgrade", "--tag", "v0.2.0", "--dry-run"])
     out = capsys.readouterr().out
     assert code == 0
-    assert "uv tool install --force taskrail --from git+https://github.com/alexkander/taskrail.git@v0.1.0" in out
+    assert "uv tool install --force taskrail --from git+https://github.com/wadsworthai/taskrail.git@v0.2.0" in out
 
 
 def test_release_tag_drops_development_suffixes():

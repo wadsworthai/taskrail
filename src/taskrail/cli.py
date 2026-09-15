@@ -1445,7 +1445,7 @@ def build_parser() -> argparse.ArgumentParser:
     self_cmd = commands.add_parser("self", help="Manage the installed CLI.")
     self_commands = self_cmd.add_subparsers(dest="self_command", required=True)
     self_upgrade = self_commands.add_parser("upgrade", help="Reinstall the CLI from a release tag with uv.")
-    self_upgrade.add_argument("--tag", help="release tag, e.g. v0.1.0 (default: the latest)")
+    self_upgrade.add_argument("--tag", help="release tag, e.g. v0.2.0 (default: the latest)")
     self_upgrade.add_argument("--dry-run", action="store_true", help="print the command without running it")
     self_upgrade.add_argument("--json", action="store_true")
     self_upgrade.set_defaults(handler=cmd_self_upgrade)

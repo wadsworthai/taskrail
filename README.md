@@ -14,7 +14,7 @@ See [DESIGN.md](DESIGN.md) for the full model.
 taskrail needs [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@v0.1.0"
+uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.2.0"
 cd your-repository
 taskrail init --integration claude            # or --integration opencode; repeatable
 ```
@@ -179,8 +179,9 @@ commit was rewritten to hold only taskrail, at the root. Pull request numbers in
 from before the extraction, such as `(#61)`, refer to pull requests in that earlier repository, not
 in this one.
 
-Release tags were `taskrail-vX.Y.Z` there and are `vX.Y.Z` here. An install of 0.1.0 made from the
-earlier repository keeps working, but its `taskrail self upgrade` and its wrappers look for
-releases there. To move to a later release, reinstall from this repository as shown under
+Release tags were `taskrail-vX.Y.Z` there and are `vX.Y.Z` here. 0.1.0 was released only there,
+as `taskrail-v0.1.0`; the first release from this repository is 0.2.0. An install of 0.1.0 made
+from the earlier repository keeps working, but its `taskrail self upgrade` and its wrappers look
+for releases there. To move to a later release, reinstall from this repository as shown under
 *Install*, then run `taskrail upgrade` in each repository that uses taskrail, so its wrapper and
 version pin follow this repository.

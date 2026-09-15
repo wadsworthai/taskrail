@@ -3,7 +3,7 @@
 Releases are tagged `vX.Y.Z`. Install one with:
 
 ```bash
-uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@vX.Y.Z"
+uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@vX.Y.Z"
 ```
 
 ## Unreleased
@@ -38,7 +38,7 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   a branch that holds only the task's row, and the lane brief works in it instead of stopping (T071).
 - **taskrail has its own repository.** It was extracted with its history from a larger repository,
   where it lived in a subdirectory and was tagged `taskrail-vX.Y.Z`. Releases are now tagged
-  `vX.Y.Z` at `github.com/alexkander/taskrail` and install without `#subdirectory`; the wrapper,
+  `vX.Y.Z` at `github.com/wadsworthai/taskrail` and install without `#subdirectory`; the wrapper,
   `taskrail self upgrade`, the pin that `init` and `upgrade` write and the installed skills'
   `source` all follow. Reinstall from the new repository, then run `taskrail upgrade` in each
   repository to move its wrapper and pin.
@@ -275,6 +275,9 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   never entered the hand-off queue (T065).
 
 ## 0.1.0
+
+Published from the repository taskrail was extracted from, as `taskrail-v0.1.0`; this repository
+has no `v0.1.0` tag.
 
 First release.
 
