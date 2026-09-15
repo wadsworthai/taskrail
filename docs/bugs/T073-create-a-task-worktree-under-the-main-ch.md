@@ -1,6 +1,6 @@
 # T073 — Create a task worktree under the main checkout when new or workspace runs inside another worktree
 
-Kind: bug · Epic: E02 · Status: diagnosed
+Kind: bug · Epic: E02 · Status: fixed
 
 Source: found in T072 (see the *Impact* section of
 [T072's document](T072-report-a-task-s-worktree-path-in-one-for.md)). T072 made `show`, `list`,
@@ -219,3 +219,121 @@ Regression test: in a repository with a lane worktree under `.worktrees/`, run `
 `<main checkout>/.worktrees/<branch>` and matches `show`'s `worktree` joined to the main checkout
 (fails today: `<lane>/.worktrees/<branch>`); and assert `workspace <ID>` from the lane refuses with
 exit 5 when `<main checkout>/.worktrees/<branch>` already exists (fails today: exit 0).
+
+## Decision at the diagnose gate
+
+Recorded in [the decision record](../autopilot/decisions/T073-create-a-task-worktree-under-the-main-ch.md):
+
+1. Approved as proposed: the worktree goes to `<main checkout>/<worktree_dir>/<branch>`, the
+   existence check looks at that path, and the helper becomes public as `query.main_checkout`.
+2. Bare layouts get no special case here; a follow-up task at the impact stage covers reporting and
+   placement for a bare repository with worktrees.
+3. `autopilot merged --cleanup` removing nested worktrees becomes a follow-up bug at the impact stage,
+   reproduced again first.
+4. Documentation: `DESIGN.md` §7's `new` and `workspace` rows and the `workspace` paragraph, one
+   CHANGELOG bullet, no skill change.
+
+## Fix
+
+- `src/taskrail/query.py`: `_main_checkout` is renamed `main_checkout` (public, with a docstring);
+  its one caller, `worktree_path`, is updated. Its behaviour is unchanged.
+- `src/taskrail/cli.py`: `_workspace_target` builds the worktree path as
+  `(main_checkout(project) / config.worktree_dir / branch).resolve()` instead of
+  `(config.root / …)`, so both the path `_open_workspace` passes to `git worktree add` and the
+  "already exists" refusal use the main checkout.
+- `tests/test_workspace_placement.py` (new) is the regression test. Each test runs from the main
+  checkout (control) and from a lane at `.worktrees/T002-lane`:
+  - `new --workspace` returns `workspace == <main checkout>/.worktrees/<branch>`, and `show` from
+    inside it reports `.worktrees/<branch>`;
+  - `workspace <ID>` for a row only that checkout has returns the same path, which equals `show`'s
+    `worktree` from before the move joined to the main checkout, and `show` from inside it agrees;
+  - `new --workspace --branch T004-taken` and `workspace <ID>` exit 5 with "already exists" when
+    `<main checkout>/.worktrees/<branch>` is already a directory, and create no branch.
+- `DESIGN.md` §7: the `new` and `workspace` rows and the `taskrail workspace` paragraph say where the
+  worktree is created.
+- `CHANGELOG.md`: one bullet under Unreleased.
+
+## Verification
+
+The regression test against the unfixed code
+(`uv run --project <worktree> pytest <worktree>/tests/test_workspace_placement.py -q`; `<tmp>`
+abbreviates pytest's temporary directory):
+
+```text
+.F.F.F.F                                                                 [100%]
+____ test_new_workspace_creates_the_worktree_under_the_main_checkout[lane] _____
+>       assert workspace == expected_path(checkouts, result["branch"])
+E       AssertionError: assert PosixPath('<tmp>/test_new_workspace_creates_the1/.worktrees/T002-lane/.worktrees/T004-placed') == PosixPath('<tmp>/test_new_workspace_creates_the1/.worktrees/T004-placed')
+______ test_workspace_creates_the_worktree_under_the_main_checkout[lane] _______
+>       assert workspace == expected_path(checkouts, result["branch"])
+E       AssertionError: assert PosixPath('<tmp>/test_workspace_creates_the_wor1/.worktrees/T002-lane/.worktrees/T004-moved') == PosixPath('<tmp>/test_workspace_creates_the_wor1/.worktrees/T004-moved')
+____ test_new_workspace_refuses_a_path_taken_under_the_main_checkout[lane] _____
+>       assert code == 5, err
+E       assert 0 == 5
+______ test_workspace_refuses_a_path_taken_under_the_main_checkout[lane] _______
+>       assert code == 5, err
+E       assert 0 == 5
+4 failed, 4 passed in 2.43s
+```
+
+Every `[lane]` case fails for the root cause: the path is built under the lane, where nothing exists,
+so the worktree nests there and the taken path under the main checkout is not seen. The
+`[main checkout]` controls pass.
+
+After the fix, the regression test with the other test files that create workspaces or report the
+path:
+
+```text
+$ uv run --project <worktree> pytest <worktree>/tests/test_workspace_placement.py <worktree>/tests/test_workspace.py <worktree>/tests/test_row_on_base.py <worktree>/tests/test_worktree_path.py -q
+...........................................................              [100%]
+59 passed in 11.10s
+```
+
+The stage's checks:
+
+```text
+$ taskrail checks T073 --stage fix
+== test: uv run pytest -q
+1036 passed in 157.23s (0:02:37)
+== lint: not configured
+passed test
+not configured lint
+T073 in <worktree>: passed
+```
+
+`lint` is listed for the fix stage but not defined in the `checks` map.
+
+The reproduction script again, with the fixed source:
+
+```text
+== control: new --workspace from the main checkout
+workspace: repo/.worktrees/T002-from-main
+
+== new --workspace from inside the lane
+$ taskrail --root repo/.worktrees/T001-lane new --epic E01 --kind bug --title From lane --workspace --json
+exit 0
+workspace: repo/.worktrees/T003-from-lane
+
+== workspace <ID> from inside the lane, for a row only the lane has
+T004 worktree before `workspace`: .worktrees/T004-moved-row
+$ taskrail --root repo/.worktrees/T001-lane workspace T004 --json
+exit 0
+workspace: repo/.worktrees/T004-moved-row
+
+== show from each new workspace (its row lives there, uncommitted)
+T003 worktree: .worktrees/T003-from-lane
+T004 worktree: .worktrees/T004-moved-row
+
+== existence check: a directory already at <main checkout>/.worktrees/<branch> is not seen from the lane
+created directory repo/.worktrees/T005-taken
+$ taskrail --root repo/.worktrees/T001-lane workspace T005 --json
+exit 5
+stderr: taskrail: repo/.worktrees/T005-taken already exists
+
+== git worktree list --porcelain (worktree lines)
+repo
+repo/.worktrees/T001-lane
+repo/.worktrees/T002-from-main
+repo/.worktrees/T003-from-lane
+repo/.worktrees/T004-moved-row
+```

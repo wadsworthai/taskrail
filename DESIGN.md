@@ -504,8 +504,8 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4) |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
-| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there; `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved; without `--workspace`, on a checkout of the backlog's mainline, it warns on stderr, naming `taskrail workspace`, and returns the text in `warning` (`null` otherwise) |
-| `taskrail workspace <ID> [--branch NAME]` | Create the branch and worktree of a task whose row is missing from its base (`base.row`), from that base, and move the row there with its ID, keeping it reserved (see *A row missing from its base*) |
+| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there — the worktree at `<worktree_dir>/<branch>` under the repository's main checkout, the path `show` reports, whichever checkout runs the command (T073); `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved; without `--workspace`, on a checkout of the backlog's mainline, it warns on stderr, naming `taskrail workspace`, and returns the text in `warning` (`null` otherwise) |
+| `taskrail workspace <ID> [--branch NAME]` | Create the branch and worktree of a task whose row is missing from its base (`base.row`), from that base — the worktree where `new --workspace` puts it — and move the row there with its ID, keeping it reserved (see *A row missing from its base*) |
 | `taskrail edit <ID> [--title] [--pts] [--depends-on] [--description] [--kind] [--column NAME=VALUE]… [--force] [--local-only]` | Change cells of an existing task row (see the rules below) |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
@@ -704,7 +704,9 @@ command. `show`'s text adds a line `row not on <onto>: only this checkout has it
 
 `taskrail workspace <ID> [--branch NAME] [--owner O]` carries a `missing` row into the task's own
 workspace. It creates the branch, without an upstream, and the worktree from `onto` as
-`new --workspace` does (the branch in this checkout when `worktree = "never"`), appends the row with
+`new --workspace` does — the worktree at `<worktree_dir>/<branch>` under the repository's main
+checkout, where `show` reports it, even when run inside another worktree (T073); the branch in this
+checkout when `worktree = "never"` — appends the row with
 its ID and every cell to the same epic there, deletes that one line from the checkout it ran in,
 reserves the ID again when its reservation was dropped (§6.3), and records the branch (§6.4) —
 the template's name, or `--branch NAME` — mirrored as `claim` mirrors. It commits nothing: the row is

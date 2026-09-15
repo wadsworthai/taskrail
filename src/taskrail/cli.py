@@ -14,7 +14,7 @@ from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
 from taskrail.model import NONE_MARKERS, Project, Status
 from taskrail.project import load_project
-from taskrail.query import STATES, base_dict, blocked_by, eligible, state, task_dict, unmerged_dependencies
+from taskrail.query import STATES, base_dict, blocked_by, eligible, main_checkout, state, task_dict, unmerged_dependencies
 from taskrail.templates import render
 
 EXIT_OK = 0
@@ -576,7 +576,8 @@ def _workspace_target(project: Project, backlog_config, task, branch: str | None
         raise _WorkspaceRefused(f"branch {branch} already exists")
     path = None
     if config.worktree == "required":
-        path = (config.root / config.worktree_dir / branch).resolve()
+        # Under the main checkout, where `show` reports it, whichever checkout runs this (T073).
+        path = (main_checkout(project) / config.worktree_dir / branch).resolve()
         if path.exists():
             raise _WorkspaceRefused(f"{path} already exists")
     return branch, base.onto, path
