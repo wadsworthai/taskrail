@@ -63,3 +63,27 @@ reports as 28 failing before the code. The touched files match the touch map. Re
 | 2 | Keep `reservation_added` in `workspace --json` | keep · drop | as recommended | It makes D6 observable, and DESIGN.md documents it. |
 | 3 | Placement of the D8 paragraph in *Creating tasks* | after "It refuses …" as its own paragraph · mid-paragraph | as recommended | The approved text is unchanged, and "It refuses" still refers to `--workspace`. |
 | 4 | `worktree = "never"` cannot carry a row committed at the checkout's `HEAD` (exit 5, row restored) | accept, documented · commit or stash the removal | as recommended | The case the task addresses is an uncommitted row; committing or stashing on the user's behalf was ruled out by the plan. |
+
+## close
+
+Reviewed: the verify stage ran the CLI from this branch in two scratch repositories (with and without
+worktrees) and recorded the transcript in the artifact (`a7a2596`); nothing differed from the plan.
+`taskrail done` is committed on its own (`1b40281`) and the backlog differs from the base only in this
+task's row, as `✅`. `governing_touched` is empty, the branch has no upstream, and `review --json`
+reported `rebase.needed: true` onto `origin/main`, which had gained T069 (`877f687`).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | `feat(cli)` · `feat(autopilot)` | **`feat(cli)`** | The main change is the CLI's `base.row`, `workspace` command and `new` warning; the autopilot part is a three-line skip. |
+
+## rebase after T069
+
+T069 was merged into `main` (`877f687`). The branch was rebased onto `origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/autopilot/decisions/README.md` | keep both · stop | **keep both** | Rows appended to an index by both sides, a known class. |
+
+`README.md` and `TODO.md` merged without conflict. After the rebase: `git diff --check origin/main`
+reports nothing, `taskrail checks T070` gave `987 passed in 130.28s` (`lint` not configured), and
+`taskrail validate` reports `59 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
