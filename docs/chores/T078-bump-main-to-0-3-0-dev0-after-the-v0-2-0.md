@@ -1,6 +1,6 @@
 # T078 — Bump main to 0.3.0.dev0 after the v0.2.0 tag
 
-Kind: chore · Epic: E01 · Status: scoped, awaiting approval
+Kind: chore · Epic: E01 · Status: implemented, awaiting review
 
 ## Goal
 
@@ -36,7 +36,7 @@ branch's base. It is the only tag on the repository.
 |---|---|
 | `pyproject.toml` | `version = "0.3.0.dev0"` (from `0.2.0`). |
 | `uv.lock` | Regenerated with `uv lock`: the `taskrail` package entry reads `version = "0.3.0.dev0"`. No other line changes. |
-| `TODO.md` | E01's *Done when* line only, if decision 3 is approved: `Done when: v0.2.0 is tagged and a repository installs it with uv and runs it through the wrapper.` Also, through the CLI, T078's row with `taskrail done` at close. No table is edited by hand. |
+| `TODO.md` | E01's *Done when* line only (decision 3): `Done when: v0.2.0 is tagged and a repository installs it with uv and runs it through the wrapper.` Also, through the CLI, T078's row with `taskrail done` at close. No table is edited by hand. |
 | `docs/chores/T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md` | This artifact, with the tag and the install results. |
 | `docs/chores/README.md` | A row for this artifact. |
 
@@ -81,6 +81,20 @@ Files checked and left unchanged:
 5. **Pull request title.** Recommended: `chore(release): bump main to 0.3.0.dev0 after the v0.2.0 tag (T078)`,
    made with `--type chore --scope release`, the same scope as T077. Alternative: `--scope repo`.
 
+## Decisions at the scope gate
+
+Recorded in `docs/autopilot/decisions/T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md`.
+
+1. The change set is `pyproject.toml`, `uv.lock` and E01's *Done when* line.
+2. `.taskrail/installed.json` stays as it is.
+3. E01's *Done when* changes `v0.1.0` to `v0.2.0` by hand, on that line only, followed by
+   `taskrail validate`.
+4. No CHANGELOG entry.
+5. The pull request title is
+   `chore(release): bump main to 0.3.0.dev0 after the v0.2.0 tag (T078)`.
+
+The verification plan below was approved as proposed.
+
 ## Out of scope
 
 - Creating, moving, pushing or deleting any tag. `v0.2.0` exists and is only read.
@@ -93,7 +107,7 @@ Files checked and left unchanged:
 - A GitHub Release page, PyPI, and release automation.
 - T003 (installing taskrail in a first consumer project), and every other `v0.2.0` or `0.1.0`
   reference listed above.
-- `.taskrail/installed.json`, unless decision 2's alternative is chosen.
+- `.taskrail/installed.json` (decision 2).
 
 ## Verification
 
@@ -141,3 +155,79 @@ The bump:
 11. `taskrail checks T078 --stage implement` runs `test` (`uv run pytest -q`). The stage's `lint`
     check is not configured in this repository's `checks` map.
 12. `taskrail validate` on this branch.
+
+### Results
+
+No tag was created, moved, pushed or deleted, and nothing ran `uv tool install` or a
+`self upgrade` without `--dry-run`. The human's `~/.local/bin/taskrail` was never on `PATH` in a
+wrapper check. `.taskrail/installed.json` is unchanged.
+
+One correction to the plan's wording. Checks 4 and 5 wrote `validate --root <scratch>`, but
+`--root` is a global option and goes before the subcommand. The first attempt, through the venv's
+CLI, exited 2 with `taskrail: error: unrecognized arguments: --root /tmp/claude-7932/T078-scratch`.
+Every validate below runs as `--root <scratch> validate`.
+
+The published tag, before the bump:
+
+1. `UV_CACHE_DIR=/tmp/claude-7932/T078-uv-cache uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.2.0" taskrail --version`
+   printed:
+   ```
+      Updating https://github.com/wadsworthai/taskrail.git (v0.2.0)
+       Updated https://github.com/wadsworthai/taskrail.git (23e62e88591b082614526a5e295c1b6550c1b0d6)
+      Building taskrail @ git+https://github.com/wadsworthai/taskrail.git@23e62e88591b082614526a5e295c1b6550c1b0d6
+         Built taskrail @ git+https://github.com/wadsworthai/taskrail.git@23e62e88591b082614526a5e295c1b6550c1b0d6
+   Installed 1 package in 1ms
+   taskrail 0.2.0
+   ```
+2. `uv venv /tmp/claude-7932/T078-venv` used CPython 3.12.13.
+   `uv pip install --python /tmp/claude-7932/T078-venv "git+https://github.com/wadsworthai/taskrail.git@v0.2.0"`
+   printed `+ taskrail==0.2.0 (from git+https://github.com/wadsworthai/taskrail.git@23e62e88591b082614526a5e295c1b6550c1b0d6)`.
+   `/tmp/claude-7932/T078-venv/bin/taskrail --version` printed `taskrail 0.2.0`.
+3. After `git init /tmp/claude-7932/T078-scratch`,
+   `/tmp/claude-7932/T078-venv/bin/taskrail --root /tmp/claude-7932/T078-scratch init --integration claude`
+   created `.taskrail/config.toml`, `TODO.md`, `.taskrail/bin/taskrail`, the nine skill files under
+   `.claude/skills/` and `.gitignore`. The config's first line is `version = "v0.2.0"`, and the
+   wrapper's fallback line is
+   `exec uvx --quiet --from "git+${TASKRAIL_SOURCE:-https://github.com/wadsworthai/taskrail.git}@$pin" taskrail "$@"`.
+4. With `PATH=/tmp/claude-7932/T078-venv/bin:/usr/bin:/bin`, `sh -x <scratch>/.taskrail/bin/taskrail --version`
+   traced `pin=v0.2.0`, `installed=/tmp/claude-7932/T078-venv/bin/taskrail`, `have=0.2.0`,
+   `'[' v0.2.0 = v0.2.0 ']'` and `exec taskrail --version`, then printed `taskrail 0.2.0`. The
+   wrapper then ran `--root /tmp/claude-7932/T078-scratch validate`, which printed
+   `history: not checked (no commits)` and `0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+5. `/tmp/claude-7932/T078-bin` holds only the links `uv` and `uvx` to `~/.local/bin`. With
+   `PATH=/tmp/claude-7932/T078-bin:/usr/bin:/bin`, `command -v taskrail` finds nothing.
+   `sh -x <scratch>/.taskrail/bin/taskrail --version` traced `installed=`, `command -v uvx` and
+   `exec uvx --quiet --from git+https://github.com/wadsworthai/taskrail.git@v0.2.0 taskrail --version`,
+   then printed `taskrail 0.2.0`. To rule out check 1's cache, the wrapper then ran
+   `--root /tmp/claude-7932/T078-scratch validate` with a second, empty
+   `UV_CACHE_DIR=/tmp/claude-7932/T078-uv-cache-fallback`. It printed
+   `history: not checked (no commits)` and `0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`,
+   and that cache now holds a git checkout named `23e62e8`.
+6. `GIT_TERMINAL_PROMPT=0 /tmp/claude-7932/T078-venv/bin/taskrail self upgrade --dry-run` and
+   `GIT_TERMINAL_PROMPT=0 uv run --project <wt> taskrail self upgrade --dry-run` both printed
+   `uv tool install --force taskrail --from git+https://github.com/wadsworthai/taskrail.git@v0.2.0`.
+   The second ran before the bump.
+
+The bump:
+
+7. `uv lock --project <wt>` printed `Resolved 7 packages in 131ms` and
+   `Updated taskrail v0.2.0 -> v0.3.0.dev0`. `uv lock --check --project <wt>` printed
+   `Resolved 7 packages in 0.88ms`. In `git diff`, `uv.lock` changes only the taskrail
+   `version` line, `pyproject.toml` only its `version` line, and `TODO.md` only E01's
+   *Done when* line.
+8. `uv run --project <wt> taskrail --version` printed `taskrail 0.3.0.dev0`, and so did
+   `<wt>/.taskrail/bin/taskrail --version`, through the `local:.` pin.
+9. `uv build --project <wt> --out-dir /tmp/claude-7932/T078-build` built
+   `taskrail-0.3.0.dev0.tar.gz` and `taskrail-0.3.0.dev0-py3-none-any.whl`.
+10. That wheel was installed into `/tmp/claude-7932/T078-devvenv`
+    (`+ taskrail==0.3.0.dev0 (from file:///tmp/claude-7932/T078-build/taskrail-0.3.0.dev0-py3-none-any.whl)`).
+    With `PATH=/tmp/claude-7932/T078-devvenv/bin:/tmp/claude-7932/T078-bin:/usr/bin:/bin`,
+    `sh -x <scratch>/.taskrail/bin/taskrail --version` traced
+    `installed=/tmp/claude-7932/T078-devvenv/bin/taskrail`, `have=0.3.0.dev0`,
+    `'[' v0.3.0.dev0 = v0.2.0 ']'`, `command -v uvx` and
+    `exec uvx --quiet --from git+https://github.com/wadsworthai/taskrail.git@v0.2.0 taskrail --version`,
+    then printed `taskrail 0.2.0`. The development build is not taken for the release.
+11. `taskrail checks T078 --stage implement` ran `test` (`uv run pytest -q`), with the result
+    `1052 passed in 154.29s (0:02:34)`. It reported `lint` as `not configured`, and the overall
+    result was `passed`.
+12. `taskrail validate` on this branch printed `67 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.

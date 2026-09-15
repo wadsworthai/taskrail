@@ -11,7 +11,7 @@
 
 ## E01 — taskrail release
 
-Done when: v0.1.0 is tagged and a repository installs it with uv and runs it through the wrapper.
+Done when: v0.2.0 is tagged and a repository installs it with uv and runs it through the wrapper.
 
 | ✓  | ID   | Kind    | Pts | Depends On | Title                          | Description                    |
 |----|------|---------|-----|------------|--------------------------------|--------------------------------|
