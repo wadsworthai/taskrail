@@ -50,3 +50,17 @@ untracked work, a prunable entry that does not refuse, a non-ignored nested work
 | # | Question | Options | Decision | Reason |
 |---|---|---|---|---|
 | 1 | Approve the fix | approve · a JSON list of nested paths · the check after the dirty check | as recommended | It is the guard approved at diagnose, under a regression test observed failing for the root cause; placed first, it gives the precise reason for a nested worktree that is not ignored too. |
+
+## close
+
+Reviewed: the impact stage recorded that nothing else was found and no follow-up was opened (`8a649e6`,
+the artifact only). `taskrail done` is committed on its own (`978a5ea`); the backlog differs from
+`origin/main` only in this task's row, as `✅`. `governing_touched` is empty, the branch has no upstream,
+and `review --json` reported `rebase.needed: false`. The fix-stage checks passed at `0d0fa16` and only the
+artifact and the row changed since. `autopilot status` lists `DESIGN.md` as touched by T074 and T075,
+which the touch map covers (separate rows of the command table), and the changelog and indexes as known
+classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | `fix(autopilot)` · `fix(cli)` | **`fix(autopilot)`** | The change is in `autopilot merged --cleanup`. |
