@@ -13,3 +13,4 @@
 | T055 | Fix the autopilot skill text found wrong in the T033 trial | [T055-fix-the-autopilot-skill-text-found-wrong.md](T055-fix-the-autopilot-skill-text-found-wrong.md) |
 | T056 | Add an OpenCode note on escalations during blocking lane batches | [T056-add-an-opencode-note-on-escalations-duri.md](T056-add-an-opencode-note-on-escalations-duri.md) |
 | T063 | Name taskrail checks in the lane brief and the autopilot skill's re-run steps | [T063-name-taskrail-checks-in-the-lane-brief-a.md](T063-name-taskrail-checks-in-the-lane-brief-a.md) |
+| T069 | Warn in the README that taskrail is experimental and AI-developed | [T069-warn-in-the-readme-that-taskrail-is-expe.md](T069-warn-in-the-readme-that-taskrail-is-expe.md) |

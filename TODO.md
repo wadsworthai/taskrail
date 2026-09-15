@@ -21,6 +21,7 @@ Done when: v0.1.0 is tagged and a repository installs it with uv and runs it thr
 | ✅ | T013 | chore   | 2   | T001       | Clarify workspace base, stage commits and agent restart in the taskrail skills | Fix T001 frictions F1-F3: restart note after init, local mainline as base, meaning of commit = false; and creating a task on its own branch without moving the worktree. |
 | ✅ | T015 | feature | 5   | —          | Hand closed tasks off for review with a merge request link | After closing: fetch, rebase onto the newer of the local or remote mainline, push, and print a PR/MR link with its title for any git host. |
 | ✅ | T016 | chore   | 1   | T002       | Bump taskrail on main to 0.2.0.dev0 after the 0.1.0 tag | Keep builds from main from claiming to be the released 0.1.0. |
+| ✅ | T069 | chore   | 1   | —          | Warn in the README that taskrail is experimental and AI-developed | Add a notice near the top of README.md stating that taskrail is experimental and is developed with AI agents. |
 
 ## E02 — taskrail phase 2
 
