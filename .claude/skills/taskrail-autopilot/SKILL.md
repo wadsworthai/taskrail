@@ -255,7 +255,8 @@ claims with `taskrail claim <ID> --ignore-deps --run <R>`, and the task's record
   the human yourself with `AskUserQuestion` when it is available, otherwise in plain text.
 - When the human wants lanes on another model than yours, pass it in the Agent tool's `model`
   parameter.
-- Lanes create their worktrees with git, as the brief says, never through the Agent tool's
+- Lanes create or use their worktrees with git, as the brief says — a lane in a workspace
+  `taskrail new --workspace` prepared uses the existing one — never through the Agent tool's
   worktree isolation, which picks its own branch name and location.
 - Nothing wakes you on a timer. A tool that waits on a condition may re-run `autopilot status`
   while lanes work, but nothing may depend on it.
