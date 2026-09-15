@@ -596,3 +596,40 @@ def test_a_lane_at_a_gate_without_a_claim_is_not_dispatched_again(pilot, capsys)
     result = dispatch(pilot.root, capsys, run_id)
     assert skipped(result)["T001"] == f"gate in run {run_id}"
     assert ids(result) == ["T002", "T003"]
+
+
+def test_a_task_discarded_on_its_unmerged_branch_is_closed_and_not_dispatched_again(pilot, capsys):
+    run_id = start(pilot.root, capsys, count=2)
+    assert ids(dispatch(pilot.root, capsys, run_id)) == ["T001", "T002"]
+    path = pilot.lane("T001", run_id)
+    assert main(["--root", str(path), "discard", "T001", "--owner", "lane"]) == 0
+    commit_all(path, "chore(T001): discard")
+    backdate(pilot.root, run_id, "T001", 16)  # claim_grace_minutes is 15
+    branch = data(pilot.root, "show", "T001", capsys=capsys)["branch"]
+
+    lane = row(pilot.root, capsys, run_id, "T001")
+    assert (lane["state"], lane["claim"], lane["branch"], lane["touched"]) == ("discarded-branch", None, branch, [])
+    report = data(pilot.root, "autopilot", "status", "--run", run_id, capsys=capsys)
+    assert report["runs"][0]["handoff"]["queue"] == []  # hand-off of a discarded branch is not queued yet
+    assert "T001" not in [task["id"] for task in data(pilot.root, "next", capsys=capsys)]
+    result = dispatch(pilot.root, capsys, run_id)
+    assert "T001" not in skipped(result)
+    assert ids(result) == ["T003"]  # T001 is no candidate, and its place in the run's count is free again
+    assert result["remaining"] == 0
+
+    git(pilot.root, "push", "-q", "origin", f"{branch}:main")  # merged, and the local mainline is not pulled
+    git(pilot.root, "fetch", "-q", "origin")
+    assert row(pilot.root, capsys, run_id, "T001")["state"] == "discarded"
+
+
+def test_a_lane_between_discard_and_its_commit_is_running(pilot, capsys):
+    run_id = start(pilot.root, capsys)
+    assert "T001" in ids(dispatch(pilot.root, capsys, run_id))
+    path = pilot.lane("T001", run_id)
+    backdate(pilot.root, run_id, "T001", 16)
+    assert main(["--root", str(path), "discard", "T001", "--owner", "lane"]) == 0  # releases the claim; not committed yet
+
+    lane = row(pilot.root, capsys, run_id, "T001")
+    assert (lane["state"], lane["claim"], lane["touched"]) == ("running", None, ["TODO.md"])
+    commit_all(path, "chore(T001): discard")
+    assert row(pilot.root, capsys, run_id, "T001")["state"] == "discarded-branch"

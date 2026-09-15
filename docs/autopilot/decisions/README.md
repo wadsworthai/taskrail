@@ -44,3 +44,4 @@
 | T047 | Keep a stacked task's fork point after done | [T047-keep-a-stacked-task-s-fork-point-after-d.md](T047-keep-a-stacked-task-s-fork-point-after-d.md) |
 | T061 | Separate the documents the orchestrator reads first from the paths that escalate | [T061-separate-the-documents-the-orchestrator.md](T061-separate-the-documents-the-orchestrator.md) |
 | T059 | Record an approved governing edit so autopilot status stops flagging it | [T059-record-an-approved-governing-edit-so-aut.md](T059-record-an-approved-governing-edit-so-aut.md) |
+| T062 | Treat a task discarded on its unmerged branch as closed in status and next | [T062-treat-a-task-discarded-on-its-unmerged-b.md](T062-treat-a-task-discarded-on-its-unmerged-b.md) |

@@ -8,7 +8,7 @@ from taskrail import branches, gitutil, stack
 from taskrail.model import Project, Status, Task
 from taskrail.templates import render
 
-STATES = ("pending", "claimed", "blocked", "done-branch", "done", "discarded")
+STATES = ("pending", "claimed", "blocked", "done-branch", "discarded-branch", "done", "discarded")
 
 
 def unmerged_dependencies(task: Task, project: Project) -> list[str]:
@@ -43,6 +43,8 @@ def state(task: Task, project: Project, claimed: dict | None = None) -> str:
         return "discarded"
     if task.id in stack.done_on_branch(project):
         return "done-branch"
+    if task.id in stack.discarded_on_branch(project):
+        return "discarded-branch"
     if claimed and task.id in claimed:
         return "claimed"
     return "blocked" if blocked_by(task, project) else "pending"

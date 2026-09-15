@@ -218,6 +218,11 @@ def cmd_claim(args) -> int:
         mainline = project.config.backlog(task.backlog).mainline
         print(f"taskrail: {task.id} is done on branch {', '.join(finished.refs)}, not yet merged into {mainline}", file=sys.stderr)
         return EXIT_REFUSED
+    dropped = stack.discarded_on_branch(project).get(task.id)
+    if dropped is not None:
+        mainline = project.config.backlog(task.backlog).mainline
+        print(f"taskrail: {task.id} is discarded on branch {', '.join(dropped.refs)}, not yet merged into {mainline}", file=sys.stderr)
+        return EXIT_REFUSED
     blockers = blocked_by(task, project)
     if blockers and not args.ignore_deps:
         print(f"taskrail: {task.id} is blocked by {', '.join(blockers)}; pass --ignore-deps to claim anyway", file=sys.stderr)
@@ -702,10 +707,14 @@ def cmd_edit(args) -> int:
             return EXIT_REFUSED
         try:
             finished = stack.done_on_branch(project).get(task.id)
+            dropped = stack.discarded_on_branch(project).get(task.id)
         except gitutil.GitError:
-            finished = None
+            finished = dropped = None
         if finished is not None:
             print(f"taskrail: {task.id} is done on branch {', '.join(finished.refs)}; pass --force to edit it anyway", file=sys.stderr)
+            return EXIT_REFUSED
+        if dropped is not None:
+            print(f"taskrail: {task.id} is discarded on branch {', '.join(dropped.refs)}; pass --force to edit it anyway", file=sys.stderr)
             return EXIT_REFUSED
         try:
             claim = claims.read(config, task.id)

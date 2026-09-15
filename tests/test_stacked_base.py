@@ -388,3 +388,64 @@ def test_a_second_reopen_clears_a_branch_that_contains_only_the_first(lanes, cap
 
     assert data(lanes.root, "show", "T001", capsys=capsys)["state"] == "pending"
     assert "T001" in ids(data(lanes.root, "next", capsys=capsys))
+
+
+# A task discarded on its own branch and not merged (T062)
+
+
+def discard_on_branch(lanes, task_id, branch, base="origin/main"):
+    path = lanes.open_lane(task_id, branch, base)
+    assert main(["--root", str(path), "claim", task_id, "--owner", "lane"]) == 0
+    assert main(["--root", str(path), "discard", task_id, "--owner", "lane"]) == 0
+    commit_all(path, f"chore({task_id}): discard")
+    return path
+
+
+def test_a_task_discarded_on_its_branch_is_discarded_branch_and_never_offered(lanes, capsys):
+    discard_on_branch(lanes, "T001", T001)
+    capsys.readouterr()
+
+    shown = data(lanes.root, "show", "T001", capsys=capsys)
+    assert (shown["status"], shown["state"]) == ("pending", "discarded-branch")
+    assert ids(data(lanes.root, "next", capsys=capsys)) == ["T003"]
+    assert ids(data(lanes.root, "list", "--state", "discarded-branch", capsys=capsys)) == ["T001"]
+    code, _, err = run(lanes.root, "claim", "T001", "--owner", "other", capsys=capsys)
+    assert code == 5
+    assert f"T001 is discarded on branch {T001}" in err
+    dependent = data(lanes.root, "show", "T002", capsys=capsys)  # a discarded dependency still blocks, unstacked
+    assert (dependent["state"], dependent["blocked_by"], dependent["base"]["dependency"]) == ("blocked", ["T001"], None)
+
+
+def test_a_discard_only_on_the_remote_branch_is_discarded_branch(lanes, capsys):
+    path = discard_on_branch(lanes, "T001", T001)
+    push_lane(lanes, T001)
+    git(lanes.root, "worktree", "remove", "--force", str(path))
+    git(lanes.root, "branch", "-D", T001)
+    capsys.readouterr()
+    assert data(lanes.root, "show", "T001", capsys=capsys)["state"] == "discarded-branch"
+    project, _ = load_project(load_config(lanes.root))
+    assert stack.discarded_on_branch(project)["T001"].refs == (f"origin/{T001}",)
+    assert "T001" not in stack.done_on_branch(project)
+
+
+def test_a_done_tip_wins_over_a_discarded_one(lanes, capsys):
+    path = discard_on_branch(lanes, "T001", T001)
+    push_lane(lanes, T001)  # origin keeps the ❌
+    git(path, "reset", "-q", "--hard", "origin/main")
+    assert main(["--root", str(path), "done", "T001", "--owner", "lane", "--force"]) == 0  # claim refuses it now
+    commit_all(path, "chore(T001): mark done")
+    capsys.readouterr()
+    assert data(lanes.root, "show", "T001", capsys=capsys)["state"] == "done-branch"
+    project, _ = load_project(load_config(lanes.root))
+    assert "T001" not in stack.discarded_on_branch(project)
+
+
+def test_a_discard_older_than_a_reopen_on_the_mainline_does_not_count(lanes, capsys):
+    discard_on_branch(lanes, "T001", T001)
+    todo = lanes.root / "TODO.md"
+    todo.write_text(todo.read_text().replace("| ⬜ | T001 |", "| ❌ | T001 |"))
+    commit_all(lanes.root, "chore: merge (T001)")
+    reopen_on_mainline(lanes, "T001", capsys)  # the branch tip lacks the reopen
+    capsys.readouterr()
+    assert data(lanes.root, "show", "T001", capsys=capsys)["state"] == "pending"
+    assert "T001" in ids(data(lanes.root, "next", capsys=capsys))

@@ -317,6 +317,15 @@ def test_a_task_done_on_its_branch_is_refused_unless_forced(git_repo, capsys):
     assert run(git_repo.root, "edit", "T003", "--description", "X", "--force", capsys=capsys)[0] == 0
 
 
+def test_a_task_discarded_on_its_branch_is_refused_unless_forced(git_repo, capsys):
+    git(git_repo.root, "switch", "-q", "-c", "T003-rounding-error")
+    assert run(git_repo.root, "discard", "T003", capsys=capsys)[0] == 0
+    git(git_repo.root, "commit", "-q", "-am", "discard T003")
+    git(git_repo.root, "switch", "-q", "main")
+    assert "T003 is discarded on branch T003-rounding-error" in refused(git_repo, "T003", "--description", "X", code=5, capsys=capsys)
+    assert run(git_repo.root, "edit", "T003", "--description", "X", "--force", capsys=capsys)[0] == 0
+
+
 # 11. Claims
 
 

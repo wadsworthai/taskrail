@@ -1,4 +1,4 @@
-"""Tasks finished on their own branch but not merged into their mainline, read from git refs."""
+"""Tasks finished or discarded on their own branch but not merged into their mainline, read from git refs."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ class DoneOnBranch:
     task_id: str
     branch: str  # the task branch's name, without a remote
     remote: str  # the remote of the task's mainline, where its branch is pushed
-    refs: tuple[str, ...]  # branch tips where the row is ✅, as short names
+    refs: tuple[str, ...]  # branch tips where the row is ✅ (❌ for `discarded_on_branch`), as short names
 
 
 def _statuses(text: str, aliases) -> dict[str, str]:
@@ -72,21 +72,35 @@ def done_on_branch(project: Project) -> dict[str, DoneOnBranch]:
 
     A tip whose ✅ predates a reopen on a mainline ref — a `Reopens: <ID>` commit the tip lacks — does not count.
     """
+    return _cached(project)[0]
+
+
+def discarded_on_branch(project: Project) -> dict[str, DoneOnBranch]:
+    """Tasks whose row is ❌ at a tip of their task branch, closed (✅ or ❌) on neither mainline ref (T062).
+
+    The same scan and reopen rule as `done_on_branch`, whose tasks it never includes: a ✅ tip wins. `refs` holds the ❌ tips.
+    """
+    return _cached(project)[1]
+
+
+def _cached(project: Project) -> tuple[dict[str, DoneOnBranch], dict[str, DoneOnBranch]]:
     if CACHE_KEY not in project.cache:
         project.cache[CACHE_KEY] = _find(project)
     return project.cache[CACHE_KEY]
 
 
-def _find(project: Project) -> dict[str, DoneOnBranch]:
+def _find(project: Project) -> tuple[dict[str, DoneOnBranch], dict[str, DoneOnBranch]]:
     config = project.config
     root = config.root
     try:
         gitutil.common_dir(root)
         existing = set(gitutil.refs(root, "refs/heads")) | set(gitutil.refs(root, "refs/remotes"))
     except gitutil.GitError:
-        return {}
+        return {}, {}
 
     found: dict[str, DoneOnBranch] = {}
+    discarded: dict[str, DoneOnBranch] = {}
+    closed_values = (Status.DONE.value, Status.DISCARDED.value)
     for backlog in project.backlogs:
         mainline = backlog.config.mainline
         remote = resolve_remote(root, mainline, config.review.remote).name
@@ -104,14 +118,21 @@ def _find(project: Project) -> dict[str, DoneOnBranch]:
         revisions = sorted({ref for _, _, refs in candidates.values() for ref in refs} | set(mainline_refs))
         statuses = _read_statuses(project, backlog.config.file, revisions)
         merged = {task_id for ref in mainline_refs for task_id, status in statuses[ref].items() if status == Status.DONE.value}
+        closed = {task_id for ref in mainline_refs for task_id, status in statuses[ref].items() if status in closed_values}
+
+        def tips(task_id: str, refs: list[str], value: str) -> tuple[str, ...]:
+            return tuple(
+                _short(ref) for ref in refs if statuses[ref].get(task_id) == value and not _reopened_since(root, task_id, ref, mainline_refs)
+            )
+
         for task_id, (task, branch, refs) in candidates.items():
             if task_id in merged:
                 continue
-            done = tuple(
-                _short(ref)
-                for ref in refs
-                if statuses[ref].get(task_id) == Status.DONE.value and not _reopened_since(root, task_id, ref, mainline_refs)
-            )
+            done = tips(task_id, refs, Status.DONE.value)
             if done:
                 found[task_id] = DoneOnBranch(task_id, branch, remote, done)
-    return found
+            elif task_id not in closed:
+                dropped = tips(task_id, refs, Status.DISCARDED.value)
+                if dropped:
+                    discarded[task_id] = DoneOnBranch(task_id, branch, remote, dropped)
+    return found, discarded

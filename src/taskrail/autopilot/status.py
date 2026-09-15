@@ -16,45 +16,59 @@ from taskrail.query import base_dict, blocked_by
 from taskrail.review import resolve_remote
 from taskrail.templates import render
 
-STATES = ("pending", "dispatched", "running", "gate", "escalated", "failed", "done-branch", "handed-off", "done-merged", "discarded")
+STATES = ("pending", "dispatched", "running", "gate", "escalated", "failed", "done-branch", "handed-off", "done-merged", "discarded-branch", "discarded")
 RECORDED = ("failed", "escalated", "gate")  # lane states only the run file knows
 WITH_BRANCH = ("running", "gate", "escalated", "failed", "done-branch", "handed-off")  # states whose files count
 MERGED_KEY = "autopilot_done_on_mainline"
+MAINLINE_KEY = "autopilot_closed_on_mainline"
 WORKTREES_KEY = "autopilot_worktree_branches"
 
 
 def done_on_mainline(project: Project) -> set[str]:
     """Tasks whose row is ✅ on the local mainline or its remote-tracking branch; the checkout's rows outside git."""
-    if MERGED_KEY in project.cache:
-        return project.cache[MERGED_KEY]
-    config = project.config
-    root = config.root
-    merged: set[str] = set()
-    try:
-        gitutil.common_dir(root)
-        existing = set(gitutil.refs(root, "refs/heads")) | set(gitutil.refs(root, "refs/remotes"))
-    except gitutil.GitError:
-        existing = None
-    for backlog in project.backlogs:
-        refs = []
-        if existing is not None:
-            mainline = backlog.config.mainline
-            remote = resolve_remote(root, mainline, config.review.remote).name
-            refs = [ref for ref in (f"refs/heads/{mainline}", f"refs/remotes/{remote}/{mainline}") if ref in existing]
-        if not refs:
-            merged |= {task.id for task in backlog.tasks if task.status is Status.DONE}
-            continue
-        statuses = stack._read_statuses(project, backlog.config.file, refs)
-        merged |= {task_id for ref in refs for task_id, cell in statuses[ref].items() if cell == Status.DONE.value}
-    from taskrail.autopilot.merged import recorded_merges  # imported here: merged imports this module
+    if MERGED_KEY not in project.cache:
+        from taskrail.autopilot.merged import recorded_merges  # imported here: merged imports this module
 
-    merged |= recorded_merges(project)  # a merge `autopilot merged` proved, while its commit stays on a mainline
-    project.cache[MERGED_KEY] = merged
-    return merged
+        # A merge `autopilot merged` proved counts too, while its commit stays on a mainline.
+        project.cache[MERGED_KEY] = _on_mainline(project, Status.DONE) | recorded_merges(project)
+    return project.cache[MERGED_KEY]
+
+
+def discarded_on_mainline(project: Project) -> set[str]:
+    """Tasks whose row is ❌ on the local mainline or its remote-tracking branch; the checkout's rows outside git (T062)."""
+    return _on_mainline(project, Status.DISCARDED)
+
+
+def _on_mainline(project: Project, status: Status) -> set[str]:
+    """Tasks whose row has `status` on a mainline ref, read once per project for both statuses."""
+    if MAINLINE_KEY not in project.cache:
+        config = project.config
+        root = config.root
+        rows: dict[Status, set[str]] = {Status.DONE: set(), Status.DISCARDED: set()}
+        try:
+            gitutil.common_dir(root)
+            existing = set(gitutil.refs(root, "refs/heads")) | set(gitutil.refs(root, "refs/remotes"))
+        except gitutil.GitError:
+            existing = None
+        for backlog in project.backlogs:
+            refs = []
+            if existing is not None:
+                mainline = backlog.config.mainline
+                remote = resolve_remote(root, mainline, config.review.remote).name
+                refs = [ref for ref in (f"refs/heads/{mainline}", f"refs/remotes/{remote}/{mainline}") if ref in existing]
+            if not refs:
+                for closed, found in rows.items():
+                    found |= {task.id for task in backlog.tasks if task.status is closed}
+                continue
+            statuses = stack._read_statuses(project, backlog.config.file, refs)
+            for closed, found in rows.items():
+                found |= {task_id for ref in refs for task_id, cell in statuses[ref].items() if cell == closed.value}
+        project.cache[MAINLINE_KEY] = rows
+    return project.cache[MAINLINE_KEY][status]
 
 
 def _closing(task: Task, project: Project) -> bool:
-    """Whether `done` wrote the task's ✅ in the worktree of its branch and it is not committed yet (T054)."""
+    """Whether `done` or `discard` wrote the task's ✅ or ❌ in the worktree of its branch and it is not committed yet (T054, T062)."""
     branch = branches.task_branch(task, project)
     if not branch:
         return False
@@ -70,16 +84,18 @@ def _closing(task: Task, project: Project) -> bool:
         text = (worktree / task.file).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return False
-    return stack._statuses(text, project.config.column_aliases).get(task.id) == Status.DONE.value
+    return stack._statuses(text, project.config.column_aliases).get(task.id) in (Status.DONE.value, Status.DISCARDED.value)
 
 
 def task_state(task: Task, project: Project, run: dict, claim: Claim | None, now: datetime | None = None) -> str:
     if task.id in done_on_mainline(project):
         return "done-merged"
-    if task.status is Status.DISCARDED:
+    if task.status is Status.DISCARDED or task.id in discarded_on_mainline(project):
         return "discarded"
     if task.id in stack.done_on_branch(project):
         return "handed-off" if task.id in run["handed_off"] else "done-branch"
+    if task.id in stack.discarded_on_branch(project):
+        return "discarded-branch"  # uses no lane and frees its place; not in the hand-off queue (T062)
     lane = run["tasks"].get(task.id)
     if lane and lane["state"] in RECORDED:
         return lane["state"]

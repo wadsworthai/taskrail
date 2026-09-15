@@ -201,6 +201,13 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   `governing` only for governing files not approved, naming only them in `ESCALATE: governing …`;
   a later change to an approved file flags it again. The autopilot skill records approvals this
   way (T059).
+- **A discard on an unmerged task branch closes the task.** A task whose row is `❌` at the tip of
+  its task branch, and closed on neither mainline ref, is `discarded-branch`: `next` and
+  `autopilot next` no longer offer it, `claim` refuses it (exit 5), `edit` refuses it without
+  `--force`, and it frees its place in the run's count. `autopilot status` reports it
+  `discarded-branch`, keeps a lane between `discard` and its commit `running`, and reports a task
+  `❌` on the local or remote mainline `discarded`. Behaviour change: such a task used to read
+  `pending` until merged and pulled (T062).
 
 ## 0.1.0
 
