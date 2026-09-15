@@ -337,3 +337,97 @@ repo/.worktrees/T002-from-main
 repo/.worktrees/T003-from-lane
 repo/.worktrees/T004-moved-row
 ```
+
+## Impact
+
+The fix gate approved the change as it stands (see the decision record). Two items outside this
+fix, decided at the diagnose gate, became follow-up tasks.
+
+### T074 — Refuse merged --cleanup for a worktree that contains other registered worktrees
+
+Bug, E02. Worktrees nested inside a lane by earlier versions, or by hand, sit in the lane's ignored
+`worktree_dir`, so the dirty check of `autopilot merged --cleanup`
+(`git status --porcelain --untracked-files=all` in the lane) does not see them, and the
+`git worktree remove` that follows deletes them with their uncommitted work.
+
+Reproduced with `autopilot merged --cleanup` itself, in a throwaway script outside the repository
+(`repro_t073_cleanup.py`, run with this branch's source as
+`uv run --project <worktree> python repro_t073_cleanup.py <scratch>/t073-cleanup`). It builds a
+repository with one pending task `T001 Lane` and `.worktrees/` ignored, adds the lane worktree
+`repo/.worktrees/T001-lane`, claims and closes `T001` there, commits and fast-forwards `main` to it.
+A worktree nested inside the lane is then added with `git worktree add` — where `new --workspace` put
+it before this fix — and given an untracked file. Paths are relative to the scratch directory:
+
+```text
+$ git -C repo/.worktrees/T001-lane worktree add -q repo/.worktrees/T001-lane/.worktrees/T002-nested -b T002-nested
+$ git -C repo/.worktrees/T001-lane status --porcelain --untracked-files=all
+(lane: git status --porcelain --untracked-files=all is empty)
+$ git -C repo/.worktrees/T001-lane/.worktrees/T002-nested status --porcelain --untracked-files=all
+?? WORK.md
+
+$ taskrail --root repo autopilot merged T001 --cleanup --no-fetch --json
+exit 0
+  "merged": true,
+  "via": "ancestor",
+  "cleanup": {
+    "worktree": "repo/.worktrees/T001-lane",
+    "worktree_removed": true,
+    "branch_deleted": true,
+    "claim_released": false,
+    "remote_branch": null,
+    "refused": null
+  },
+
+$ git -C repo worktree list --porcelain
+worktree repo
+HEAD 341d23148ee9079fdbc739187426f15fe52052cb
+branch refs/heads/main
+
+worktree repo/.worktrees/T001-lane/.worktrees/T002-nested
+HEAD 341d23148ee9079fdbc739187426f15fe52052cb
+branch refs/heads/T002-nested
+prunable gitdir file points to non-existent location
+
+repo/.worktrees/T001-lane/.worktrees/T002-nested/WORK.md exists: False
+$ git -C repo branch --list T002-nested
+branch T002-nested: + T002-nested
+```
+
+The nested worktree's branch survives; its uncommitted file is gone and its worktree entry is left
+prunable.
+
+### T075 — Report and create task worktrees outside the bare directory of a bare repository
+
+Bug, E02. Kind `bug` rather than `spike` or `feature`: the wrong behaviour is observed and its cause
+is known — `gitutil.main_worktree` takes the first entry of `git worktree list --porcelain`, which in
+a bare clone is the bare directory — so the task reproduces and fixes a defect rather than
+investigating a question or adding a capability.
+
+Checked with this branch's source (`repro_t073_bare.py`: a repository with one pending task, cloned
+with `git clone --bare` to `repo.git`, and a worktree `main` added from it):
+
+```text
+== git worktree list --porcelain
+worktree repo.git
+bare
+
+worktree main
+HEAD 57f64332da057ce378c1c798f94299d89c174d43
+branch refs/heads/main
+
+$ taskrail --root main show T001 --json
+exit 0
+T001 worktree (not created): .worktrees/T001-first
+$ taskrail --root main new --epic E01 --kind bug --title Placed --workspace --json
+exit 0
+workspace: repo.git/.worktrees/T002-placed
+$ taskrail --root repo.git/.worktrees/T002-placed show T002 --json
+exit 0
+T002 worktree: .worktrees/T002-placed
+```
+
+Reporting and creation now agree, but both are read against the bare directory: `new --workspace`
+creates the worktree inside `repo.git/`. Before this fix, run from `main`, it created
+`main/.worktrees/<branch>` (while `show`, since T072, already read `.worktrees/<branch>` against
+`repo.git`), so in a bare layout this fix moves where worktrees are created. As decided at the
+diagnose gate, it gets no special case here.
