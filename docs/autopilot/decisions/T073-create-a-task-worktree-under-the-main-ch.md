@@ -8,6 +8,7 @@ Each is recorded before it is given to the lane.
 | # | Question | Options | Decision | Reason |
 |---|---|---|---|---|
 | 1 | Run this task | — | **run 20260915-4 with `autopilot start --tasks T073`** | The human's instruction ("lanza T073") after merging T072. |
+| 2 | In a bare clone with worktrees, the fix moves `new --workspace` placement from the running worktree's `.worktrees/` into the bare directory, where `show` already reads paths since T072 (found at the impact stage) | publish now, T075 later · fix it in T073 · publish and run T074 and T075 | **publish now; T075 later** | Decided by the human, as recommended: the bare layout was already inconsistent since T072, is in no release, and T075 fixes reporting and placement together. |
 
 Answered by the human (repository owner), in the orchestrator session.
 
@@ -44,3 +45,18 @@ and the `workspace` paragraph; one CHANGELOG bullet; the artifact. No skill chan
 |---|---|---|---|---|
 | 1 | Approve the fix | approve · request changes | as recommended | It is the change approved at diagnose, under a regression test observed failing for the root cause, with the checks passing. |
 | 2 | DESIGN.md's `new` row with two asides in a row | keep · restructure | as recommended | The row stays accurate and readable in the table; the paragraph below carries the detail. |
+
+## close
+
+Reviewed: the impact stage ran `autopilot merged --cleanup` itself in a scratch repository and lost a
+nested worktree's untracked file, leaving its entry prunable, and checked a bare clone with worktrees,
+where the fix places `new --workspace`'s worktree inside the bare directory; it opened T074 (bug, the
+cleanup guard) and T075 (bug, bare layouts) in `ef6c12c`, with the evidence in the artifact.
+`taskrail done` is committed on its own (`b6e1aec`); the backlog differs from `origin/main` only in this
+task's row, as `✅`, and the rows of T074 and T075. `governing_touched` is empty, the branch has no
+upstream, and `review --json` reported `rebase.needed: false`. The fix-stage checks passed at `13055b9`
+and only the backlog and the artifact changed since. The bare-layout effect was escalated (above).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | `fix(cli)` · `feat(cli)` | **`fix(cli)`** | It corrects where two commands create a worktree. |
