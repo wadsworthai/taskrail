@@ -1,6 +1,6 @@
 # T071 — Run the autopilot on named tasks, including ones whose workspace new --workspace prepared
 
-Kind: feature · Epic: E02 · Status: implemented
+Kind: feature · Epic: E02 · Status: verified
 
 Source: an autopilot session in a consuming repository, generalized here. The human asked for a run
 on specific tasks; one of them had been created with `taskrail new --workspace`, so its row existed
@@ -265,3 +265,42 @@ planned, within the run's touch map. Details settled while building:
 | 16 | `test_autopilot_named.py`: `test_extend_refuses_the_wrong_flag_an_unknown_or_closed_run_and_a_disabled_autopilot` |
 
 The `lint` check listed for the implement stage is not configured in this repository.
+
+At the implement gate (decision record), the Claude Code integration note's lane sentence was changed
+to say lanes create **or use** their worktrees with git, since a prepared lane uses an existing one
+(`src/taskrail/integrations/claude.md`; the OpenCode note has no such sentence).
+
+## Verification
+
+The real CLI from this branch's source (`uv run --project <worktree> taskrail --root …`) was run in a
+throwaway repository: `T001` chore 1 pt, `T002` feature 5 pt, `T004` bug 2 pt depending on `T001`,
+`[autopilot] enabled, max_lanes = 3`. What was run and seen:
+
+1. `autopilot start --help` lists `--tasks`. `start --tasks T002,T004 --json` →
+   `{"count":2,"kinds":[],"named":["T002","T004"]}`. `next --run R` dispatches `T002` (not the cheaper
+   `T001`) and prints `skipped T004: blocked by T001`. `status --run R` prints
+   `run R · 0/2 done-merged · named: T002, T004 · …` with `T002 dispatched` and `T004 pending`.
+2. `new --epic E01 --kind feature --title "Prepared one" --workspace` creates `T005`; inside its
+   worktree `show T005 --json` reports `branch_source: recorded` and
+   `prepared: {commits: 0, row: uncommitted}`; after committing the row, `show T005` prints
+   `prior work: branch T005-prepared-one (prepared: only the task's row)`. From the main checkout
+   `show T005` still exits 3 (`show` is out of scope).
+3. From the main checkout, `autopilot extend R --tasks T005,T002 --json` →
+   `{"added":["T005"],"previous_count":2,"count":3,"named":["T002","T004","T005"]}`; `next --run R`
+   dispatches `T005` with its branch and `prepared: {commits: 1, row: committed}`, skipping `T002`
+   (`dispatched in run R`, the existing reason) and `T004` (`blocked by T001`);
+   `autopilot lane T005 --run R --state running` exits 0.
+4. After `claim T005 --run R` in its worktree, `status --run R` from the main checkout shows
+   `T005 running`; the preview `next --json` reports the same occupied lanes (`T001` preview, `T002`
+   dispatched, `T005 running`) and `free: 0` from the main checkout and from `T005`'s worktree.
+   `taskrail checks T005` from the main checkout runs `test` in `T005`'s worktree and passes.
+5. After `done T005` committed on its branch, `status --run R` from the main checkout shows
+   `T005 done-branch` and `hand-off: next T005 · … · queue T005`; `autopilot merged T005 --no-fetch
+   --json` → `{"merged":false,"closed":"done","reason":"no check proves that T005-prepared-one is
+   contained in main"}`.
+6. `start --count 1` then `extend R2 --count 3` → `run R2: count 1 → 3`. Refusals: `extend R2 --tasks
+   T001` exit 2 (`was started with --count`), `extend R --count 5` exit 2 (`names its tasks`),
+   `extend R --tasks T099` exit 3 with the `taskrail branch T099 <NAME>` hint, `start --tasks
+   T001,T002 --count 3` exit 2 (`does not match the 2 task(s)`).
+
+The behaviour matches the plan; no gap was found.
