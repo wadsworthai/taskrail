@@ -40,3 +40,20 @@ joined with `worktree` (the skill creates the worktree with `git -C <this checko
 <worktree_base>/<worktree> …`, which also works under `safe.bareRepository=explicit`), and no longer tell
 agents to read `git worktree list`; DESIGN.md §7 documents `worktree_base` for every command that reports
 `worktree`.
+
+## fix gate
+
+Reviewed: commit `8e9be3d` (`git show`): `gitutil.main_worktree` reads the first porcelain block and returns
+its parent when the block holds a `bare` line; `query.task_dict` adds `worktree_base`
+(`str(main_checkout)`, `null` with `worktree`), inherited by `list`, `next` and `autopilot next`; the
+comment in `cli._workspace_target`; the `taskrail` skill's workspace step and the lane brief's `<WORKTREE>`
+note now use `worktree_base` and no longer name `git worktree list`, with their installed copies;
+DESIGN.md §7's `show`, `list` and `new` rows and the `workspace` paragraph (the `autopilot merged` row
+untouched); one CHANGELOG bullet; `tests/test_bare_layout.py`, 15 cases the lane reports all failing
+against the unfixed code. The touched files match the touch map. Re-ran `taskrail checks T075 --stage fix`:
+`test` gave `1051 passed in 145.96s`; `lint` is not configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the fix | approve · request changes | as recommended | It implements both of the human's decisions under regression tests observed failing for the root cause. |
+| 2 | Name the worktree base in DESIGN.md §8's "Skills never compute paths" sentence | leave it · add it | as recommended | The sentence still holds with `worktree_base` reported by `show`, and §7 documents the field. |
