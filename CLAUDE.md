@@ -5,10 +5,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this repository is
 
 taskrail is an agent-agnostic backlog tool: a deterministic CLI plus the skills agents follow to
-execute backlog tasks. This repository is where it is developed; other repositories install it.
+execute backlog tasks. This repository is where it is developed; other repositories install it
+(see `README.md`).
 
 The repository is MIT-licensed and public. **Update this file as it grows** — especially the
 Commands section.
+
+taskrail was extracted with its history from a larger repository (see *History* in `README.md`).
+Pull request numbers such as `(#61)` in commit subjects from before the extraction refer to that
+repository, not to this one.
 
 ## Language policy
 
@@ -19,27 +24,42 @@ Commands section.
 
 ## Publishing constraint
 
-Content arrives here by extraction from other projects, and this repository is public.
-When importing anything, strip what does not belong in the open: internal hostnames, private
-URLs and repo paths, client or employer names, ticket IDs, sample data derived from real
-records, and any assumption about a private project's directory layout. Generalize a tool so
-it stands on its own before committing it, rather than committing it and cleaning up later.
+This repository is public, and taskrail is used by other, often private, projects. Keep out of
+it what does not belong in the open: internal hostnames, private URLs and repo paths, client or
+employer names, ticket IDs, sample data derived from real records, and any assumption about a
+consuming project's directory layout. When a need comes from a consumer, generalize it before
+committing, rather than committing it and cleaning up later.
+
+## Layout
+
+```
+src/taskrail/          # the CLI: parser, validator, claims, writer, installer, autopilot
+├── kinds/             # core kind descriptors            ┐
+├── skills/            # core, executor and autopilot     ├ shipped as package data
+└── integrations/      # agent-specific skill notes       ┘
+tests/                 # pytest suite
+examples/              # example repository-local kinds
+DESIGN.md              # the full model; the autopilot is §12
+CHANGELOG.md           # user-facing changes, under Unreleased until a release
+TODO.md, docs/         # this repository's own backlog and its task artifacts
+.taskrail/, .claude/   # taskrail installed into this repository, running from source
+```
 
 ## Agent portability
 
 Claude Code is the first target, not the only one. taskrail's canonical form must not assume a
 particular agent:
 
-- **Keep agent-specific packaging out of the item itself.** Marketplace manifests,
-  `plugin.json`, hook wiring and installers belong in a separate adapter layer, so the same
-  skill or tool can be wired into a second agent without being rewritten.
+- **Keep agent-specific behaviour in the integrations.** Skills in `src/taskrail/skills/` are
+  written for any agent; what one agent needs differently goes in its note under
+  `src/taskrail/integrations/`, which the installer inserts for that integration only.
 - **`SKILL.md` plus YAML frontmatter is the portable core** — many agents read it. Claude-only
   frontmatter keys are ignored elsewhere, which is fine for hints but **not** for guarantees:
   a skill whose safe behaviour depends on `disable-model-invocation` or `user-invocable` is
   unsafe on an agent that ignores those keys. State such a rule in the skill's prose too, where
   every agent will read it.
-- **Prefer plain contracts for tools** — arguments, stdin/stdout, exit codes — over
-  agent-specific integrations, so any agent can call them through a shell.
+- **Prefer plain contracts for the CLI** — arguments, stdin/stdout, `--json`, exit codes — over
+  agent-specific integrations, so any agent can call it through a shell.
 
 ## Backlog
 
@@ -54,18 +74,20 @@ tasks.
   publishing constraint above applies to task titles, descriptions and write-ups.
 - Claims stay local (`claim_remote` is off), so no refs are pushed for them.
 - The autopilot is enabled here (`[autopilot]` in `.taskrail/config.toml`). Its orchestrator
-  answers lane gates from this file and `DESIGN.md` first, which the config lists
-  in `read_first`. Neither is a `governing` path: a lane may change them when its task needs it,
-  the orchestrator decides that change at the gate, and the human reviews it in the pull request.
+  answers lane gates from this file and `DESIGN.md` first, which the config lists in
+  `read_first`. Neither is a `governing` path: a lane may change them when its task needs it, the
+  orchestrator decides that change at the gate, and the human reviews it in the pull request.
 
 ## Merging
 
 Changes reach `main` through pull requests, and every pull request is **squash-merged**: its
 title becomes the only commit on `main`, which is what semantic versioning will read.
 
-- Title in Conventional Commits form, with the affected component as scope and the task ID at
-  the end: `feat(taskrail): add a reopen command for tasks marked done by mistake (T006)`.
-  `taskrail review <ID> --publish --scope <component>` generates it.
+- Title in Conventional Commits form, with the affected area as scope (`cli`, `autopilot`,
+  `skills`, `install`, `backlog`, `repo`, …) and the task ID at the end:
+  `feat(cli): add a reopen command for tasks marked done by mistake (T006)`.
+  `taskrail review <ID> --publish --scope <area>` generates it. Commits from before the
+  extraction use `taskrail` as their scope.
 - The type reflects the most significant change in the pull request, not every commit in it.
 - A reopen's `Reopens: <ID>` trailer must be at the end of the pull request description, which
   `taskrail review` writes, so it survives the squash.
@@ -78,4 +100,5 @@ Python, managed with uv, no runtime dependencies. Run from the repository root:
 uv run pytest                                   # all tests
 uv run pytest tests/test_validate.py -k cycle   # a single test
 uv run taskrail --root <repo> validate          # run the CLI against a repository
+.taskrail/bin/taskrail validate                 # validate this repository's own backlog
 ```

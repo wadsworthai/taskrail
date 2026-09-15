@@ -8,6 +8,12 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
 
 ## Unreleased
 
+- **taskrail has its own repository.** It was extracted with its history from a larger repository,
+  where it lived in a subdirectory and was tagged `taskrail-vX.Y.Z`. Releases are now tagged
+  `vX.Y.Z` at `github.com/alexkander/taskrail` and install without `#subdirectory`; the wrapper,
+  `taskrail self upgrade`, the pin that `init` and `upgrade` write and the installed skills'
+  `source` all follow. Reinstall from the new repository, then run `taskrail upgrade` in each
+  repository to move its wrapper and pin.
 - **`autopilot merged` for a branch whose task was discarded on it.** The content checks now run for
   a head whose row is `✅` or `❌`, and a proven merge reports `closed` (`done` or `discarded`),
   `confirmations.row_discarded_on_mainline`, and is recorded with that `status`. A recorded discard

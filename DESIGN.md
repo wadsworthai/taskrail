@@ -994,8 +994,11 @@ entirely; `TASKRAIL_SOURCE` overrides the repository URL.
 
 ```
 taskrail/
+├── CHANGELOG.md
 ├── DESIGN.md
 ├── README.md
+├── TODO.md                # this repository's own backlog, worked with taskrail
+├── docs/                  # its task artifacts and autopilot decision records
 ├── pyproject.toml
 ├── src/taskrail/          # parser, validator, claims, writer, installer, CLI
 │   ├── kinds/             # core kind descriptors        ┐

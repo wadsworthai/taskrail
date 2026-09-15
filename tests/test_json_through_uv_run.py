@@ -2,9 +2,8 @@
 
 Procedures and the autopilot parse `taskrail … --json` from stdout and act on the exit code.
 An output wrapper around `uv run` once truncated that stdout into invalid JSON while keeping the
-exit code (see docs/spikes/T044-evaluate-using-rtk-in-this-repository.md), so these tests run the
-real `uv run taskrail` command in a subprocess and check the bytes an
-agent would receive.
+exit code, so these tests run the real `uv run taskrail` command in a subprocess and check the
+bytes an agent would receive.
 """
 
 import json

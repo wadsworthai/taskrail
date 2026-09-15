@@ -136,14 +136,15 @@ uv run pytest tests/test_validate.py -k cycle   # a single test
 uv run taskrail --root <repo> validate          # run the CLI against a repository
 ```
 
-To run taskrail from source in a repository that contains it, pin the path instead of a
-release in `.taskrail/config.toml`:
+To run taskrail from source in a repository that contains it, pin its path instead of a
+release in `.taskrail/config.toml`. This repository pins its own root; one that keeps taskrail
+in a subdirectory names that directory:
 
 ```toml
-version = "local:."
+version = "local:."                # or "local:vendor/taskrail"
 ```
 
-The wrapper then runs `uv run --project <checkout> taskrail`, so each worktree
+The wrapper then runs `uv run --project <checkout>/<path> taskrail`, so each worktree
 uses its own branch's code, and `taskrail upgrade` leaves the pin alone. Elsewhere,
 `TASKRAIL_BIN=/path/to/taskrail` points the wrapper at any build.
 
@@ -152,7 +153,7 @@ uses its own branch's code, and `taskrail upgrade` leaves the pin alone. Elsewhe
 Releases are tagged `vX.Y.Z`. See [CHANGELOG.md](CHANGELOG.md).
 
 `pyproject.toml` is the only place the version is written, and it must equal the tag without its
-prefix: the wrapper accepts an installed CLI only when `v$(taskrail --version)` matches
+`v`: the wrapper accepts an installed CLI only when `v$(taskrail --version)` matches
 the pin, so a mismatched build is never taken for the release.
 
 1. In a pull request: set `version` in `pyproject.toml`, run `uv lock`, add the changelog entry.
@@ -160,3 +161,17 @@ the pin, so a mismatched build is never taken for the release.
    and `git push origin vX.Y.Z`. A published tag never moves.
 3. Verify a clean install from the tag, then bump `main` to the next `.dev0` version, so builds
    from `main` never claim to be the release.
+
+## History
+
+taskrail began as one tool inside a larger repository of agent skills and tools, and was extracted
+into this repository with its history: authors, dates and commit messages are kept, while every
+commit was rewritten to hold only taskrail, at the root. Pull request numbers in commit subjects
+from before the extraction, such as `(#61)`, refer to pull requests in that earlier repository, not
+in this one.
+
+Release tags were `taskrail-vX.Y.Z` there and are `vX.Y.Z` here. An install of 0.1.0 made from the
+earlier repository keeps working, but its `taskrail self upgrade` and its wrappers look for
+releases there. To move to a later release, reinstall from this repository as shown under
+*Install*, then run `taskrail upgrade` in each repository that uses taskrail, so its wrapper and
+version pin follow this repository.
