@@ -40,3 +40,20 @@ tags. The stage defines no checks.
 
 The change set is approved as listed in the artifact, with decision 4 applied: T076 does not touch
 DESIGN.md line 3.
+
+## implement gate
+
+Reviewed: commit `3ebcae9` (`git show` of `install.py`, `cli.py`, `tests/test_install.py`, README, CHANGELOG,
+DESIGN.md and the wrapper): `SOURCE_URL` and the regenerated wrapper name `wadsworthai/taskrail`; the
+`self upgrade --tag` help and its test use `v0.2.0`; the skill sources and installed copies change only
+`source`; README's install example and one *History* clause; CHANGELOG's preamble line, the "own
+repository" bullet and the note under `## 0.1.0`, with `## Unreleased` untouched; DESIGN.md's §4 and §9
+examples, line 3 untouched. The lane exercised `self upgrade --dry-run` (the new URL is read anonymously
+and has no tag yet) and a scratch `init` whose wrapper fetched the CLI through `uvx` from the new URL with
+a `main` pin; one scratch `validate` without `--root` read this clone's main checkout, read-only, and was
+re-run against the scratch repository. Re-ran `taskrail checks T076 --stage implement`: `test` gave
+`1052 passed in 162.23s`; `lint` is not configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the implementation | approve · request changes | as recommended | The diff is the approved change set, and the checks pass. |
