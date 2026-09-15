@@ -39,3 +39,20 @@ the artifact and its index row only); on `d904d11`, `pyproject.toml` at `0.2.0.d
 | D8 | A tag in a scratch clone for the wrapper-fallback check | defer to the follow-up · local scratch tag | **defer to the follow-up; no tag anywhere** | Decided by the human with D1. |
 
 The change set is approved as listed in the artifact, with D6 applied.
+
+## implement gate
+
+Reviewed: commit `b25ccce` (`git show` of CHANGELOG.md, DESIGN.md, TODO.md, `pyproject.toml` and `uv.lock`):
+`version = "0.2.0"` in `pyproject.toml` and the taskrail entry of `uv.lock`; DESIGN.md line 3 only; an
+empty `## Unreleased` above `## 0.2.0` and its lead paragraph; the T072, T073 and T075 bullets merged into
+one in T075's place; the behaviour-change sentences of T030, T049, T051 and T065 and T061's "as before"
+removed, the real ones against 0.1.0 kept; the preamble, the "own repository" bullet and `## 0.1.0`
+untouched; T078 (chore, depending on T077) added and T077's description edited, both through the CLI. The
+lane built the wheel and sdist, installed the wheel in a scratch virtual environment, and ran `init` and
+the wrapper there, with no tag and no `uv tool install`. Re-ran `taskrail checks T077 --stage implement`:
+`test` gave `1052 passed in 162.64s`; `lint` is not configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The T030 bullet lost the fact that `autopilot lane --group` exits 2 unless the name is a configured judgement group | keep it removed · re-add the fact without the label | **re-add the fact, without "Behaviour change"** | D2 removed labels comparing against unreleased behaviour, not the behaviour itself; the exit code is part of the CLI contract a 0.2.0 reader needs. |
+| 2 | Approve the implementation | approve · request changes | **approved, with decision 1 applied** | The diff matches the approved change set, and the checks pass. |
