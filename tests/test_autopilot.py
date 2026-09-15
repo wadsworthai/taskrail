@@ -561,6 +561,48 @@ def test_handoff_queue_puts_dependencies_first(pilot, capsys):
     assert (handoff["in_review"], handoff["queue"], handoff["next"]) == (None, ["T002"], "T002")
 
 
+def finished_in_order(pilot, capsys):
+    """T003 done at 10:00 and T004 at 11:00 on their branches: the queue is T003 first."""
+    run_id = start(pilot.root, capsys)
+    lanes = {}
+    for task_id, hour in (("T003", 10), ("T004", 11)):
+        lanes[task_id] = pilot.lane(task_id, run_id)
+        assert main(["--root", str(lanes[task_id]), "done", task_id, "--owner", "lane"]) == 0
+        commit_all(lanes[task_id], f"chore({task_id}): mark done", date=f"2026-01-01T{hour}:00:00+00:00")
+    handoff = status_of(pilot.root, capsys, run_id)["runs"][0]["handoff"]
+    assert (handoff["queue"], handoff["next"]) == (["T003", "T004"], "T003")
+    return run_id, lanes
+
+
+def test_handoff_queue_keeps_its_order_when_a_waiting_branch_is_rebased(pilot, capsys, monkeypatch):
+    run_id, lanes = finished_in_order(pilot, capsys)
+    (pilot.root / "other.txt").write_text("other")
+    commit_all(pilot.root, "other work", date="2026-01-01T12:00:00+00:00")
+    monkeypatch.setenv("GIT_COMMITTER_DATE", "2026-01-01T12:30:00+00:00")  # the orchestrator rebases T003 later
+    git(lanes["T003"], "rebase", "-q", "main")
+    monkeypatch.delenv("GIT_COMMITTER_DATE")
+    handoff = status_of(pilot.root, capsys, run_id)["runs"][0]["handoff"]
+    assert (handoff["queue"], handoff["next"]) == (["T003", "T004"], "T003")
+
+
+def test_handoff_queue_ignores_commits_after_the_done_commit(pilot, capsys):
+    run_id, lanes = finished_in_order(pilot, capsys)
+    (lanes["T003"] / "decision.md").write_text("decision")
+    commit_all(lanes["T003"], "docs(T003): record decision", date="2026-01-01T12:00:00+00:00")
+    handoff = status_of(pilot.root, capsys, run_id)["runs"][0]["handoff"]
+    assert (handoff["queue"], handoff["next"]) == (["T003", "T004"], "T003")
+
+
+def test_handoff_queue_orders_a_branch_left_only_on_the_remote(pilot, capsys):
+    run_id, lanes = finished_in_order(pilot, capsys)
+    git(pilot.root, "push", "-q", "origin", BRANCHES["T004"])
+    git(pilot.root, "worktree", "remove", "--force", str(lanes["T004"]))
+    git(pilot.root, "branch", "-q", "-D", BRANCHES["T004"])
+    report = status_of(pilot.root, capsys, run_id)
+    assert row(report, "T004")["state"] == "done-branch"
+    assert (report["runs"][0]["handoff"]["queue"], report["runs"][0]["handoff"]["next"]) == (["T003", "T004"], "T003")
+
+
 # 14
 
 

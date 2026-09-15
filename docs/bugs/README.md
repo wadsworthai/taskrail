@@ -7,3 +7,4 @@
 | T034 | Clear done-branch for a task reopened on its mainline | [T034-clear-done-branch-for-a-task-reopened-on.md](T034-clear-done-branch-for-a-task-reopened-on.md) |
 | T037 | Delete remote claims with a lease on their recorded commit | [T037-delete-remote-claims-with-a-lease-on-the.md](T037-delete-remote-claims-with-a-lease-on-the.md) |
 | T054 | Keep a closing lane from reading as pending between done and its commit | [T054-keep-a-closing-lane-from-reading-as-pend.md](T054-keep-a-closing-lane-from-reading-as-pend.md) |
+| T053 | Order the autopilot hand-off queue by completion, not branch tip time | [T053-order-the-autopilot-hand-off-queue-by-co.md](T053-order-the-autopilot-hand-off-queue-by-co.md) |

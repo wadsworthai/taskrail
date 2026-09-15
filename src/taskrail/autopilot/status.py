@@ -200,17 +200,37 @@ def _lane_details(task: Task, project: Project, run: dict, claim: Claim | None, 
     }
 
 
+def _done_time(project: Project, task_id: str) -> int:
+    """When a task was finished on its branch: the author time of its done commit (T053).
+
+    The done commit is the newest first-parent commit on the task branch — the local one, else its
+    remote copy — and off its mainline that turns the row ✅. A rebase, an amend or a later commit on
+    the branch leaves its author time alone. Without one, the branch tip's author time.
+    """
+    done = stack.done_on_branch(project).get(task_id)
+    backlog = project.backlog_for_id(task_id)
+    if done is None or backlog is None:
+        return 0
+    root = project.config.root
+    branch = done.refs[0]
+    mainline = backlog.config.mainline
+    mainline_refs = [ref for ref in (f"refs/heads/{mainline}", f"refs/remotes/{done.remote}/{mainline}") if _resolves(root, ref)]
+    log = gitutil.run(root, "log", "--first-parent", "--format=%H %at", branch, "--not", *mainline_refs, "--", check=False).stdout
+    commits = [(sha, int(at)) for sha, at in (line.split() for line in log.splitlines() if line.strip())]
+    if commits:
+        revisions = [sha for sha, _ in commits] + [f"{commits[-1][0]}^"]
+        statuses = stack._read_statuses(project, backlog.config.file, revisions)
+        for index, (sha, at) in enumerate(commits):
+            if statuses[sha].get(task_id) == Status.DONE.value and statuses[revisions[index + 1]].get(task_id) != Status.DONE.value:
+                return at
+    tip = gitutil.run(root, "log", "-1", "--format=%at", branch, "--", check=False).stdout.strip()
+    return int(tip) if tip.isdigit() else 0
+
+
 def _handoff(run: dict, rows: list[dict], project: Project) -> dict:
     by_id = {row["id"]: row for row in rows}
     in_review = next((task_id for task_id in run["handed_off"] if by_id.get(task_id, {}).get("state") == "handed-off"), None)
-    root = project.config.root
-
-    def tip_time(row: dict) -> int:
-        head = _branch_ref(root, row.get("branch"))
-        value = gitutil.run(root, "log", "-1", "--format=%ct", head, check=False).stdout.strip() if head else ""
-        return int(value) if value.isdigit() else 0
-
-    waiting = sorted((row for row in rows if row["state"] == "done-branch"), key=lambda row: (tip_time(row), row["id"]))
+    waiting = sorted((row for row in rows if row["state"] == "done-branch"), key=lambda row: (_done_time(project, row["id"]), row["id"]))
     queue: list[str] = []
     pending = list(waiting)
     while pending:

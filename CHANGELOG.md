@@ -168,6 +168,11 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   one's output, and a failing check exits 6. The core skill runs stage checks this way and lists
   exit 6, and the Claude Code notes describe a command shape an allowlist can match: one command
   per call, absolute paths, `git -C` and `--root` instead of `cd … &&` chains (T052).
+- **A stable hand-off queue.** `autopilot status` orders `handoff.queue` by when each task was
+  finished — the author time of the commit that turned its row ✅ on its branch — instead of the
+  branch tip's commit time, so rebasing a waiting branch or committing a decision record on it no
+  longer moves the task to the back, and a branch left only on the remote no longer jumps to the
+  front (T053).
 
 ## 0.1.0
 
