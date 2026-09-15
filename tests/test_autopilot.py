@@ -155,6 +155,7 @@ notify_on = ["lane-failed"]
     loaded = load_config(repo.root).autopilot
     assert loaded == AutopilotConfig(
         enabled=True, max_lanes=2, kinds=("bug", "chore"), governing=("docs/constitution.md",), escalate_gates=("spike:decide",),
+        read_first=("docs/constitution.md",),  # absent: the governing entries (T061)
         decisions="{artifacts}/records/{id}.md", decisions_index="{artifacts}/records/README.md", silent_minutes=5,
         handoff="sequential", notify="notify-send taskrail", notify_on=("lane-failed",),
     )
@@ -653,7 +654,7 @@ def test_status_renders_decision_record_paths(pilot, capsys):
 
 
 def test_status_without_runs_and_for_an_unknown_run(pilot, capsys):
-    assert status_of(pilot.root, capsys) == {"runs": [], "overlaps": {}, "known_overlaps": {}, "fetched": []}
+    assert status_of(pilot.root, capsys) == {"runs": [], "overlaps": {}, "known_overlaps": {}, "fetched": [], "read_first": [], "read_first_missing": []}
     code, out, _ = run(pilot.root, "autopilot", "status", capsys=capsys)
     assert code == 0 and "no autopilot runs" in out
     code, _, err = run(pilot.root, "autopilot", "status", "--run", "20000101-1", capsys=capsys)

@@ -5,8 +5,9 @@ never on the lane's report alone.
 
 ## Every gate
 
-- **Governing documents first.** Answer from the `[autopilot].governing` documents, the design they
-  lead to and the task row before your own preference. A decision they reserve to humans escalates.
+- **Governing documents first.** Answer from the governing documents — `read_first` in
+  `autopilot status` — the design they lead to and the task row before your own preference. A
+  decision they reserve to humans escalates.
 - **Read the evidence yourself.** Open the artifact at the commit the lane names, and read the diff
   by commit range in the lane's worktree (`git log -p <base>..<head>`), not only its summary.
 - **Never approve with failing checks.** Re-run the checks in the lane's worktree yourself, with the

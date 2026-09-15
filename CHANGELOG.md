@@ -191,6 +191,10 @@ uv tool install taskrail --from "git+https://github.com/alexkander/taskrail.git@
   and `.taskrail/installed.json` with the skill copies it records — are reported in
   `known_overlaps`, each with its `class` and `tasks`, and printed under their own heading after
   the real overlaps. Behaviour change: `overlaps` no longer lists known-class files (T051).
+- **`[autopilot].read_first`.** The documents the orchestrator reads first to answer gates now have
+  their own key, so `governing` only escalates; without the key they are the `governing` entries,
+  as before. `autopilot status` reports `read_first` and `read_first_missing` (entries that match
+  nothing), and the `taskrail-autopilot` skill reads the governing documents from them (T061).
 
 ## 0.1.0
 

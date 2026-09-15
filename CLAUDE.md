@@ -54,9 +54,9 @@ tasks.
   publishing constraint above applies to task titles, descriptions and write-ups.
 - Claims stay local (`claim_remote` is off), so no refs are pushed for them.
 - The autopilot is enabled here (`[autopilot]` in `.taskrail/config.toml`). Its orchestrator
-  answers lane gates from this file and `DESIGN.md` first. Neither is a
-  `governing` path: a lane may change them when its task needs it, the orchestrator decides that
-  change at the gate, and the human reviews it in the pull request.
+  answers lane gates from this file and `DESIGN.md` first, which the config lists
+  in `read_first`. Neither is a `governing` path: a lane may change them when its task needs it,
+  the orchestrator decides that change at the gate, and the human reviews it in the pull request.
 
 ## Merging
 

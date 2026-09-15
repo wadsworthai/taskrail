@@ -75,6 +75,7 @@ class AutopilotConfig:
     max_lanes: int = 3
     kinds: tuple[str, ...] = ()  # empty: every allowed kind
     governing: tuple[str, ...] = ()
+    read_first: tuple[str, ...] = ()  # loaded from the `governing` entries when the key is absent (T061)
     escalate_gates: tuple[str, ...] = ()  # "kind:stage"
     decisions: str = "{artifacts}/autopilot/decisions/{id}-{slug}.md"
     decisions_index: str = "{artifacts}/autopilot/decisions/README.md"
@@ -324,8 +325,10 @@ def _autopilot(raw, problems: list[str], custom_columns=(), aliases=None) -> Aut
         scalar(key, int)
     for key in ("decisions", "decisions_index", "handoff", "notify"):
         scalar(key, str)
-    for key in ("kinds", "governing", "escalate_gates", "notify_on"):
+    for key in ("kinds", "governing", "read_first", "escalate_gates", "notify_on"):
         strings(key)
+    if "read_first" not in raw:
+        values["read_first"] = values.get("governing", ())  # the reading list before T061
 
     if values.get("max_lanes", 1) < 1:
         problems.append("autopilot.max_lanes must be at least 1")

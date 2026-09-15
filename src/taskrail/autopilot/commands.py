@@ -229,14 +229,31 @@ def cmd_status(args) -> int:
         project, _ = _load(args)  # the refs moved: derive states from the fetched ones
     report = compute_status(project, selected, _local_claims(project))
     report["fetched"] = fetched
+    report["read_first"] = list(config.autopilot.read_first)
+    report["read_first_missing"] = [entry for entry in config.autopilot.read_first if not _matches_anything(config.root, entry)]
     _emit(report, args.json, _status_text(report))
     return EXIT_OK
 
 
+def _matches_anything(root, entry: str) -> bool:
+    """Whether a `read_first` entry — a path or a glob, relative to the root — names anything that exists (T061)."""
+    try:
+        return any(True for _ in root.glob(entry.removeprefix("./")))
+    except (ValueError, NotImplementedError):  # an empty or absolute pattern
+        return False
+
+
+def _read_first_text(report: dict) -> list[str]:
+    lines = [f"read first: {', '.join(report['read_first'])}"] if report["read_first"] else []
+    if report["read_first_missing"]:
+        lines.append(f"read first missing: {', '.join(report['read_first_missing'])}")
+    return lines
+
+
 def _status_text(report: dict) -> str:
+    lines = _read_first_text(report)
     if not report["runs"]:
-        return "no autopilot runs"
-    lines = []
+        return "\n".join([*lines, "no autopilot runs"])
     for run in report["runs"]:
         kinds = ", ".join(run["kinds"]) or "every allowed kind"
         done = " · complete" if run["complete"] else ""

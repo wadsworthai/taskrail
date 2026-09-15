@@ -31,10 +31,12 @@ installed. This rule lives here, in the text every agent reads, not only in meta
 
 ## Before the first dispatch
 
-- Read the governing documents: the `[autopilot].governing` paths in `.taskrail/config.toml`, the
-  documents they lead to, and the backlog rows of the tasks. Answer gates from them first.
 - Run `taskrail autopilot status --json`. Another orchestrator may have lanes in this clone; they
   count toward the same limits, and you never touch them.
+- Read the governing documents: the paths in `read_first` in that output
+  (`[autopilot].read_first`, which falls back to the `governing` entries), the documents they lead
+  to, and the backlog rows of the tasks. Answer gates from them first. Tell the human about any
+  entry in `read_first_missing`.
 
 ## Dispatch
 
