@@ -2,10 +2,12 @@
 
 The first message of a lane. Fill every `<…>` from the task's entry in the output of
 `taskrail autopilot next --run <RUN> --json` and from what you know of the run, and leave out a
-line that has nothing to say. Everything between the two rules is the brief. When you restart a
-lane from its branch (*Resume a run* in `SKILL.md`), use the restart Workspace section after the
-second rule in place of the brief's own; when the task's entry reports `prior_work.prepared`, use
-the prepared Workspace section after it instead.
+line that has nothing to say. Fill `<WORKTREE>` as an absolute path: the entry's `worktree` is
+relative to the repository's main checkout (the first `worktree` line of
+`git worktree list --porcelain`), so join the two. Everything between the two rules is the brief.
+When you restart a lane from its branch (*Resume a run* in `SKILL.md`), use the restart Workspace
+section after the second rule in place of the brief's own; when the task's entry reports
+`prior_work.prepared`, use the prepared Workspace section after it instead.
 
 ---
 

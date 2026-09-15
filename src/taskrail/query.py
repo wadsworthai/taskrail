@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from taskrail import branches, gitutil, stack
@@ -150,18 +151,31 @@ def _checked_out(project: Project) -> dict[str, Path]:
     return project.cache["worktree_branches"]
 
 
+def _main_checkout(project: Project) -> Path:
+    if "main_worktree" not in project.cache:
+        try:
+            project.cache["main_worktree"] = gitutil.main_worktree(project.config.root)
+        except gitutil.GitError:
+            project.cache["main_worktree"] = project.config.root.resolve()
+    return project.cache["main_worktree"]
+
+
 def worktree_path(branch: str | None, project: Project) -> str | None:
-    """Where the task's worktree is: the one that has its branch checked out, else where it would go."""
+    """Where the task's worktree is: the one that has its branch checked out, else where it would go.
+
+    Relative to the clone's main worktree, whichever of its checkouts runs the command (T072): one
+    outside it gets `..` segments, and one not created yet is `<worktree_dir>/<branch>`.
+    """
     config = project.config
     if not branch or config.worktree != "required":
         return None
     path = _checked_out(project).get(branch)
     if path is None:
         return f"{config.worktree_dir}/{branch}"
-    root = config.root.resolve()
-    if path != root and path.is_relative_to(root):
-        return str(path.relative_to(root))
-    return str(path)
+    try:
+        return Path(os.path.relpath(path, _main_checkout(project))).as_posix()
+    except ValueError:  # another drive than the main worktree's: no relative path exists
+        return str(path)
 
 
 def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict:
