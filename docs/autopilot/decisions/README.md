@@ -52,3 +52,4 @@
 | T067 | Detect and clean up a merged branch whose task was discarded on it | [T067-detect-and-clean-up-a-merged-branch-whos.md](T067-detect-and-clean-up-a-merged-branch-whos.md) |
 | T069 | Warn in the README that taskrail is experimental and AI-developed | [T069-warn-in-the-readme-that-taskrail-is-expe.md](T069-warn-in-the-readme-that-taskrail-is-expe.md) |
 | T070 | Detect a task whose row is missing from its base and carry the row into its workspace | [T070-detect-a-task-whose-row-is-missing-from.md](T070-detect-a-task-whose-row-is-missing-from.md) |
+| T071 | Run the autopilot on named tasks, including ones whose workspace new --workspace prepared | [T071-run-the-autopilot-on-named-tasks-includi.md](T071-run-the-autopilot-on-named-tasks-includi.md) |
