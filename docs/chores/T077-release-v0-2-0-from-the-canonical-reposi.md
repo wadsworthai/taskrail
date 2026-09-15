@@ -161,6 +161,11 @@ Recorded in `docs/autopilot/decisions/T077-release-v0-2-0-from-the-canonical-rep
    `--type chore --scope release`.
 8. No tag is created anywhere. The wrapper's fallback check from the tag belongs to T078.
 
+At the implement gate, the change set was approved with one correction. Decision 2 removes labels
+that compare against unreleased behaviour, but not the behaviour itself. The T030 bullet
+therefore keeps "`autopilot lane --group` exits 2 unless the name is a configured judgement
+group", now without the "Behaviour change" label.
+
 ## Out of scope
 
 - Creating, pushing or deleting any git tag, locally or remotely, in this task: the tag is the

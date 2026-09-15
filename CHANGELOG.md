@@ -135,8 +135,8 @@ upgrading.
   now — `taskrail next`'s order, within `max_lanes`, the run's count and kinds, and the
   `[[autopilot.group]]` limits — with `show`'s fields and one value of each `[[autopilot.resource]]`
   per lane, records the dispatch in the run and releases the values of lanes that ended; without
-  `--run` it is a preview. `autopilot status` reports a dispatched, unclaimed task as `dispatched`
-  (T030).
+  `--run` it is a preview. `autopilot status` reports a dispatched, unclaimed task as `dispatched`,
+  and `autopilot lane --group` exits 2 unless the name is a configured judgement group (T030).
 - **Autopilot notifications and escalation flags.** `autopilot notify --event … --run R [--task ID]
   [--message …]` runs `[autopilot].notify` through the shell for the events in `notify_on`, with a
   message on stdin and `TASKRAIL_EVENT`, `TASKRAIL_RUN` and `TASKRAIL_TASK` set; a failing or
