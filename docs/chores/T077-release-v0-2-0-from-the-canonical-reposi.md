@@ -1,6 +1,6 @@
 # T077 — Release v0.2.0 from the canonical repository
 
-Kind: chore · Epic: E01 · Status: scope proposed
+Kind: chore · Epic: E01 · Status: implemented, awaiting review; the tag follows the merge
 
 ## Goal
 
@@ -27,6 +27,7 @@ every URL and every 0.1.0 reference alone.
 | `pyproject.toml` | `version = "0.2.0"` (from `0.2.0.dev0`). |
 | `uv.lock` | Regenerated with `uv lock`: the `taskrail` package entry reads `version = "0.2.0"`. |
 | `CHANGELOG.md` | `## Unreleased` becomes `## 0.2.0`, with a new empty `## Unreleased` above it (decision 3), a short lead paragraph under `## 0.2.0` (decision 4), and the corrections in decision 2. No other bullet is reordered or reworded, and the preamble, the "own repository" bullet and `## 0.1.0` are not touched. |
+| `DESIGN.md` | Line 3 only (decision 6): `Status: **released as `v0.2.0`.** See CHANGELOG.md.` |
 | `TODO.md` | Through the CLI only: a follow-up chore (see *After the merge*) with `taskrail new`, T077's description with `taskrail edit` (decision 5), and T077's row with `taskrail done` at close. |
 | `docs/chores/T077-release-v0-2-0-from-the-canonical-reposi.md` | This artifact. |
 | `docs/chores/README.md` | A row for this artifact. |
@@ -140,6 +141,26 @@ Files checked and left unchanged:
    `chore(release): release v0.2.0 (T077)`, with `--scope release`. Alternative: `--scope repo`.
    It is a release commit, not a feature, so `feat` is not proposed.
 
+## Decisions at the scope gate
+
+Recorded in `docs/autopilot/decisions/T077-release-v0-2-0-from-the-canonical-reposi.md`.
+
+1. The split is as proposed. The human decided it. After the merge, the orchestrator asks the
+   human, then tags `v0.2.0` on T077's squash commit and pushes it. The follow-up chore T078
+   verifies the install from the tag and bumps `main` to `0.3.0.dev0`, and its scope stage stops if
+   the tag does not exist.
+2. The Unreleased corrections are as proposed. The human decided them. The T072, T073 and T075
+   bullets become one, and the intra-release behaviour-change sentences of T030, T049, T051 and
+   T065 are dropped, along with T061's "as before". The "own repository" bullet, the preamble and
+   `## 0.1.0` stay untouched, because they are T076's.
+3. An empty `## Unreleased` goes above `## 0.2.0`.
+4. `## 0.2.0` gets the lead paragraph, with no URL and no date.
+5. T077's description is edited with `taskrail edit` to name T078.
+6. T077 sets `DESIGN.md` line 3 to the 0.2.0 release, touching only that line. T076 leaves it.
+7. The pull request title is `chore(release): release v0.2.0 (T077)`, made with
+   `--type chore --scope release`.
+8. No tag is created anywhere. The wrapper's fallback check from the tag belongs to T078.
+
 ## Out of scope
 
 - Creating, pushing or deleting any git tag, locally or remotely, in this task: the tag is the
@@ -169,3 +190,30 @@ Before merging, entirely local, with no tag and no `uv tool install`:
 - `taskrail validate` on this repository.
 
 After the tag, in the follow-up chore: the checks listed under *After the merge*.
+
+### Results before merging
+
+No tag was created, and nothing ran `uv tool install`. Scratch files are under
+`/tmp/claude-7932/`.
+
+1. `taskrail checks T077 --stage implement` ran `test` (`uv run pytest -q`), with the result
+   1052 passed in 133.46s. `lint` is not configured in this repository.
+2. `uv run taskrail --version` printed `taskrail 0.2.0`, and so did
+   `.taskrail/bin/taskrail --version`, through the `local:.` pin.
+3. `uv lock` reported `Updated taskrail v0.2.0.dev0 -> v0.2.0`, and `uv lock --check` resolved
+   7 packages with no change.
+4. `uv build --out-dir /tmp/claude-7932/T077-build` built `taskrail-0.2.0.tar.gz` and
+   `taskrail-0.2.0-py3-none-any.whl`.
+5. The wheel was installed with `uv pip install` into the scratch virtual environment
+   `/tmp/claude-7932/T077-venv`, and `taskrail --version` printed `taskrail 0.2.0`.
+6. In a new git repository, `taskrail init --integration claude` pinned `version = "v0.2.0"`.
+   - With `PATH=/tmp/claude-7932/T077-venv/bin:/usr/bin:/bin`, where `uvx` is not found, the
+     wrapper ran `--version` and printed `taskrail 0.2.0`. It ran `validate`, which printed
+     `0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`. So the wrapper took the installed
+     CLI, because its version matched the pin.
+   - With `PATH=/usr/bin:/bin`, where the wrapper finds neither CLI nor `uvx`, it exited 2 with
+     `taskrail: v0.2.0 is needed but neither a matching taskrail nor uvx is installed`.
+7. `taskrail validate` on this branch printed `66 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+
+The fallback to `uvx` from the published tag, and `self upgrade --dry-run`, wait for the tag. T078
+covers them.

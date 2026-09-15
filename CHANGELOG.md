@@ -8,27 +8,25 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
 
 ## Unreleased
 
-- **Task worktrees stay out of a bare repository's directory, and `worktree_base` names their base.**
-  In a bare repository with worktrees, `show`, `list`, `next` and `autopilot next` read `worktree`
-  against the directory holding the bare repository, and `new --workspace` and `workspace <ID>`
-  create task worktrees there; before, both used the bare directory itself. Those commands now report
-  `worktree_base`, the absolute directory `worktree` is relative to (the main checkout in an ordinary
-  clone), and the `taskrail` skill and the lane brief join the two instead of reading
-  `git worktree list` (T075).
+## 0.2.0
+
+Adds the autopilot (DESIGN.md §12), `edit`, `import`, `checks`, `workspace`, `branch` and a merge
+driver for backlog tables and changelogs. Read the entries marked **Behaviour change** before
+upgrading.
+
+- **A task's worktree is one path from every checkout, created where it is reported.**
+  `show`, `list`, `next` and `autopilot next` report `worktree` relative to `worktree_base`, an
+  absolute directory they also report: the main checkout of an ordinary clone, or the directory
+  holding a bare repository. `new --workspace` and `workspace <ID>` create the task's worktree at
+  `<worktree_dir>/<branch>` under it from any checkout, and refuse when that path exists; the
+  `taskrail` skill and the lane brief join the two instead of reading `git worktree list`. Before,
+  an existing worktree came out absolute when read from inside it or from another worktree, one
+  created inside another worktree was nested below it, and a bare repository's worktrees were read
+  against and created in the bare directory itself (T072, T073, T075).
 - **`autopilot merged --cleanup` keeps worktrees nested in the one it removes.** It now refuses (exit
   5) and removes nothing when another registered worktree lies inside the task's worktree, naming
   those worktrees; before, one in an ignored directory such as a `.worktrees/` that an earlier
   `new --workspace` nested there was deleted with its uncommitted work (T074).
-- **A task worktree is created under the main checkout from any checkout.** `new --workspace` and
-  `workspace <ID>` run inside another worktree now create the task's worktree at
-  `<worktree_dir>/<branch>` under the repository's main checkout, where `show` reports it, and refuse
-  when that path exists; before, they nested it below the worktree they ran in (T073).
-- **A task's `worktree` is one path from every checkout.** `show`, `list`, `next` and
-  `autopilot next` report it relative to the repository's main checkout (the first entry of
-  `git worktree list`), with `..` segments for a worktree outside it, whichever checkout runs the
-  command; before, an existing worktree came out absolute when read from inside it or from another
-  worktree. The `taskrail` skill creates a worktree with `git -C <main checkout> worktree add`, and
-  the lane brief's worktree is the main checkout joined with it (T072).
 - **Named autopilot runs, extended runs and prepared workspaces.** `autopilot start --tasks IDs`
   starts a run that works only those tasks, in the order given, with their number as its count;
   `autopilot extend R --tasks IDs` adds tasks to such a run and `--count N` sets a count-only run's
@@ -137,9 +135,8 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
   now — `taskrail next`'s order, within `max_lanes`, the run's count and kinds, and the
   `[[autopilot.group]]` limits — with `show`'s fields and one value of each `[[autopilot.resource]]`
   per lane, records the dispatch in the run and releases the values of lanes that ended; without
-  `--run` it is a preview. `autopilot status` reports a dispatched, unclaimed task as `dispatched`.
-  Behaviour change: `autopilot lane --group` exits 2 unless the name is a configured judgement
-  group (T030).
+  `--run` it is a preview. `autopilot status` reports a dispatched, unclaimed task as `dispatched`
+  (T030).
 - **Autopilot notifications and escalation flags.** `autopilot notify --event … --run R [--task ID]
   [--message …]` runs `[autopilot].notify` through the shell for the events in `notify_on`, with a
   message on stdin and `TASKRAIL_EVENT`, `TASKRAIL_RUN` and `TASKRAIL_TASK` set; a failing or
@@ -211,7 +208,7 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
   in `escalation`, nor prints `ESCALATE: governing …`, for a `done-branch` or `handed-off` task, as
   it already dropped `escalate_gate`; `governing_touched` still lists the paths. The autopilot
   skill's close review escalates a governing path the task's decision record does not show
-  escalated. Behaviour change: such a task used to stay flagged until its merge (T049).
+  escalated (T049).
 - **A closing lane stays `running`.** Between `taskrail done` and its commit, `autopilot status`
   reports the lane `running` — the `✅` in the working tree of its branch's worktree counts once the
   claim is released — with its `touched` files, instead of `pending`. `autopilot next` skips any
@@ -243,11 +240,11 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
   known conflict class — backlog and epic files, artifact and decision-record indexes, changelogs,
   and `.taskrail/installed.json` with the skill copies it records — are reported in
   `known_overlaps`, each with its `class` and `tasks`, and printed under their own heading after
-  the real overlaps. Behaviour change: `overlaps` no longer lists known-class files (T051).
+  the real overlaps (T051).
 - **`[autopilot].read_first`.** The documents the orchestrator reads first to answer gates now have
-  their own key, so `governing` only escalates; without the key they are the `governing` entries,
-  as before. `autopilot status` reports `read_first` and `read_first_missing` (entries that match
-  nothing), and the `taskrail-autopilot` skill reads the governing documents from them (T061).
+  their own key, so `governing` only escalates; without the key they are the `governing` entries.
+  `autopilot status` reports `read_first` and `read_first_missing` (entries that match nothing), and
+  the `taskrail-autopilot` skill reads the governing documents from them (T061).
 - **`autopilot approve-governing`.** Records a governing edit the human approved: each approved
   path is stored in the task's lane with the blob ID of its content (the worktree file, else the
   branch tip). `autopilot status` reports those files in `governing_approved` and raises
@@ -271,8 +268,7 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
   the `governing` escalation. `autopilot lane <ID> --state handed-off` accepts it; it keeps reading
   `discarded-branch`, and `handoff.in_review` names it until its `❌` reaches a mainline ref.
   `taskrail review` prepares and publishes a task discarded on its branch, with `chore` as the
-  default title type. Behaviour change: a discarded branch used to have no `touched` files and
-  never entered the hand-off queue (T065).
+  default title type (T065).
 
 ## 0.1.0
 
