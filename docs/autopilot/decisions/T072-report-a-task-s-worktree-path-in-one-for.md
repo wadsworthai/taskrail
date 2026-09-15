@@ -35,3 +35,20 @@ the path is relative to the main checkout and run `git -C <main checkout> worktr
 `git worktree list --porcelain`), the lane brief's `<WORKTREE>` (the orchestrator fills it as an
 absolute path: the main checkout joined with `worktree`), and DESIGN.md §7's `show` row. If a consumer
 cannot be served without a new JSON field, stop at the fix gate and ask instead of adding one.
+
+## fix gate
+
+Reviewed: commit `34edbdc` (`git show`): `gitutil.main_worktree` (the first entry of
+`git worktree list --porcelain`), `query.worktree_path` returning `os.path.relpath` against it, cached
+per project and falling back to the running root when git fails; the regression test
+`tests/test_worktree_path.py`, `show` and `list` from the main checkout, a nested worktree and one
+outside the repository, reported by the lane as 6 failing against the unfixed code for the root cause;
+one absolute assertion in `tests/test_task_branch.py` rewritten to the new form; the `taskrail` skill's
+workspace step and the lane brief's `<WORKTREE>` note, with their installed copies; DESIGN.md §7; one
+CHANGELOG bullet. No JSON field was added. Re-ran `taskrail checks T072 --stage fix`: `test` gave
+`1028 passed in 146.06s`; `lint` is not configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the fix, with the first `git worktree list` entry as the main checkout (running root as fallback) and `.` for a branch checked out in the main checkout | approve · report the main checkout otherwise | as recommended | Git documents the main worktree as listed first, which holds with a separate git dir and in submodules where the common dir's parent does not; `.` is the consistent relative path. |
+| 2 | A separate regression test through `autopilot next` | no · add one | as recommended | `autopilot next` copies the field from `query.task_dict`, which the new tests cover, and `test_autopilot_named.py` already asserts the form through it. |
