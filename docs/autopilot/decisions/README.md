@@ -33,3 +33,4 @@
 | T033 | Trial the autopilot on a real backlog with each supported agent | [T033-trial-the-autopilot-on-a-real-backlog-wi.md](T033-trial-the-autopilot-on-a-real-backlog-wi.md) |
 | T050 | Accept --gate close for the stop after done | [T050-accept-gate-close-for-the-stop-after-don.md](T050-accept-gate-close-for-the-stop-after-don.md) |
 | T049 | Stop flagging governing paths once a task is done on its branch | [T049-stop-flagging-governing-paths-once-a-tas.md](T049-stop-flagging-governing-paths-once-a-tas.md) |
+| T060 | Remove DESIGN.md and CLAUDE.md from the autopilot's governing paths | [T060-remove-design-md-and-claude-md-from-the.md](T060-remove-design-md-and-claude-md-from-the.md) |

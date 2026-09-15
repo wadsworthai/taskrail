@@ -30,5 +30,8 @@ test = "uv run pytest -q"
 [autopilot]                  # `taskrail autopilot`; see DESIGN.md §12
 enabled = true
 max_lanes = 3
-governing = ["CLAUDE.md", "DESIGN.md"]   # read first to answer gates; changes to them reach the human
+# Nothing escalates by path: the orchestrator decides lane edits to CLAUDE.md and
+# DESIGN.md at the gate and the human reviews them in the pull request.
+# The orchestrator still reads both first; CLAUDE.md (Backlog) names them.
+governing = []
 escalate_gates = ["spike:decide"]                       # a spike's decision always goes to the human
