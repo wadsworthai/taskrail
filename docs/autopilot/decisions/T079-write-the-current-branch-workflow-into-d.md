@@ -46,3 +46,14 @@ to exercise.
 | 1 | T082's row names `kind show`, which does not exist | leave it for T082's plan gate · edit it now | **edit it now** | The row is the contract T082's lane starts from; fixing it here costs one `taskrail edit` and keeps §13.8 and the row consistent. |
 | 2 | (orchestrator) §13.8 leaves `close.review` to "whichever of T080 and T081 lands second" | assign `close.review` to T083 · leave it | **assign it to T083** | The human runs T080, T081 and T082 in parallel and T083 after all three merge, so T083 is the one task that sees both settings; T081 adds `close` with `commit` only. Update §13.3's table note, §13.8 and the T081 and T083 rows to match. |
 | 3 | The artifact file reported as changed on disk while appending | keep as committed · investigate | **keep as committed** | The committed content is what the lane wrote; the orchestrator did not edit the artifact. |
+
+## close gate
+
+Reviewed: `git diff 2f32ef3..50de538` (the §13.3 and §13.8 fixes, the T081, T082 and T083 row edits,
+the `CLAUDE.md` layout line), `taskrail done` committed on its own in `50de538` (only T079's status
+cell changed there), `review --json` (rebase not needed onto `origin/main`), no upstream on the
+branch, clean worktree, and `taskrail validate` with no errors or warnings.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | T083 builds `close.review` inside T081's `close`, but its row depends only on T080 | depend on T080, T081 · add T082 too · leave it | **depend on T080, T081** | T083 needs both; it does not need T082, whose order the run keeps. Edit the row with `taskrail edit T083 --depends-on T080,T081` and §13.8's cell to match, on this branch before hand-off. |
