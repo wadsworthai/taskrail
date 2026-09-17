@@ -1,6 +1,6 @@
 # T083 — Close a current-branch task without fetch, rebase or publish
 
-Kind: feature · Epic: E07 · Status: plan
+Kind: feature · Epic: E07 · Status: implemented
 
 Contract: DESIGN.md §13.5 (its CLI part) and the `close.review` part of §13.3, with the T083 row of
 §13.8. Prior work: none (`show` lists no artifact, branch or commit naming the task).
@@ -132,3 +132,46 @@ With `[git].task_branch = "current"`, `taskrail review <ID>` is a report:
    Alternative: `{ref, ahead: null}`.
 5. **Rebase reason wording.** §13.5 requires only that it names `[git].task_branch`.
    Recommendation: `[git].task_branch is "current": review does not rebase`.
+
+Answered at the plan gate
+([decision record](../autopilot/decisions/T083-close-a-current-branch-task-without-fetc.md)): 1–5 as
+recommended; the plan approved.
+
+## Implementation notes
+
+- `cmd_review` branches into `_review_current` right after the task is found, so under `"current"`
+  nothing of the task-branch path runs — not even the branch-record fetch. The status check and the
+  title and description moved into `_review_closed` and `_review_title_body`, shared by both paths
+  without a behaviour change under `"task"`.
+- `prior.matching_commits` takes `head_only=True` instead of the planned `revisions` list: the only
+  other caller needs today's refs, and a boolean keeps both call sites obvious. Under `head_only`, a
+  repository without commits returns `[]`.
+- `review.upstream` resolves `@{upstream}` to its full ref, counts `<ref>..HEAD` against that full ref
+  (a local branch named like the remote-tracking one cannot be picked instead), and reports the name
+  without `refs/remotes/` or `refs/heads/`. A detached `HEAD`, no upstream, or an upstream whose ref
+  is gone all give `null`.
+- `tests/test_commit_policy.py` compared `show`'s whole `close` object with `{"commit": …}`; its four
+  assertions now read `close.commit`, which is what they test.
+- DESIGN.md: §5.1 (`close.review`), §6.4 (the current-branch bullet naming `review`), the `show` and
+  `review` rows of §7, and a new paragraph **On the current branch** in §7.1 replacing its *Planned*
+  sentence; §13.3 loses its "Still planned for T083" sentence, §13.5's CLI bullets become a pointer
+  that also says the executor's close stays planned (T084), and the T083 row of §13.8 is marked.
+
+## Acceptance criteria and tests
+
+All in `tests/test_review_current.py`.
+
+| # | Tests |
+|---|---|
+| 1 | `test_review_reports_on_the_mainline`, `test_review_title_options`, `test_discarded_task_is_reported` |
+| 2 | `test_review_fetches_and_pushes_nothing` |
+| 3 | `test_review_reports_on_the_mainline`, `test_review_runs_on_any_branch` |
+| 4 | `test_commits_on_head_in_the_three_forms`, `test_commits_are_capped_at_ten` |
+| 5 | `test_review_reports_on_the_mainline`, `test_upstream_ahead_after_a_push`, `test_review_runs_on_any_branch` (no upstream), `test_upstream_gone_is_null` (decision 4) |
+| 6 | `test_publish_is_refused_before_anything_else` |
+| 7 | `test_pending_and_unknown_tasks` |
+| 8 | `test_text_output` |
+| 9 | `test_show_close_review` |
+| 10 | the existing `tests/test_review.py` and the rest of the suite, unchanged |
+| decision 2 | `test_reopens_since_the_upstream`, `test_reopens_without_an_upstream_read_all_of_head` |
+| decision 3 | `test_detached_head_is_reported` |

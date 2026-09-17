@@ -16,6 +16,11 @@ KNOWN_HOSTS = {"github.com": "github", "gitlab.com": "gitlab", "codeberg.org": "
 REOPENS = re.compile(r"^Reopens:\s*(\S+)\s*$", re.MULTILINE)
 
 
+# `review` under `[git] task_branch = "current"` only reports (DESIGN.md §7.1, T083).
+CURRENT_PUBLISH_REFUSAL = '[git].task_branch is "current": review does not publish; push with git once the human approves'
+CURRENT_REBASE_REASON = '[git].task_branch is "current": review does not rebase'
+
+
 @dataclass(frozen=True)
 class Remote:
     host: str
@@ -113,6 +118,19 @@ def subject(title: str) -> str:
 def pr_title(task: Task, commit_type: str, scope: str, breaking: bool) -> str:
     scoped = f"{commit_type}({scope})" if scope else commit_type
     return f"{scoped}{'!' if breaking else ''}: {subject(task.title)} ({task.id})"
+
+
+def upstream(root: Path) -> dict | None:
+    """The checked-out branch's upstream and how many commits HEAD has that it lacks; None without one, or when its ref is gone."""
+    if gitutil.current_branch(root) is None:
+        return None
+    ref = gitutil.run(root, "rev-parse", "--symbolic-full-name", "@{upstream}", check=False)
+    full = ref.stdout.strip()
+    if ref.returncode != 0 or not full or _sha(root, full) is None:
+        return None
+    count = gitutil.run(root, "rev-list", "--count", f"{full}..HEAD", check=False).stdout.strip()
+    name = full.removeprefix("refs/remotes/").removeprefix("refs/heads/")
+    return {"ref": name, "ahead": int(count) if count.isdigit() else 0}
 
 
 def reopened_ids(root: Path, since: str | None) -> list[str]:

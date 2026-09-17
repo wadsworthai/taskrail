@@ -73,11 +73,13 @@ def classify(subject: str, patterns: list[tuple[str, re.Pattern]]) -> str | None
     return next((name for name, pattern in patterns if pattern.search(subject)), None)
 
 
-def matching_commits(root: Path, task_id: str, branch: str | None) -> list[dict]:
-    """Commits on HEAD, local and remote-tracking branches whose subject names the task, newest first."""
-    revisions = ["--branches", "--remotes"]
+def matching_commits(root: Path, task_id: str, branch: str | None, head_only: bool = False) -> list[dict]:
+    """Commits on HEAD, and unless `head_only` local and remote-tracking branches, whose subject names the task, newest first."""
+    revisions = [] if head_only else ["--branches", "--remotes"]
     if gitutil.run(root, "rev-parse", "--verify", "--quiet", "HEAD", check=False).returncode == 0:
         revisions.insert(0, "HEAD")
+    elif head_only:
+        return []
     # git pre-filters on the ID anywhere in the message; the subject forms are checked here.
     result = gitutil.run(
         root, "log", *revisions, "--fixed-strings", f"--grep={task_id}", "--format=%H%x1f%s", "--", check=False

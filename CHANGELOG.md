@@ -8,6 +8,13 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
 
 ## Unreleased
 
+- **Close a current-branch task with a report.** Under `[git] task_branch = "current"`,
+  `taskrail review <ID>` no longer exits 2: it fetches, rebases and pushes nothing, keeps its `--json`
+  keys with `fetched`, `rebase.enabled`, `push.enabled` and `published` `false` and a reference pull
+  request title and body without a link, and adds `commits` (the commits on `HEAD` naming the task)
+  and `upstream` (the branch's upstream and how many commits it lacks). `--publish` exits 5 naming
+  the setting. `show` adds `close.review`: `"publish"`, or `"report"` under `"current"` (T083).
+
 - **A `decisions` gate.** A stage in a core, local or override kind descriptor may set
   `gate = "decisions"`: the executor stops as soon as a decision appears during the stage and never
   to approve the stage. `validate` accepts it, `show` and `kind list` report it, and the autopilot

@@ -87,7 +87,7 @@ def test_show_reports_the_default_policy(git_repo, capsys):
     descriptor = shown["kind_descriptor"]
     assert (descriptor["commit"], descriptor["commit_source"]) == ("stages", "default")
     assert [stage["commit"] for stage in descriptor["stages"]] == [True, True, False]
-    assert shown["close"] == {"commit": "stages"}
+    assert shown["close"]["commit"] == "stages"
     code, out, _ = run(git_repo.root, "show", "T002", capsys=capsys)
     assert "commit on-done" not in out
     assert "(gate: always, commit)" in out
@@ -102,7 +102,7 @@ def test_config_on_done_turns_every_stage_commit_off_in_show_and_kind_list(git_r
     descriptor = shown["kind_descriptor"]
     assert (descriptor["commit"], descriptor["commit_source"]) == ("on-done", "config")
     assert [stage["commit"] for stage in descriptor["stages"]] == [False, False, False]
-    assert shown["close"] == {"commit": "on-done"}
+    assert shown["close"]["commit"] == "on-done"
 
     listed = data(git_repo.root, "kind", "list", capsys=capsys)
     assert {k["name"]: (k["commit"], k["commit_source"]) for k in listed} == {
@@ -133,7 +133,7 @@ def test_kind_stages_wins_over_config_on_done(git_repo, capsys):
     descriptor = shown["kind_descriptor"]
     assert (descriptor["commit"], descriptor["commit_source"]) == ("stages", "kind")
     assert [stage["commit"] for stage in descriptor["stages"]] == [True]
-    assert shown["close"] == {"commit": "stages"}
+    assert shown["close"]["commit"] == "stages"
     bug = next(k for k in data(git_repo.root, "kind", "list", capsys=capsys) if k["name"] == "bug")
     assert (bug["commit"], bug["commit_source"]) == ("on-done", "config")
 
@@ -144,7 +144,7 @@ def test_kind_on_done_without_config(git_repo, capsys):
     descriptor = shown["kind_descriptor"]
     assert (descriptor["commit"], descriptor["commit_source"]) == ("on-done", "kind")
     assert [stage["commit"] for stage in descriptor["stages"]] == [False]
-    assert shown["close"] == {"commit": "on-done"}
+    assert shown["close"]["commit"] == "on-done"
     listed = {k["name"]: (k["commit"], k["commit_source"]) for k in data(git_repo.root, "kind", "list", capsys=capsys)}
     assert listed["feature"] == ("on-done", "kind")
     assert listed["bug"] == ("stages", "default")
