@@ -23,3 +23,21 @@ reads only a run's stored `kinds`, which a named run leaves empty. The stage def
 |---|---|---|---|---|
 | 1 | How §13 is marked once a part is implemented (run decision 1) | one-line pointer for a moved subsection, in-place marks for shared bullets and own §13.8 row · keep full text | **one-line pointer for §13.3 and in-place marks; never §13's introduction, summary table or another lane's lines** | Same convention on T080, T081, T082. |
 | 2 | Touch map, T081's part (run decision 4) | as planned · narrower | **config.py `COMMIT_POLICIES`, `Config.commit` and its load lines after `push_task_branch`; kinds.py `Kind.commit`/`commit_source`, `to_dict`, top-level `commit` next to `commit_type` in `_parse`, one hunk after the stage loop, `commit_policy`; cli.py one `close` line and text line in `cmd_show`, `_change_status`; autopilot/commands.py `_on_done_refusal` with one call line in `cmd_start`, `cmd_extend`, `cmd_next`; new tests/test_commit_policy.py; DESIGN.md §4 commit parts, §5.1 commit half of the planned note, §7 show and done/discard rows, on-done half of §12.1 rows and §12.2 bullet, §13.3, own bullets of §13.1/§13.6/§13.7, §13.8 T081 row; one CHANGELOG bullet** | From T081's plan. Shared with T080: config load (separate lines), `cmd_show`, the three autopilot call lines, the §4 planned note, the §7 `show` row and the §12.2 bullet — textual conflicts keep both halves. Shared with T082: separate hunks of `kinds.py` and §5.1's planned note, and the changelog. |
+
+## implement gate
+
+Reviewed: `git diff 0f51096..b091e95` — every `src/` hunk (`COMMIT_POLICIES` and `Config.commit`,
+`Kind.commit`/`commit_source`, the top-level `commit` check and the post-loop effective policy in
+`_parse`, which receives the loaded config, `commit_policy` and `commit_source_label`, `cmd_show`'s
+`close` and text line, `_change_status`, `_on_done_refusal` and its three call sites), the DESIGN.md
+hunks (§4, §5.1, §7, §12.1, §12.2, §13 marks) and the CHANGELOG bullet; the new
+`tests/test_commit_policy.py` reported 25 failing before the code, including the config-level path
+of criterion 4; the checks re-run with `taskrail checks T081 --stage implement` (1079 passed, lint
+not configured).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | §13.3's pointer is four lines, keeping `close.review` planned | four lines · one line with `close.review` moved | **as recommended** | §13.5 and T083's §13.8 row cite §13.3 for `close.review`; the pointer keeps T083's contract reachable. |
+| 2 | The refusal call is two physical lines | keep · one line | **as recommended** | The file's style; still one self-contained hunk after the `enabled` check. |
+| 3 | Approve the implement stage | approve · change | **approve** | The diff matches the plan and the touch map; every criterion has a test observed failing first. |
+| 4 | (orchestrator) Wording of the §13 marks | T082's published form · keep this branch's | **T082's form** | The in-place lines end "— *implemented (T081)*, now §x.y" instead of leading "*Implemented (T081; …):*" or "(*implemented, T081*)", and the §13.8 row ends "; *implemented (T081)*" instead of a leading "*Implemented.*"; §13.3's pointer paragraph stays. The three branches then mark §13 alike. |
