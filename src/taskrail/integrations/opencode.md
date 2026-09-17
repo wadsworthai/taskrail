@@ -2,9 +2,9 @@
 
 ## On OpenCode
 
-- At a gate, ask the human in plain text and wait for the reply.
+- At a gate, at a decision and before a push, ask the human in plain text and wait for the reply.
 - Running as a subagent, your final message goes back to the agent that started you: end with
-  the gate report so that agent can relay it.
+  the gate report or the question so that agent can relay it.
 
 <!-- taskrail:skill taskrail-autopilot -->
 

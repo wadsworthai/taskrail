@@ -16,13 +16,14 @@ SOURCE = install.SKILLS_SOURCE / SKILL
 REFERENCES = ["references/decision-record.md", "references/gate-review.md", "references/lane-brief.md"]
 FILES = ["SKILL.md", *REFERENCES]
 
-# The core skill's agent notes: those from before per-skill sections, plus T052's command shape.
+# The core skill's agent notes: those from before per-skill sections, plus T052's command shape
+# and T084's decision and push questions.
 CORE_CLAUDE_NOTES = """## On Claude Code
 
-- At a gate, ask the human with the AskUserQuestion tool when it is available; otherwise ask in
-  plain text.
-- Running as a subagent, you have no channel to the human: end your turn with the gate report
-  and wait to be resumed.
+- At a gate, at a decision and before a push, ask the human with the AskUserQuestion tool when it
+  is available; otherwise ask in plain text.
+- Running as a subagent, you have no channel to the human: end your turn with the gate report or
+  the question, and wait to be resumed.
 - Create task worktrees with git as described above rather than through a subagent's worktree
   isolation, which picks its own branch name and location.
 - Shape every shell command so a permission allowlist can match it: one command per Bash
@@ -32,13 +33,14 @@ CORE_CLAUDE_NOTES = """## On Claude Code
   checks each part of a compound command on its own, so it asks for permission even when
   every part is allowed.
 - Run a task's checks with `taskrail checks <ID>`, adding `--stage <stage>` for one stage's
-  checks, rather than changing into its worktree: it runs them there, with the task's
-  autopilot resources, as one command that a single allowlist entry covers."""
+  checks, rather than changing into its worktree: it runs them there — in the checkout under
+  `task_branch = "current"` — with the task's autopilot resources, as one command that a single
+  allowlist entry covers."""
 CORE_OPENCODE_NOTES = """## On OpenCode
 
-- At a gate, ask the human in plain text and wait for the reply.
+- At a gate, at a decision and before a push, ask the human in plain text and wait for the reply.
 - Running as a subagent, your final message goes back to the agent that started you: end with
-  the gate report so that agent can relay it."""
+  the gate report or the question so that agent can relay it."""
 
 
 def source(name: str) -> str:

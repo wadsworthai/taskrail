@@ -11,6 +11,12 @@ metadata:
 Follow the `taskrail` skill's procedure; this skill defines the stages. Quote commands, error
 messages and outputs exactly — the evidence is the deliverable.
 
+The gate in each heading below is the core kind's default; follow the gate and the `commit` that
+`taskrail show` reports for each stage, which a repository may change. "Commit" in a stage holds
+only when that stage's `commit` is true. Under a `decisions` gate, where a stage says the human
+approves at the gate, record what would be approved in the artifact and continue: stop only for a
+decision, and every "stop and ask" below is one.
+
 ## diagnose — gate: always
 
 1. Reproduce the bug with concrete evidence: the exact command or request, the actual result,

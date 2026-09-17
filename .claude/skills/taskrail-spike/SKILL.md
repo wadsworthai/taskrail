@@ -12,6 +12,12 @@ Follow the `taskrail` skill's procedure; this skill defines the stages. A spike 
 decision, not code: write no production code, and keep any throwaway code outside the
 repository or clearly marked as such.
 
+The gate in each heading below is the core kind's default; follow the gate and the `commit` that
+`taskrail show` reports for each stage, which a repository may change. "Commit" in a stage holds
+only when that stage's `commit` is true. Under a `decisions` gate, where a stage says the human
+approves at the gate, record what would be approved in the artifact and continue: stop only for a
+decision, and every "stop and ask" below is one.
+
 ## frame — gate: always
 
 Draft the artifact with: the **Question**; what **Evidence** would answer it; the

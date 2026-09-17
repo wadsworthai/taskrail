@@ -56,7 +56,7 @@ taskrail workspace T012                # move a row only this checkout has into 
 taskrail edit T012 --depends-on T010,T011 --pts 3   # change cells of an existing row; validated first
 taskrail checks T012 --stage fix       # run the stage's checks in the task's worktree; exit 6 when one fails
 taskrail done T012                     # needs your claim; releases it
-taskrail review T012                   # fetch the mainline's remote and pick the rebase base
+taskrail review T012                   # fetch the mainline's remote and pick the rebase base (a report only under task_branch = "current")
 taskrail review T012 --publish --scope billing   # push and print the PR/MR title and link
 taskrail reopen T012 --reason "…"       # back to pending; prints a commit message to use
 taskrail epic add --name Auth --objective "Sign in without passwords" --own-file
@@ -126,6 +126,59 @@ allowed = ["spec", "bug", "chore"]
 `init` and `upgrade` install only the executor skills the allowed kinds use, so the example above
 does not install `taskrail-feature` or `taskrail-spike`, and removes them if they were installed
 and not edited locally. The core `taskrail` skill and the `taskrail-autopilot` skill always install.
+
+## Working on the checked-out branch
+
+By default every task gets its own branch and worktree, commits at stage boundaries, stops for
+approval at each `always` gate, and ends in a pull request. A repository worked by a single
+maintainer, one agent at a time, straight on the checked-out branch, can switch each of those off
+in `.taskrail/config.toml`:
+
+```toml
+[git]
+worktree = "never"        # required by task_branch = "current"
+task_branch = "current"   # no branch per task: work on whatever branch is checked out
+commit = "on-done"        # commit nothing at stage boundaries; commit everything once the task is done
+```
+
+- `task_branch = "current"` — the skills skip the workspace step and claim in the checkout.
+  `new --workspace`, `workspace` and `branch` exit 5, and `taskrail review` only reports: it
+  fetches, rebases and pushes nothing, and `--publish` exits 5. The skills then **ask the human
+  before any push**, and push with git only once approved.
+- `commit = "on-done"` — after `taskrail done`, the skills make one or more logical commits of
+  everything the task changed, the status change included. A kind descriptor may set `commit`
+  too, and its value wins over `[git]`.
+
+Each setting works on its own. To stop only for decisions rather than to approve each stage, give
+a kind's stages `gate = "decisions"` in an override. An override replaces the whole kind, so copy
+the core descriptor and change its gates — for example `.taskrail/overrides/chore/kind.toml`:
+
+```toml
+name = "chore"
+summary = "Maintenance work whose change set and boundary are approved before anything is edited."
+skill = "taskrail-chore"
+commit_type = "chore"
+artifact = "{artifacts}/chores/{id}-{slug}.md"
+artifact_index = "{artifacts}/chores/README.md"
+
+[[stage]]
+name = "scope"
+gate = "decisions"        # stop as soon as a decision appears, never to approve the stage
+
+[[stage]]
+name = "implement"
+gate = "decisions"
+checks = ["test", "lint"]
+
+[[stage]]
+name = "docs"
+gate = "decisions"
+```
+
+A `decisions` stage stops when the executor meets a choice the task and its instructions do not
+settle, and carries everything else it would report to the next stop or the close. The autopilot
+needs a branch per task and commits per stage, so `taskrail autopilot start` refuses a repository
+configured this way. See DESIGN.md §4, §5.6, §6.4, §7.1 and §8.
 
 ## Autopilot
 

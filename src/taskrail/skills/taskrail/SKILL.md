@@ -51,14 +51,23 @@ of `taskrail show`) supplies what happens inside each stage.
    check that the description's premises still hold, and mention both at your first gate.
    These signals never block on their own. `prior_work.prepared` set means the branch is the
    workspace `taskrail new --workspace` prepared, holding only the task's row, not earlier work.
-3. **Workspace.** Run `git fetch <base.remote>` first, with the mainline's own remote that
-   `show` reported, then `taskrail show <ID> --json --fetch` — which also brings in branch names
-   other clones recorded, when the repository mirrors them: its `base.onto` is the ref to branch
-   from — the local or the remote mainline, whichever is further ahead, or, when
-   `base.dependency` names a dependency finished only on its unmerged branch, that branch.
-   If `base.diverged` is true, stop and ask which one to use; if `base.onto` is null, stop and
-   report `base.reason`. If `base.row` is `missing`, the task's row exists only in this checkout,
-   and a workspace created from `base.onto` would not contain it: run
+   `show` also reports the repository's workflow, which the steps below follow: `task_branch`
+   (`"task"`, a branch per task, or `"current"`, the checked-out branch), `close.commit`
+   (`"stages"` or `"on-done"`), `close.review` (`"publish"` or `"report"`), and each stage's
+   effective `gate` and `commit`.
+3. **Workspace.** When `task_branch` is `"current"`, skip this step: the task is worked on the
+   checked-out branch — whichever it is, the mainline included — so `base`, `worktree` and
+   `worktree_base` are `null`, and `taskrail new --workspace`, `taskrail workspace` and
+   `taskrail branch` exit 5. Stop and ask only when `branch` is `null` (a detached `HEAD`) or when
+   the task's live claim (`claim.branch`) names another branch than `branch`; otherwise go on to
+   claiming, in the checkout you are in. Under `"task"`: run `git fetch <base.remote>` first, with
+   the mainline's own remote that `show` reported, then `taskrail show <ID> --json --fetch` —
+   which also brings in branch names other clones recorded, when the repository mirrors them: its
+   `base.onto` is the ref to branch from — the local or the remote mainline, whichever is further
+   ahead, or, when `base.dependency` names a dependency finished only on its unmerged branch, that
+   branch. If `base.diverged` is true, stop and ask which one to use; if `base.onto` is null, stop
+   and report `base.reason`. If `base.row` is `missing`, the task's row exists only in this
+   checkout, and a workspace created from `base.onto` would not contain it: run
    `taskrail workspace <ID> --json` instead of the git commands below. It creates the branch and
    worktree from `base.onto`, moves the row there with its ID and removes it from this checkout;
    commit the row inside the workspace, and the removal here when `removed_from.uncommitted` is
@@ -78,29 +87,48 @@ of `taskrail show`) supplies what happens inside each stage.
    (if you already did, run it afterwards so taskrail adopts the new name). It renames the local
    branch, keeps the worktree where it is, and never touches a remote branch: it exits 5 for a branch
    already pushed, and renaming one with `--force` is a decision to report at your next gate.
-4. **Claim.** From inside the workspace, run `taskrail claim <ID>` before any edit. On the task's
-   branch it records that name, so a later title edit cannot change it. A `warning` in its
-   result means the workspace is not on the task's branch: switch to that branch, or name it
-   with `taskrail branch`, before any edit.
-5. **Stages.** Take `kind_descriptor.stages` in order. Skip a stage whose `applies` is false:
-   its column does not match this task. When `applies` and `judgement` are both true, decide
-   whether the stage is relevant to this task; to skip it, record the stage and your reason in
-   the artifact and in the next gate report — and if its gate is `always`, stop and ask before
-   skipping it. For each stage you run: do its work (a stage the executor skill does not
-   describe is done as its `summary` says), run its checks with
-   `taskrail checks <ID> --stage <stage>`, which runs each command from the `checks` map in the
-   task's worktree and reports one it does not define as not configured (say so), commit when
-   `commit` is true, then apply its gate. `commit = false` means a commit is not required at that point, not that one is
-   forbidden.
+4. **Claim.** From inside the workspace — under `"current"`, the checkout you are in — run
+   `taskrail claim <ID>` before any edit. On the task's branch it records that name, so a later
+   title edit cannot change it. A `warning` in its result means the workspace is not on the task's
+   branch: switch to that branch, or name it with `taskrail branch`, before any edit. Under
+   `"current"`, where `taskrail branch` exits 5, a `warning` means a detached `HEAD`: check out a
+   branch before any edit.
+5. **Stages.** Take `kind_descriptor.stages` in order. Skip a stage whose `applies` is false: its
+   column does not match this task. When `applies` and `judgement` are both true, decide whether
+   the stage is relevant to this task; to skip it, record the stage and your reason in the
+   artifact and in the next gate report — and if its gate is `always`, stop and ask before
+   skipping it; a stage whose gate is `decisions` is skipped without asking. For each stage you
+   run: do its work (a stage the executor skill does not describe is done as its `summary` says),
+   run its checks with `taskrail checks <ID> --stage <stage>`, which runs each command from the
+   `checks` map in the task's worktree and reports one it does not define as not configured (say
+   so), commit when the stage's `commit` is true, then apply its gate (see *Gates*). `commit` is
+   the effective value: under `close.commit` `"stages"`, `commit = false` means a commit is not
+   required at that point, not that one is forbidden; under `"on-done"` every stage reports
+   `false`, and you commit nothing until the task is done (step 8). Where an executor skill says
+   to commit, that holds only when the stage's `commit` is true.
 6. **Scope.** Never edit the areas in `never_edit`. Work you discover outside the task's scope
    becomes a follow-up task (see *Creating tasks*); mention it at the next gate. Only fix
    something directly on the way when it is small and inseparable from the task.
 7. **Artifact.** Write the kind's document at `artifact`, and add a row for it to
    `artifact_index`, creating that index as a heading plus a table if it does not exist.
-8. **Close.** With every check passing:
-   - run `taskrail done <ID>` inside the workspace — it marks the row in this branch and
-     releases the claim; the task keeps its recorded branch name — and commit that change on its
-     own;
+8. **Close.** With every check passing, run `taskrail done <ID>` inside the workspace — under
+   `"current"`, in the checkout — it marks the row in this branch and releases the claim; the task
+   keeps its recorded branch name, and under `"current"` no branch is recorded — and commit as
+   `close.commit` says:
+   - `"stages"` — commit that status change on its own;
+   - `"on-done"` — make one or more logical commits of everything the task changed, the status
+     change included, and leave nothing of the task uncommitted.
+
+   Then hand the task off as `close.review` says. Under `"report"` (`task_branch` `"current"`):
+   - run `taskrail review <ID> --json`. It fetches, rebases and pushes nothing: read `head`,
+     `commits` (the commits naming the task), `upstream` (the branch's upstream and how many
+     commits `upstream.ahead` it lacks, or `null`) and `pull_request.title`, a reference title;
+   - never rebase, never run `taskrail review --publish` (it exits 5), and never merge;
+   - **ask the human before any push**, saying which branch would be pushed and which commits it
+     would send. Push with plain `git push` only once the human approves, never with force; without
+     approval, push nothing. This holds whatever agent runs the task and whatever else it allows.
+
+   Under `"publish"`:
    - run `taskrail review <ID> --json` on the task's branch, which it reports as `head`. It
      fetches the mainline's remote (`remote`) and reports in `rebase.onto` the base to rebase
      onto: the local or the remote mainline, whichever is further ahead — or, while `rebase.dependency` names an unmerged dependency, that
@@ -123,23 +151,40 @@ of `taskrail show`) supplies what happens inside each stage.
      was rejected: stop and report — and returns `pull_request.title`, `body` and `url`.
 9. **Hand off.** Report the branch and its base, each commit on one line, every check with its
    actual result, the artifact path, any follow-up tasks, whether the branch was pushed, and the
-   pull request title and link — with its body too when the link cannot carry it. Never merge,
-   never delete the branch, and remove the worktree only when the human asks.
+   pull request title and link — with its body too when the link cannot carry it. Under
+   `"report"`, report the branch, each commit, the checks, the artifact, the follow-ups and the
+   reports a `decisions` gate carried, whether the human approved a push and whether it was
+   pushed, and the reference title; there is no link. Never merge, never delete the branch, and
+   remove the worktree only when the human asks.
 
 ## Gates
 
-A stage's `gate` decides whether you stop after it:
+A stage's `gate` decides when you stop. Use the gate `show` reports, which a repository's
+override may set, not the one an executor skill's heading names:
 
-- `always` — stop and wait for explicit approval.
-- `conditional` — stop only if there is something to decide or report; otherwise continue.
+- `always` — stop after the stage and wait for explicit approval.
+- `conditional` — stop after the stage only if there is something to decide or report; otherwise
+  continue.
+- `decisions` — stop during the stage as soon as a decision appears, and never at its end to have
+  the stage approved or to report. Carry what `conditional` would stop to report — follow-up
+  tasks opened, results, stages skipped — to the next stop, or to the close hand-off.
 - `none` — continue.
+
+A **decision** is a choice that the task, the artifact already written, the repository's
+instructions and the executor skill do not settle, and whose options differ in a way the human
+would care about. Every place an executor skill says to stop and ask is one. Under a `decisions`
+gate, what an executor skill calls approved is what the artifact records; the human sees it at
+the close.
 
 At a gate, stop editing and report: what the stage did; the evidence, with the exact commands
 and the relevant real output; each decision needed, as a direct question; what you will do
-next; and what you will not do. Approval covers that stage only.
+next; and what you will not do. Approval covers that stage only. At a decision under a
+`decisions` gate, ask it as a direct question with your recommendation and the alternatives,
+with the evidence it rests on, and continue the stage once it is answered.
 
 If you are a delegated agent with no direct channel to the human, end your turn with that
-report and resume only when told to continue with the task ID. Never shorten evidence for the
+report — or with the decision or push question — and resume only when told to continue with the
+task ID. Never shorten evidence for the
 relay: whoever passes it on cannot recover what you leave out.
 
 <!-- taskrail:harness -->
@@ -205,3 +250,7 @@ commit on the mainline, in Conventional Commits form. Commits on the task branch
 review. Follow the repository's convention for them; if it has none, use one-line Conventional
 Commits with the affected component as scope, for example
 `fix(billing): round totals half-up`.
+
+Under `task_branch` `"current"` there is no pull request to squash: the commits land on the
+checked-out branch as they are. End each subject with the task ID in parentheses —
+`fix(billing): round totals half-up (T012)` — so `taskrail review` lists them in `commits`.
