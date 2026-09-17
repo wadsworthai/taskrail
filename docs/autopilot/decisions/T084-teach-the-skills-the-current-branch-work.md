@@ -40,3 +40,16 @@ pushed); the checks re-run with `taskrail checks T084 --stage implement` (1180 p
 | 3 | (orchestrator) Step 4's claim warning under `"current"` | say what it means there · leave | **say it** | Step 4 still says a warning means switching to the task's branch or naming it with `taskrail branch`, which exits 5 under `"current"`; there the warning comes only from a detached `HEAD`: check out a branch before any edit. |
 | 4 | (orchestrator) Step 8's "inside the workspace … keeps its recorded branch name" under `"current"` | qualify it · leave | **qualify it** | Under `"current"` it runs in the checkout and no branch is recorded. |
 | 5 | (orchestrator) Unwrapped long lines in steps 3, 4, 5 and *Gates* of the core skill | rewrap to the file's width · leave | **rewrap** | The file keeps a ~100-column wrap; rewrap without changing the words the tests assert. |
+
+## close gate
+
+Reviewed: `git diff 0861486..140f798` (step 4's warning under `"current"`, step 8's qualifiers, the
+rewrap with unchanged words, the CLAUDE.md Layout comment, the refreshed installed copy matching its
+source up to the harness marker), `taskrail done` committed on its own in `1d06dab` (only T084's
+status cell); no upstream on the branch; clean worktree; the lane's checks after the fixes (1183
+passed, lint not configured); `review --json` reports no rebase needed onto `origin/main`;
+`taskrail validate` clean.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request title's type and scope | `feat(skills)` · `chore(skills)` | **`feat(skills)`** | The skills are shipped with the package and gain a new workflow users follow; the type reflects the most significant change (CLAUDE.md). |
