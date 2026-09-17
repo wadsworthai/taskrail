@@ -21,3 +21,17 @@ the tuple. The stage defines no checks.
 | # | Question | Options | Decision | Reason |
 |---|---|---|---|---|
 | 1 | Touch map, T082's part | as planned · narrower | **T082 changes only `kinds.GATES`, a new `tests/test_decisions_gate.py`, DESIGN.md §2's Gate row, the gate half of §5.1's planned note, §5.4's judgement sentence, a new §5.6, §12.6's escalated-gates bullet, §13.1's `gate` bullet, §13.4, §13.6's kind-gate bullet and §13.8's T082 row, and one CHANGELOG bullet; not `config.py`, `show`'s fields, the autopilot refusals, the stage-parsing loop, skills or README** | From T082's plan, so it shares with T081 only separate hunks of `kinds.py` and DESIGN.md §5.1/§13, and the changelog (a known class). |
+
+## implement gate
+
+Reviewed: `git diff 205fad5..fa59565` — the one-line `GATES` change in `kinds.py`, the new
+`tests/test_decisions_gate.py` (8 tests, one per criterion, reported failing before the change with
+the old message and validation errors), DESIGN.md §2, §5.1, §5.4, new §5.6, §12.6 and the §13 marks
+(only T082's lines; §13's introduction, summary table and other lanes' lines untouched), and the
+CHANGELOG bullet; the checks re-run with `taskrail checks T082 --stage implement` (test passed, lint
+not configured).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the implement stage | approve · change | **as recommended** | The diff matches the plan and the touch map; every criterion has a test observed failing first. |
+| 2 | Wording of the §13 in-place marks | "— *implemented (T082)*, now §x.y" · bare "*implemented (T082)*" | **as recommended** | The pointer says where the rule lives now; T080 and T081 are told to use the same form. |
