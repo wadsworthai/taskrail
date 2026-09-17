@@ -1,6 +1,6 @@
 # T083 — Close a current-branch task without fetch, rebase or publish
 
-Kind: feature · Epic: E07 · Status: implemented
+Kind: feature · Epic: E07 · Status: verified
 
 Contract: DESIGN.md §13.5 (its CLI part) and the `close.review` part of §13.3, with the T083 row of
 §13.8. Prior work: none (`show` lists no artifact, branch or commit naming the task).
@@ -175,3 +175,30 @@ All in `tests/test_review_current.py`.
 | 10 | the existing `tests/test_review.py` and the rest of the suite, unchanged |
 | decision 2 | `test_reopens_since_the_upstream`, `test_reopens_without_an_upstream_read_all_of_head` |
 | decision 3 | `test_detached_head_is_reported` |
+
+Answered at the implement gate
+([decision record](../autopilot/decisions/T083-close-a-current-branch-task-without-fetc.md)): the
+implementation approved, with both deviations (`head_only`, the narrowed `close.commit` assertions)
+accepted.
+
+## Verification
+
+Run with this branch's CLI (`uv run --project <worktree> taskrail --root <scratch>`) against a scratch
+repository: `[git] worktree = "never"`, `task_branch = "current"`, a bare `origin` that `main` tracks,
+T001 (feature) claimed, committed as `feat(demo): add a (T001)` and `T001 second step`, marked done and
+committed; T002 (bug) pending.
+
+| Step | Seen |
+|---|---|
+| `review T001` | exit 0: `T001 done on main; review reports only ([git].task_branch is "current")`, `2 commit(s) naming T001:` with both commits, `upstream origin/main: 3 commit(s) not pushed`, `reference title: feat: base task (T001)`, `push with git once the human approves` |
+| `review T001 --json` | exit 0: `head` `main`, `target` `main`, `remote` `origin` from `branch.main.remote`, `fetched` `false`, `rebase` disabled with reason `[git].task_branch is "current": review does not rebase`, `push.enabled` `false`, `pull_request` title `feat: base task (T001)`, body naming the task and artifact, `url` `null`, `published` `false`, `commits` (`prefix`, `suffix`), `commits_total` 2, `upstream` `{origin/main, 3}` |
+| `review T001 --publish` | exit 5: `taskrail: [git].task_branch is "current": review does not publish; push with git once the human approves` |
+| `review T002`, `review T002 --publish` (pending) | exit 5 with the done/discard message; exit 5 with the publish refusal |
+| `review T999` | exit 3: `taskrail: no task `T999`` |
+| origin's `main` and local `origin/main` before and after | both `c1e4481…` throughout: nothing fetched or pushed |
+| on a new branch `work` without upstream | exit 0, `T001 done on work; …`, `no upstream` |
+| detached `HEAD`, `--json` | exit 0, `head` `null`, `upstream` `null`, `commits_total` 2 |
+| `show T001 --json` | `close` `{"commit": "stages", "review": "report"}` |
+| `task_branch` removed from the config | `show`: `close.review` `publish`; `review T001` exit 5 `run review on the task branch T001-base-task (current: main)`, as before |
+
+The behaviour matches the plan.
