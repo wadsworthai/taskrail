@@ -14,7 +14,7 @@ See [DESIGN.md](DESIGN.md) for the full model.
 taskrail needs [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.2.0"
+uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0"
 cd your-repository
 taskrail init --integration claude            # or --integration opencode; repeatable
 ```

@@ -8,6 +8,15 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
 
 ## Unreleased
 
+## 0.3.0
+
+Adds the current-branch workflow (DESIGN.md §13) for a repository worked by a single maintainer:
+`[git] task_branch = "current"` works a task on the checked-out branch, `commit = "on-done"` commits
+a task's changes only when it is done, a stage with `gate = "decisions"` stops only for a decision,
+and `review` closes a current-branch task with a report instead of publishing it. The skills follow
+each setting. Every setting is off by default, so a repository that sets none of them works as it
+did in 0.2.0.
+
 - **The skills follow the repository's workflow.** The `taskrail` skill reads `task_branch`,
   `close.commit`, `close.review` and each stage's gate from `show`: under `task_branch = "current"`
   it skips the workspace step, claims in the checkout and closes with `review --json` as a report,
@@ -15,27 +24,23 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
   and then commits everything the task changed; a `"decisions"` gate stops only for a decision. The
   executor skills, the Claude Code and OpenCode notes and the autopilot skill follow, and the README
   documents a single-maintainer configuration (T084).
-
 - **Close a current-branch task with a report.** Under `[git] task_branch = "current"`,
-  `taskrail review <ID>` no longer exits 2: it fetches, rebases and pushes nothing, keeps its `--json`
-  keys with `fetched`, `rebase.enabled`, `push.enabled` and `published` `false` and a reference pull
-  request title and body without a link, and adds `commits` (the commits on `HEAD` naming the task)
+  `taskrail review <ID>` fetches, rebases and pushes nothing: it keeps its `--json` keys with
+  `fetched`, `rebase.enabled`, `push.enabled` and `published` `false` and a reference pull request
+  title and body without a link, and adds `commits` (the commits on `HEAD` naming the task)
   and `upstream` (the branch's upstream and how many commits it lacks). `--publish` exits 5 naming
   the setting. `show` adds `close.review`: `"publish"`, or `"report"` under `"current"` (T083).
-
 - **A `decisions` gate.** A stage in a core, local or override kind descriptor may set
   `gate = "decisions"`: the executor stops as soon as a decision appears during the stage and never
   to approve the stage. `validate` accepts it, `show` and `kind list` report it, and the autopilot
   records and escalates it like any gate (DESIGN.md §5.6, §12.6; T082).
-
 - **Work tasks on the checked-out branch with `[git] task_branch = "current"`.** With
   `worktree = "never"` (required, exit 2 otherwise), a task has no branch of its own: `show`, `list`
   and `next` report the checked-out branch with `branch_source` `"current"`, no `base` or worktree,
   and never `done-branch`, `discarded-branch` or a stacked base; `claim` records that branch without a
-  warning or branch record; `new --workspace`, `workspace` and `branch` exit 5; `new` no longer warns
+  warning or branch record; `new --workspace`, `workspace` and `branch` exit 5; `new` does not warn
   on the mainline; `checks` runs in the checkout; and `autopilot start`, `extend` and `next` exit 5.
   `show`, `list` and `next` report the setting as `task_branch` under every configuration (T080).
-
 - **Commit a task's changes only when it is done.** `[git] commit = "on-done"`, or a top-level
   `commit = "on-done"` in a kind descriptor, which wins over `[git]` either way, makes a task's
   effective commit policy `"on-done"`: `show --json` and `kind list --json` then report every

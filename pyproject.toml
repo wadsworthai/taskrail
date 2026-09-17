@@ -1,6 +1,6 @@
 [project]
 name = "taskrail"
-version = "0.3.0.dev0"
+version = "0.3.0"
 description = "Agent-agnostic backlog tool: a deterministic CLI plus task-execution skills."
 readme = "README.md"
 requires-python = ">=3.11"

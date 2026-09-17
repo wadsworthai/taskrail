@@ -1,6 +1,6 @@
 # T085 — Release v0.3.0
 
-Kind: chore · Epic: E01 · Status: scope proposed, awaiting approval
+Kind: chore · Epic: E01 · Status: implemented, awaiting review; the tag follows the merge
 
 ## Goal
 
@@ -80,7 +80,7 @@ Files checked and left unchanged:
    human runs `git fetch origin`, finds the squash commit of this pull request on `origin/main`,
    then runs `git tag -a v0.3.0 <squash commit> -m "taskrail 0.3.0"` and
    `git push origin v0.3.0`. The tag goes on that commit, not on whatever `main` is by then.
-2. **Verify and bump in a follow-up chore**, as T078 did after T077. It is created on this branch
+2. **Verify and bump in a follow-up chore, T086**, as T078 did after T077. It is created on this branch
    with `taskrail new` (no `--workspace`), in E01, depending on T085:
    `Bump main to 0.4.0.dev0 after the v0.3.0 tag`, described as "Once v0.3.0 is pushed on T085's
    squash commit, record the tag and a clean install from wadsworthai/taskrail@v0.3.0, then set
@@ -154,6 +154,20 @@ Files checked and left unchanged:
 7. **Pull request title.** Recommended: `chore(release): release v0.3.0 (T085)`, made with
    `--type chore --scope release`, as T077 and T078. It is a release commit, not a feature.
 
+## Decisions at the scope gate
+
+Recorded in `docs/autopilot/decisions/T085-release-v0-3-0.md`. Every decision was taken as
+recommended:
+
+1. The change set and the split are as proposed.
+2. `## 0.3.0` gets the proposed lead paragraph, with an empty `## Unreleased` above it.
+3. Corrections (a), (b) and (c) are applied, and no bullet is reordered.
+4. `README.md` line 17 and `DESIGN.md` lines 112 and 1179 name `v0.3.0`.
+5. T085's description names the follow-up, T086.
+6. The current-branch check on the built wheel is included.
+7. The pull request title is `chore(release): release v0.3.0 (T085)`, made with
+   `--type chore --scope release`.
+
 ## Out of scope
 
 - Creating, moving, pushing or deleting any git tag, locally or remotely: the tag is the human's
@@ -182,9 +196,61 @@ Before merging, entirely local, with no tag and no `uv tool install`. Scratch pa
    `taskrail 0.3.0`. In a new git repository, `taskrail init --integration claude` pins
    `version = "v0.3.0"`. With that environment's `bin` first on a restricted `PATH`, the wrapper
    runs `--version` and `validate` through it, because the versions match.
-6. Decision 6's check, if approved.
+6. Decision 6's check: the current-branch workflow on the built wheel.
 7. `grep` for `v0.2.0` and `0.3.0` over `README.md`, `DESIGN.md`, `CHANGELOG.md`, `src/` and
    `tests/` shows only the references listed above.
 8. `taskrail validate` on this branch.
 
 After the tag, in the follow-up chore: the checks listed under *After the merge*.
+
+### Results before merging
+
+No tag was created, and nothing ran `uv tool install`. Scratch files are under `/tmp/claude-7932/`.
+Wrapper checks ran with `PATH=/tmp/claude-7932/T085-venv/bin:/usr/bin:/bin`, so the human's
+installed `taskrail` was never used.
+
+1. `taskrail checks T085 --stage implement` ran `test` (`uv run pytest -q`), with the result
+   `1183 passed in 162.78s (0:02:42)`. `lint` is `not configured`, and the overall result was
+   `passed`.
+2. `uv run taskrail --version` printed `taskrail 0.3.0`, and so did `.taskrail/bin/taskrail --version`,
+   through the `local:.` pin.
+3. `uv lock` printed `Resolved 7 packages in 138ms` and `Updated taskrail v0.3.0.dev0 -> v0.3.0`.
+   `uv lock --check` printed `Resolved 7 packages in 0.84ms`. `git diff uv.lock` changes only the
+   taskrail `version` line.
+4. `uv build --out-dir /tmp/claude-7932/T085-build` built `taskrail-0.3.0.tar.gz` and
+   `taskrail-0.3.0-py3-none-any.whl`.
+5. `uv venv /tmp/claude-7932/T085-venv` used CPython 3.12.13, and `uv pip install` of the wheel
+   printed `+ taskrail==0.3.0 (from file:///tmp/claude-7932/T085-build/taskrail-0.3.0-py3-none-any.whl)`.
+   Its `taskrail --version` printed `taskrail 0.3.0`. In a new git repository
+   `/tmp/claude-7932/T085-scratch`, `taskrail --root <scratch> init --integration claude` wrote
+   `version = "v0.3.0"` as the config's first line. `sh -x <scratch>/.taskrail/bin/taskrail --version`
+   traced `have=0.3.0`, `'[' v0.3.0 = v0.3.0 ']'` and `exec taskrail --version`, then printed
+   `taskrail 0.3.0`. The wrapper then ran `--root <scratch> validate`, which printed
+   `history: not checked (no commits)` and `0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+6. In the same scratch repository, `[git]` was set to `worktree = "never"` and
+   `task_branch = "current"`, and the setup was committed on `main`. Through the wrapper, on the
+   installed 0.3.0 wheel:
+   - `epic add` created E01, and `new --epic E01 --kind chore --title "Scratch task"` created T001
+     with `"warning": null` on the mainline.
+   - `show T001 --json` reported `state` `pending`, `task_branch` `current`, `branch` `main`,
+     `branch_source` `current`, `base` and `worktree` `null`, and
+     `close` `{"commit": "stages", "review": "report"}`.
+   - `claim T001` printed `claimed T001 as abigail@archlinux` with no warning, and `done T001 --json`
+     reported `"status": "done"` and `"commit": "stages"`.
+   - After a commit `chore(backlog): close scratch task (T001)`, `review T001 --json` exited 0 with
+     `fetched` `false`, `rebase.enabled` `false` (`[git].task_branch is "current": review does not
+     rebase`), `push` `{"enabled": false, "pushed": false}`, `pull_request.title`
+     `chore: scratch task (T001)` with `url` `null`, `published` `false`, one entry in `commits`
+     (that commit, matched by `suffix`) and `upstream` `null`.
+   - `review T001 --publish --json` exited 5 with
+     `taskrail: [git].task_branch is "current": review does not publish; push with git once the human approves`.
+   - `validate` printed `1 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+7. `grep -rn "v0\.2\.0\|0\.3\.0" README.md DESIGN.md src tests` lists `README.md:17`,
+   `DESIGN.md:3`, `:112` and `:1179` at `v0.3.0`, and `v0.2.0` only at `DESIGN.md:1730`,
+   `tests/test_install.py:280` and `:283`, and `src/taskrail/cli.py:1531`, as listed above. In
+   `CHANGELOG.md`, `0.3.0` appears only as the `## 0.3.0` heading.
+8. `taskrail validate` on this branch printed `75 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`,
+   and `git diff --check` reported nothing.
+
+The install from the published tag, the wrapper's `uvx` fallback and `self upgrade --dry-run` wait
+for the tag. T086 covers them.
