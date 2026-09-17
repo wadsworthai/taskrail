@@ -1751,10 +1751,10 @@ The workspace step of the procedure is skipped: the executor claims in the check
 
 - **Configuration** — checked when the config loads, so every command, `validate` included, exits
   **2** naming the key:
-  - `git.task_branch` other than `"task"` or `"current"` (*implemented, T080: §4*);
+  - `git.task_branch` other than `"task"` or `"current"` — *implemented (T080)*, now §4;
   - `git.commit` other than `"stages"` or `"on-done"`;
   - `git.task_branch = "current" requires git.worktree = "never"` — `worktree` defaults to
-    `"required"`, so it must be written (*implemented, T080: §4*).
+    `"required"`, so it must be written — *implemented (T080)*, now §4.
 - **Kinds** — reported by `validate` as `kind-invalid` errors (exit 1), naming the descriptor:
   - a stage `gate` outside `always`, `conditional`, `decisions` and `none` — *implemented (T082)*, now §5.6;
   - a top-level `commit` other than `"stages"` or `"on-done"`, such as a boolean written at the
@@ -1771,7 +1771,7 @@ restarted from its branch and the orchestrator can review commit ranges at gates
 
 - with `task_branch = "current"`:
   `taskrail: the autopilot needs a branch per task; [git].task_branch is "current" in .taskrail/config.toml`
-  (*implemented, T080: §12.2*);
+  — *implemented (T080)*, now §12.2;
 - when the effective commit policy (§13.3) of any kind the run drives (§12.1) — for `start`, its
   `--kinds` or the kinds of its `--tasks`; for `extend` and `next --run`, the run's; for the
   preview, `[autopilot].kinds`; every allowed kind wherever none is given — is `"on-done"`, naming
@@ -1786,7 +1786,7 @@ run made before the configuration changed can still be inspected, followed throu
 | Task | Kind | Depends on | Builds |
 |---|---|---|---|
 | T079 | chore | — | this section |
-| T080 | feature | T079 | *Implemented.* `[git].task_branch` and its `worktree` check (§13.1, §13.6); `task_branch`, `branch`, `base`, `worktree`, `prior_work` and states under `"current"` in `show`, `list` and `next`; `claim`, `new`, `new --workspace`, `workspace`, `branch`, `edit` and `checks` (§13.2); the `task_branch` refusal of `autopilot start`, `extend` and `next` (§13.7) |
+| T080 | feature | T079 | `[git].task_branch` and its `worktree` check (§13.1, §13.6); `task_branch`, `branch`, `base`, `worktree`, `prior_work` and states under `"current"` in `show`, `list` and `next`; `claim`, `new`, `new --workspace`, `workspace`, `branch`, `edit` and `checks` (§13.2); the `task_branch` refusal of `autopilot start`, `extend` and `next` (§13.7); *implemented (T080)* |
 | T081 | feature | T079 | `[git].commit` and the kind's `commit` policy with their validation (§13.1, §13.6); effective stage `commit`, `kind_descriptor.commit` and `commit_source`, `show`'s `close` with `close.commit`, and `done`'s and `discard`'s output (§13.3); the `on-done` refusal of `autopilot start`, `extend` and `next` (§13.7) |
 | T082 | feature | T079 | `gate = "decisions"` in kind loading, overrides, `show` and `kind list`, and the autopilot's `lane --gate` and `escalate_gates` (§13.4, §13.6); *implemented (T082)* |
 | T083 | feature | T080, T081 | `review` under `"current"`: no fetch, rebase or push, `commits` and `upstream`, and `--publish` refused with exit 5 (§13.5); `show`'s `close.review` (§13.3) |
