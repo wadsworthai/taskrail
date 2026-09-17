@@ -55,3 +55,18 @@ shows no escalation. Exercised with this branch's CLI in the lane's scratch repo
 |---|---|---|---|---|
 | 1 | Pull request title's type and scope | `feat(cli)` · other | **`feat(cli)`** | New CLI behaviour; CLAUDE.md asks for a scope. |
 | 2 | Hand-off timing | now · after T082 merges | **after T082 merges** | Hand-off is one branch at a time and T082 is in review; T080 is rebased onto the mainline then, resolving the CHANGELOG (known class) and separate DESIGN.md §13 lines. |
+
+## rebase after T082
+
+T082 was merged into main (`49ccec0`). The branch was rebased onto `origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/features/README.md` | keep both · stop | **keep both** | Known class 2: appended index rows, one per task. |
+| 2 | Conflict in `docs/autopilot/decisions/README.md` | keep both · stop | **keep both** | Known class 2: appended index rows, one per task. |
+| 3 | Conflict in `CHANGELOG.md` under Unreleased | keep both · stop | **keep both** | Known class 2: appended changelog bullets, T082's then T080's. |
+
+After the rebase: `DESIGN.md` merged without conflict and holds both T080's and T082's §13 marks;
+no new conflict markers (the only ones in the tree are the examples already on `origin/main` in the
+T004 and T040 artifacts); `taskrail validate` reports no errors or warnings; `taskrail checks T080`
+re-run: 1091 passed (lint not configured).
