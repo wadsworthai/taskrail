@@ -1,6 +1,6 @@
 # T084 — Teach the skills the current-branch workflow, on-done commits and decisions gates
 
-Kind: chore · Epic: E07 · Status: implemented
+Kind: chore · Epic: E07 · Status: done
 
 Contract: DESIGN.md §13.5's *The executor's close* and its workspace sentence, the skills' part of
 §5.6 (decisions gates) and §12.6, the T084 row of §13.8 and the T084 row of TODO.md. Prior work:
@@ -223,3 +223,29 @@ and tested. The change set above reads as amended by decision 9.
 - **Backlog.** `.taskrail/bin/taskrail validate` → `73 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
 - **Publishing constraint.** The diff names no host, path, person or project beyond the repository's
   own public URL.
+
+## Decisions at the implement gate
+
+Recorded in [the decision record](../autopilot/decisions/T084-teach-the-skills-the-current-branch-work.md):
+the implement stage approved, with fixes applied in `0354fbc` —
+
+- step 4: under `"current"`, where `taskrail branch` exits 5, a claim `warning` means a detached
+  `HEAD` (`taskrail: warning: T001 was claimed on a detached HEAD: check out a branch to work the task on`
+  in the scratch repository): check out a branch before any edit; tested by
+  `test_a_claim_warning_on_the_current_branch_means_a_detached_head`;
+- step 8: `done` runs in the checkout under `"current"`, where no branch is recorded; asserted in
+  `test_the_close_commits_as_close_commit_says`;
+- the lines added in steps 3–5 rewrapped to the file's width; the lines still over 100 columns are
+  the ones `befd863` already had (the frontmatter description, the `git worktree add` command and
+  two prose lines);
+
+and CLAUDE.md's Layout comment now reads "the current-branch workflow §13" (`927e388`, scope amended).
+After `.taskrail/bin/taskrail upgrade` (`updated .claude/skills/taskrail/SKILL.md`),
+`.taskrail/bin/taskrail checks T084` → `1183 passed in 166.35s`, `lint: not configured`, passed.
+
+## Docs
+
+README (*Working on the checked-out branch*, the `review` comment), DESIGN.md (§5.3, §8, §11, §13),
+CHANGELOG.md and CLAUDE.md were brought in line during implement and the implement gate. The skills
+are themselves the documentation this task changes. No follow-up task was opened, and nothing is
+left to decide, so the docs gate (conditional) does not stop.
