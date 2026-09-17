@@ -1,6 +1,6 @@
 # T079 — Write the current-branch workflow into DESIGN.md
 
-Kind: chore · Epic: E07 · Status: scoped
+Kind: chore · Epic: E07 · Status: implemented
 
 ## Goal
 
@@ -220,6 +220,14 @@ Each one has a recommendation first, then the alternatives.
     single-maintainer configuration in T084. *Alternative:* one changelog bullet noting the planned
     design.
 
+## Decisions at the scope gate
+
+Recorded in [the autopilot decision record](../autopilot/decisions/T079-write-the-current-branch-workflow-into-d.md).
+All fifteen were taken as recommended, with one addition to decision 7: §13 states plainly that the
+kind's top-level `commit` is a policy string (`"stages"` or `"on-done"`), while a stage's `commit`
+stays a boolean. §13 opens with a status line saying it is planned and naming T080–T084, and
+describes the need in general terms only. The change set and its boundary were approved as scoped.
+
 ## Out of scope
 
 - Any code, test, kind descriptor, skill, integration note or `.taskrail/config.toml` change. Those
@@ -250,3 +258,44 @@ Each one has a recommendation first, then the alternatives.
 - `grep -rniE` for private names finds none in the diff (publishing constraint).
 - `.taskrail/bin/taskrail validate` passes, and `taskrail checks T079 --stage implement` passes
   (`test`; `lint` is not configured).
+
+### Results
+
+- `git diff origin/main --stat` → `DESIGN.md` (269 lines changed), `TODO.md` (6), this artifact,
+  `docs/chores/README.md` (1), and the orchestrator's decision record with its index row. No other
+  file.
+- `git diff -U0 origin/main -- DESIGN.md` → no existing heading changes. Outside the new §13, the
+  hunks are only the pointers in the change set:
+  - the §4 `[git]` example (two keys) and a load-check paragraph;
+  - a §5.1 paragraph and the §5.3 sentence;
+  - the §6.4 sentence;
+  - the §7 table rows for `show`, `branch`, `new`, `workspace`, `done`/`discard` and `review`;
+  - the §7.1 opening sentence;
+  - §11's third phase item and a §12.2 bullet.
+
+  The only removed lines are the originals of the table rows and sentences that gained a pointer.
+- Open questions from the brief, checked one by one against §13:
+  - key names, values and where they live → §13.1;
+  - `task_branch` with `worktree` → §13.1 and §13.6;
+  - claims, `claim_remote`, branch records, `done-branch`, stacked dependencies and the base,
+    `new --workspace`, `workspace`, `branch` and `prior_work` → §13.2;
+  - `commit = "on-done"` at config and kind level, with stage `commit` and `show --json` → §13.1
+    and §13.3;
+  - `decisions` compared with `conditional`, the autopilot's gates and `escalate_gates` → §13.4;
+  - `review` and `--publish` with an exit code → §13.5;
+  - `validate` → §13.6;
+  - the autopilot's refusal, with exit code and message → §13.7.
+
+  Each has an answer.
+- Backlog rows: `taskrail edit T080|T081|T083 --description … --json` each returned a
+  `changes.description` from/to pair and `files: ["TODO.md"]`. Checked against §13.8, every row
+  names what §13.8 assigns to it. T082's row (unchanged, per decision 14) names `kind show`, which
+  is not a command (`cli.py` has only `kind list` and `kind add`). §13.4 and §13.8 therefore say
+  `show` and `kind list`, and T082 reads its contract from §13.8.
+- `grep -on '§13\.[0-9]' DESIGN.md` → references to §13.1–§13.8, and all eight subsections exist
+  (`grep -n '^### 13\.'`). Both links in §13's status line resolve to existing files.
+- The diff's added lines were searched for URLs, e-mail-like strings, local paths, and the words
+  client and employer → no match (publishing constraint).
+- `taskrail validate` → `73 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+- `taskrail checks T079 --stage implement` → `test: uv run pytest -q` `1052 passed in 149.59s`;
+  `lint: not configured`; `passed`.

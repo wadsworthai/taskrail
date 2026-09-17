@@ -141,6 +141,8 @@ branch_record_remote = ""        # e.g. "origin" to share task branch records ac
 claim_grace_minutes = 15         # how long a claim's branch may be missing before it is stale
 worktree = "required"            # "required": one worktree per task; "never": a branch in this checkout
 worktree_dir = ".worktrees"
+task_branch = "task"             # planned (§13): "current" works tasks on the checked-out branch
+commit = "stages"                # planned (§13): "on-done" commits a task's changes after `done`
 
 [review]                         # hand-off after closing (§7.1)
 remote = "origin"                # for a mainline without branch.<mainline>.remote (§7.1)
@@ -193,6 +195,9 @@ and a malformed `[[autopilot.resource]]`: a missing, duplicate or malformed `nam
 letters, digits and underscores, starting with a letter), or `values` that are not a non-empty
 list of unique non-empty strings. Every message names the table entry and the key.
 
+*Planned (§13.6):* `[git].task_branch` and `[git].commit` join these checks — an unknown value, or
+`task_branch = "current"` without `worktree = "never"`, exits 2.
+
 ## 5. Kinds
 
 ### 5.1 Descriptor — `types/<kind>/kind.toml`
@@ -224,6 +229,10 @@ gate = "conditional"             # only if follow-up tasks were opened
 ```
 
 A stage may also apply only to some tasks of its kind (§5.4).
+
+*Planned (§13.1):* a stage's `gate` may also be `"decisions"` — stop as soon as a decision appears,
+never to approve the stage (§13.4) — and a descriptor may declare a top-level `commit` policy,
+`"stages"` or `"on-done"`, a string unlike a stage's boolean `commit` (§13.3).
 
 Routing on a column, used by a repository-local `spec` kind (§5.5):
 
@@ -272,7 +281,8 @@ when a resolved kind names it.
 Shared by every kind, and written once in the core skill rather than copied per kind: one
 worktree and branch per task, commit points, "reject a kind that is not yours and name the
 right one", the gate protocol, rebase onto the mainline the branch came from, marking the
-task done, and the handoff report.
+task done, and the handoff report. The branch, commit points, gates and rebase are planned to
+become configurable for a repository worked on its checked-out branch (§13).
 
 ### 5.4 Conditional stages
 
@@ -422,7 +432,8 @@ not move the counter.
 A task's branch is its **recorded** branch when one exists, otherwise the name its kind's
 `branch` template renders. One resolver answers that for every command — `show`, `list`, `next`,
 `new --workspace`, `review`, `done-branch` detection, a dependent's base and prior work — and
-nothing else renders the template.
+nothing else renders the template. *Planned (§13.2):* with `[git].task_branch = "current"` it
+answers the checked-out branch instead, and no record is written.
 
 A record is a file next to the claims, `$(git rev-parse --git-common-dir)/taskrail/branches/<ID>.json`,
 holding `id`, `branch` and `recorded` (a timestamp). Every worktree of the clone sees it; it is
@@ -498,18 +509,18 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate [--no-history] [--history-limit N]` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks. Also warns about reopens committed without a trailer (*Reopens in history* below) |
 | `taskrail list [--epic E01] [--eligible] [--fetch]` | Tasks, with computed blocked and eligible state; each `--json` entry carries `show`'s task fields, `worktree` and `worktree_base` included, without `kind_descriptor` and `prior_work` |
-| `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches; its `row` says whether the base has the task's row, and the text names `taskrail workspace` when only this checkout has it), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; relative to `worktree_base`, with `..` segments for a worktree outside it, and the same from every checkout of the clone (T072); `null` unless `worktree = "required"`), `worktree_base` (the absolute directory `worktree` is relative to and task worktrees are created under: the repository's main checkout — the first entry of `git worktree list` — or, when that entry is a bare repository, the directory holding it; the same from every checkout (T075); `null` when `worktree` is), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2) |
+| `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches; its `row` says whether the base has the task's row, and the text names `taskrail workspace` when only this checkout has it), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; relative to `worktree_base`, with `..` segments for a worktree outside it, and the same from every checkout of the clone (T072); `null` unless `worktree = "required"`), `worktree_base` (the absolute directory `worktree` is relative to and task worktrees are created under: the repository's main checkout — the first entry of `git worktree list` — or, when that entry is a bare repository, the directory holding it; the same from every checkout (T075); `null` when `worktree` is), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2); planned: `task_branch` and `close`, and what `"current"` changes (§13.2, §13.3) |
 | `taskrail next [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` or `discarded-branch` task; a task whose `base.row` is `missing` stays listed, its text line ending `(row not on <onto>)`; `--json` entries as for `list` |
 | `taskrail claim <ID> [--run R]` / `taskrail release <ID>` | §6.1, §6.2; `--run` ties the claim to an autopilot run (§12.4) |
-| `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4) |
+| `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4); planned: exit 5 under `task_branch = "current"` (§13.2) |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
-| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there — the worktree at `<worktree_dir>/<branch>` under `show`'s `worktree_base`, the path `show` reports, whichever checkout runs the command (T073, T075); `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved; without `--workspace`, on a checkout of the backlog's mainline, it warns on stderr, naming `taskrail workspace`, and returns the text in `warning` (`null` otherwise) |
-| `taskrail workspace <ID> [--branch NAME]` | Create the branch and worktree of a task whose row is missing from its base (`base.row`), from that base — the worktree where `new --workspace` puts it — and move the row there with its ID, keeping it reserved (see *A row missing from its base*) |
+| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there — the worktree at `<worktree_dir>/<branch>` under `show`'s `worktree_base`, the path `show` reports, whichever checkout runs the command (T073, T075); `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved; without `--workspace`, on a checkout of the backlog's mainline, it warns on stderr, naming `taskrail workspace`, and returns the text in `warning` (`null` otherwise); planned under `task_branch = "current"`: `--workspace` exits 5 and no warning (§13.2) |
+| `taskrail workspace <ID> [--branch NAME]` | Create the branch and worktree of a task whose row is missing from its base (`base.row`), from that base — the worktree where `new --workspace` puts it — and move the row there with its ID, keeping it reserved (see *A row missing from its base*); planned: exit 5 under `task_branch = "current"` (§13.2) |
 | `taskrail edit <ID> [--title] [--pts] [--depends-on] [--description] [--kind] [--column NAME=VALUE]… [--force] [--local-only]` | Change cells of an existing task row (see the rules below) |
-| `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below) |
+| `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below); planned: `--json` reports the task's commit policy (§13.3) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
-| `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1) |
+| `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1); planned: report only under `task_branch = "current"` (§13.5) |
 | `taskrail checks <ID> [--stage STAGE] [--check NAME]… [--resource NAME=VALUE]…` | Run a task's configured checks in its worktree with its autopilot lane's resources, or chosen ones, from anywhere in the clone (§7.5) |
 | `taskrail import <FILE> [--write] [--column CORE=HEADER]… [--status VALUE=STATUS]… [--kind VALUE=KIND]… [--default-kind KIND] [--epic-level N] [--epic-name NAME]` | Convert a table-based Markdown backlog without epics into this backlog; a dry run unless `--write` (§7.3) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
@@ -521,7 +532,9 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 ### 7.1 Review hand-off
 
 Closing a task ends in a pull or merge request on whatever host the repository uses. `taskrail
-review` owns the deterministic parts; the agent keeps the rebase and its conflicts.
+review` owns the deterministic parts; the agent keeps the rebase and its conflicts. *Planned
+(§13.5):* with `[git].task_branch = "current"` it fetches, rebases and pushes nothing, reports the
+task's commits for reference, and refuses `--publish` with exit 5.
 
 1. `taskrail review <ID>` runs on the task branch (§6.4), only once the task is done or discarded there (T065); the
    branch is `head` in its result, and the one pushed and linked. It fetches
@@ -1078,6 +1091,9 @@ taskrail/
    resolves backlog table conflicts (§7.4, T004). The autopilot is designed in §12 and delivered by T017 (stacked
    base and `done-branch`), T027 (unreadable manifest), T029–T032 (the `autopilot` commands),
    then T024 (the skill), and trialled by T033 (§12.10).
+3. **Current-branch workflow** (E07, planned) — working tasks on the checked-out branch, on-done
+   commits, decisions gates and closing without review (§13), designed by T079 and built by
+   T080–T084.
 
 ## 12. Autopilot (implemented)
 
@@ -1152,6 +1168,9 @@ in use and hand-off queue. Other commands — `show`, `list`, plain `next`, `cla
 - A repository opts in with `[autopilot].enabled = true`. Until then `autopilot start` refuses
   with exit 5 and names the key, and the skill stops when it sees that refusal. The refusal is a
   CLI guarantee, so it holds on any agent (*implemented, T029*).
+- *Planned (§13.7):* `autopilot start`, `extend` and `next` also refuse with exit 5, after that check,
+  a repository with `[git].task_branch = "current"` or a driven kind whose commit policy is
+  `"on-done"`.
 
 The spike had recommended installing the skill only where the autopilot is enabled, through the
 kind filter. The human chose to install it always, so every consumer receives the same skills.
@@ -1521,3 +1540,235 @@ The design changes if:
   where enabled, reusing the kind filter of §9.
 
 Rejected alternatives, with their reasons, are in the spike's *Options considered*.
+
+## 13. Current-branch workflow (planned)
+
+Status: **planned, not implemented.** Decided at T079's scope gate
+([artifact](docs/chores/T079-write-the-current-branch-workflow-into-d.md),
+[decision record](docs/autopilot/decisions/T079-write-the-current-branch-workflow-into-d.md)) and
+built by T080–T084 (§13.8). Nothing in this section describes what the CLI or the skills do today;
+each implementing task moves its part into §4–§8 and marks it here.
+
+Everything before this section assumes a repository that merges through pull requests: one branch
+per task, commits at stage boundaries, a stop at every `always` gate, and a hand-off that fetches,
+rebases and publishes. A repository worked by a single maintainer, one agent at a time, straight on
+the checked-out branch, needs none of that, and v0.2.0 cannot switch it off: kind overrides (§5.2)
+already set `commit = false` and `gate = "conditional"` per stage, but the task branch, the stage
+approvals and the review stay. Three settings, each usable on its own, cover it:
+
+| Need | Setting |
+|---|---|
+| No branch per task | `[git] task_branch = "current"` (§13.2) |
+| Commit only when the task is done | `[git] commit = "on-done"`, or `commit` in a kind descriptor (§13.3) |
+| Stop for decisions, not to approve stages | `gate = "decisions"` on a stage (§13.4) |
+| Close without fetch, rebase or publish, and push only when the human approves | follows from `task_branch = "current"` (§13.5) |
+
+### 13.1 Configuration
+
+```toml
+[git]
+worktree = "never"               # required by task_branch = "current"
+task_branch = "current"          # "task" (default): one branch per task; "current": the checked-out branch
+commit = "on-done"               # "stages" (default): as each stage's `commit` says; "on-done": after `done`
+```
+
+- **`task_branch`** is repository-wide only, never per kind: the workspace belongs to the checkout,
+  not to the kind. `"task"` is the behaviour of §6.4 and §7.
+- **`commit`** in `[git]` is the repository's default commit policy. A kind descriptor may declare
+  the same top-level key, so a local kind or an override (§5.2) sets it per kind, and the kind's
+  value wins over `[git]` in both directions:
+
+  ```toml
+  name = "chore"
+  commit = "on-done"               # the kind's commit policy: a string, "stages" or "on-done"
+
+  [[stage]]
+  name = "scope"
+  gate = "decisions"
+  commit = true                    # a stage's commit: still a boolean
+  ```
+
+  The two keys differ in type: the kind's top-level `commit` is a **policy string**, `"stages"` or
+  `"on-done"`, while a stage's `commit` stays a **boolean**. The policy decides whether the stage
+  booleans apply at all (§13.3).
+- **`gate`** gains the value `"decisions"` next to `always`, `conditional` and `none`, in core, local
+  and override descriptors alike. There is no repository-wide gate key: a repository changes gates
+  through overrides, as it already does to set `conditional`.
+- The settings are independent: `commit = "on-done"` works on a task branch, and `"decisions"` gates
+  work with either `task_branch`.
+
+### 13.2 The current branch
+
+With `task_branch = "current"` a task has no branch of its own: it is worked on whatever branch the
+checkout has, the mainline included.
+
+**`show`, `list` and `next`.**
+
+- A top-level `task_branch` field, `"task"` or `"current"`, under every setting, so an executor reads
+  its workflow from `show` (in `list` and `next` entries too).
+- `branch` is the checked-out branch, `null` on a detached `HEAD`, with `branch_source` `"current"`
+  — also while a claim names another branch; `claim.branch` still says where the task was claimed.
+  The resolver of §6.4 answers this for every command.
+- `base` is `null`: there is no workspace to create, no fork point to rebase onto and no `row` to
+  check. The text form omits its base line.
+- `worktree` and `worktree_base` are `null`, as with `worktree = "never"` today.
+- `prior_work.branches` is `[]`, since the checked-out branch is no evidence of earlier work, and
+  `prepared` is `null`; `artifact` and `commits` are reported as before (§7.2).
+- `done-branch` and `discarded-branch` are never derived. A task's state comes from the checkout's
+  rows and the claims alone, so a dependency blocks until it is `✅` in this checkout — which `done`
+  makes it — and no task is ever stacked on another (§7, *Dependencies and the base*).
+
+**Commands.**
+
+- `claim` records the checked-out branch in the claim, writes no branch record (§6.4) and gives no
+  warning; on a detached `HEAD` it keeps today's warning, with `branch` `null`. The claim's `base`
+  is `null`. Staleness (§6.1) is unchanged.
+- `new --workspace` exits **5** before reserving an ID; `workspace <ID>` and `branch <ID> <NAME>`
+  exit **5**. Each message names `[git].task_branch`, for example
+  `taskrail: [git].task_branch is "current": tasks have no branch of their own; work on the checked-out branch`.
+- `new` without `--workspace` never warns on the mainline checkout (`warning` is `null`): committing
+  there is the workflow.
+- `edit` never records a task's old branch name, since there is no template name to keep.
+- `checks` runs in the claim's worktree when it exists, else in the checkout it runs from, and never
+  exits 5 for a missing worktree.
+- `claim_remote` works unchanged: setting it is the human's standing approval to push the claim's
+  ref, which lives outside `refs/heads`. `branch_record_remote` is accepted but pushes nothing, since
+  no record is written. No command pushes a branch.
+
+### 13.3 On-done commits
+
+The **effective commit policy** of a task is its kind's `commit` when the descriptor declares one,
+else `[git].commit`, else `"stages"`.
+
+- `"stages"` — as now: the executor commits after each stage whose `commit` is `true`, and after
+  `done` commits the status change on its own.
+- `"on-done"` — the executor commits nothing at stage boundaries. After `taskrail done` it makes one
+  or more logical commits of everything the task changed, the status change included.
+
+What the CLI reports:
+
+- In `show --json` and `kind list --json`, every stage's `commit` is the effective value: `false` for
+  every stage under `"on-done"`, the declared boolean under `"stages"`. A descriptor with
+  `commit = "on-done"` whose stages say `commit = true` is not an issue: the policy wins.
+- `kind_descriptor` (and each `kind list --json` entry) gains `commit`, the effective policy, and
+  `commit_source`: `"kind"`, `"config"` or `"default"`.
+- `show` gains a top-level `close` object:
+
+  | Key | Values | Meaning |
+  |---|---|---|
+  | `commit` | `"stages"` \| `"on-done"` | how the executor commits after `done` (above) |
+  | `review` | `"publish"` \| `"report"` | `"publish"` with `task_branch = "task"` (§7.1); `"report"` with `"current"` (§13.5) |
+
+- `done` and `discard` `--json` gain `commit`, the task's effective policy. Under `"on-done"` their
+  text adds one line: `commit everything <ID> changed now, the status change included`.
+
+The autopilot refuses a run that drives a kind whose effective policy is `"on-done"` (§13.7).
+
+### 13.4 Decisions gates
+
+A stage whose `gate` is `"decisions"`:
+
+- **stops as soon as a decision appears** during the stage: the executor asks it — a direct question
+  with its recommendation and the alternatives — and continues once it is answered;
+- **never stops at the end of the stage** to have the stage approved, or to report;
+- carries what `conditional` would stop to report — follow-up tasks opened, results — to the next
+  stop, or to the close hand-off.
+
+A **decision** is a choice that the task, the artifact already written, the repository's
+instructions and the executor skill do not settle, and whose options differ in a way the human would
+care about. Every place an executor skill says to stop and ask — widening an approved change set, a
+diagnosis that changes the task's premise — is one; under a `"decisions"` gate the artifact the
+skill calls "approved" is the one recorded, and the human sees it at the close.
+
+Compared with the other gates: `always` stops at the stage's end for approval; `conditional` stops
+at the stage's end when there is something to decide *or report*; `decisions` stops mid-stage, and
+only to decide; `none` never stops. A `judgement` stage (§5.4) whose gate is `"decisions"` may be
+skipped without asking: the skip and its reason go into the artifact and the next stop, as for
+`conditional`.
+
+**In the autopilot** a `"decisions"` gate is allowed. A lane stopped for a decision runs
+`autopilot lane <ID> --run R --state gate --gate <stage>`, naming the stage the decision arose in,
+and `status` and `escalate_gates` treat it like any gate: `spike:decide` still escalates when that
+stage's gate is `"decisions"`. The orchestrator answers from `read_first` as usual (§12.6). With no
+stage-end stops, its first full review of the lane's diff is the close review.
+
+`show` and `kind list` report the value as they report any gate (there is no `kind show` command);
+the text form of `show` prints `gate: decisions`.
+
+### 13.5 Closing on the current branch
+
+`taskrail review <ID>` under `task_branch = "current"`:
+
+- fetches nothing, chooses no rebase base, pushes nothing, and does not refuse because the checkout
+  is on some branch: the checked-out branch is `head`;
+- still requires the task to be `done` or `discarded` in the checkout (exit 5 otherwise), and exits
+  3 for an unknown ID;
+- keeps its `--json` keys: `head` the checked-out branch, `target` the mainline, `fetched` `false`,
+  `rebase.enabled` `false` with a `reason` naming `[git].task_branch`, `push.enabled` `false`,
+  `pull_request` with `title` and `body` for reference and `url` `null`, `published` `false`;
+- adds `commits` — the commits on `HEAD` whose subject names the task, in the forms of §7.2
+  (`prefix`, `scope`, `suffix`), newest first, capped at 10, with `commits_total` — and `upstream`:
+  `{ref, ahead}`, the upstream of the checked-out branch and how many commits `HEAD` has that it
+  lacks, or `null` when the branch has no upstream. Together they say what a push would send.
+- `--publish` exits **5**, checked right after the task is found and before anything else, with
+  `taskrail: [git].task_branch is "current": review does not publish; push with git once the human approves`.
+
+**The executor's close** (the `taskrail` skill, T084), when `show`'s `task_branch` is `"current"`:
+
+1. run `taskrail done <ID>`;
+2. commit as `close.commit` says (§13.3);
+3. run `taskrail review <ID> --json` and report the task's commits, `upstream` and the reference
+   title in the hand-off;
+4. **ask the human before any push**, and push with git only once approved. Never rebase, never
+   publish, never merge.
+
+The workspace step of the procedure is skipped: the executor claims in the checkout it is in.
+
+### 13.6 Validation
+
+- **Configuration** — checked when the config loads, so every command, `validate` included, exits
+  **2** naming the key:
+  - `git.task_branch` other than `"task"` or `"current"`;
+  - `git.commit` other than `"stages"` or `"on-done"`;
+  - `git.task_branch = "current" requires git.worktree = "never"` — `worktree` defaults to
+    `"required"`, so it must be written.
+- **Kinds** — reported by `validate` as `kind-invalid` errors (exit 1), naming the descriptor:
+  - a stage `gate` outside `always`, `conditional`, `decisions` and `none`;
+  - a top-level `commit` other than `"stages"` or `"on-done"`, such as a boolean written at the
+    descriptor's top level.
+- Nothing else is new: no warning for stage booleans under `"on-done"`, for `claim_remote` or
+  `branch_record_remote` under `"current"`, or for `"decisions"` gates in an autopilot repository.
+
+### 13.7 The autopilot
+
+A run needs a branch per task (§12.3, §12.8) and lanes that commit what they finish, so a lane can be
+restarted from its branch and the orchestrator can review commit ranges at gates. `autopilot start`,
+`autopilot extend` and `autopilot next` (preview included) therefore exit **5** right after the
+`[autopilot].enabled` check (§12.2):
+
+- with `task_branch = "current"`:
+  `taskrail: the autopilot needs a branch per task; [git].task_branch is "current" in .taskrail/config.toml`;
+- when the effective commit policy (§13.3) of any kind the run drives (§12.1) — for `start`, its
+  `--kinds` or the kinds of its `--tasks`; for `extend` and `next --run`, the run's; for the
+  preview, `[autopilot].kinds`; every allowed kind wherever none is given — is `"on-done"`, naming
+  the source: `[git].commit` in `.taskrail/config.toml`, or the descriptor path that declares it.
+
+`status`, `lane`, `decision`, `approve-governing`, `merged`, `notify` and `close` keep working, so a
+run made before the configuration changed can still be inspected, followed through and closed.
+`"decisions"` gates are not refused (§13.4).
+
+### 13.8 Delivery
+
+| Task | Kind | Depends on | Builds |
+|---|---|---|---|
+| T079 | chore | — | this section |
+| T080 | feature | T079 | `[git].task_branch` and its `worktree` check (§13.1, §13.6); `task_branch`, `branch`, `base`, `worktree`, `prior_work` and states under `"current"` in `show`, `list` and `next`; `claim`, `new`, `new --workspace`, `workspace`, `branch`, `edit` and `checks` (§13.2); the `task_branch` refusal of `autopilot start`, `extend` and `next` (§13.7) |
+| T081 | feature | T079 | `[git].commit` and the kind's `commit` policy with their validation (§13.1, §13.6); effective stage `commit`, `kind_descriptor.commit` and `commit_source`, `show`'s `close`, and `done`'s and `discard`'s output (§13.3); the `on-done` refusal of `autopilot start`, `extend` and `next` (§13.7) |
+| T082 | feature | T079 | `gate = "decisions"` in kind loading, overrides, `show` and `kind list`, and the autopilot's `lane --gate` and `escalate_gates` (§13.4, §13.6) |
+| T083 | feature | T080 | `review` under `"current"`: no fetch, rebase or push, `commits` and `upstream`, and `--publish` refused with exit 5 (§13.5) |
+| T084 | chore | T080–T083 | the `taskrail` skill (workspace step skipped, commits after `done`, ask before any push, the decisions gate), executor skills and integration notes, and the README's single-maintainer configuration (§13.4, §13.5) |
+
+`close.review` (§13.3) needs both settings: T081 adds `close`, and whichever of T080 and T081 lands
+second makes `review` read `task_branch`. T080 and T081 both edit `[git]` loading in `config.py` and
+`show`'s fields, and T081 and T082 both edit descriptor parsing in `kinds.py`, so lanes running them
+in parallel may conflict there.
