@@ -41,3 +41,17 @@ not configured).
 | 2 | The refusal call is two physical lines | keep · one line | **as recommended** | The file's style; still one self-contained hunk after the `enabled` check. |
 | 3 | Approve the implement stage | approve · change | **approve** | The diff matches the plan and the touch map; every criterion has a test observed failing first. |
 | 4 | (orchestrator) Wording of the §13 marks | T082's published form · keep this branch's | **T082's form** | The in-place lines end "— *implemented (T081)*, now §x.y" instead of leading "*Implemented (T081; …):*" or "(*implemented, T081*)", and the §13.8 row ends "; *implemented (T081)*" instead of a leading "*Implemented.*"; §13.3's pointer paragraph stays. The three branches then mark §13 alike. |
+
+## close gate
+
+Reviewed: the §13 mark rewording (`83d790b`), the verify section (`a96685a`) and `taskrail done`
+committed on its own in `0263903` (only T081's status cell); no upstream on the branch; clean
+worktree; `review --json` reports no rebase needed onto `origin/main` at close. Exercised with this
+branch's CLI on a copy of the lane's scratch repository: with `[git] commit = "later"`, every command
+exits 2 naming `git.commit`; with `"on-done"` and no override, `kind list --json` reports every core
+kind `on-done` from `config` with every stage's `commit` false.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request title's type and scope | `feat(cli)` · other | **`feat(cli)`** | New CLI behaviour; CLAUDE.md asks for a scope. |
+| 2 | Hand-off timing | now · after T082 and T080 | **after T082 and T080, in that order** | One branch at a time; T081 is rebased then, keeping both halves where it meets T080 (config load, `cmd_show`, the autopilot call lines, §4 and §12.2 notes) and T082 (§5.1 note, §13 lines), and the changelog. |
