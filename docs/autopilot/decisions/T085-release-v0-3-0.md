@@ -28,3 +28,17 @@ defines no checks.
 | 5 | T085's description names the follow-up's ID | edit · leave | **as recommended** | As T077 named T078. |
 | 6 | The extra current-branch check on the built wheel | include · T077's checks only | **as recommended** | The release's main feature is exercised from the built package, not only from source. |
 | 7 | Pull request title | `chore(release): release v0.3.0 (T085)` · other | **as recommended** | As T077 and T078. |
+
+## implement gate
+
+Reviewed: `git diff 1a45bd8..a8b230c` — `pyproject.toml` and `uv.lock` (one version line each), the
+CHANGELOG (new empty `## Unreleased`, `## 0.3.0` with the approved lead, D3 (a)–(c) with no bullet
+reordered or reworded otherwise), DESIGN.md lines 3, 112 and 1179, README line 17, and TODO.md
+(T085's description naming T086, and T086's row depending on T085); the lane's build, wheel install,
+wrapper and current-branch checks from the built wheel; the checks re-run with
+`taskrail checks T085 --stage implement` (1183 passed, lint not configured).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the implement stage | approve · request changes | **approve** | The diff is the approved change set; the release was exercised from the built package. |
+| 2 | A long line in the artifact's *After the merge* | leave · reflow | **reflow it in the docs stage** | Cheap, and it keeps the artifact's wrap. |
