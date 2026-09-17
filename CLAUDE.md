@@ -39,7 +39,7 @@ src/taskrail/          # the CLI: parser, validator, claims, writer, installer, 
 └── integrations/      # agent-specific skill notes       ┘
 tests/                 # pytest suite
 examples/              # example repository-local kinds
-DESIGN.md              # the full model; the autopilot is §12
+DESIGN.md              # the full model; the autopilot is §12, the planned current-branch workflow §13
 CHANGELOG.md           # user-facing changes, under Unreleased until a release
 TODO.md, docs/         # this repository's own backlog and its task artifacts
 .taskrail/, .claude/   # taskrail installed into this repository, running from source

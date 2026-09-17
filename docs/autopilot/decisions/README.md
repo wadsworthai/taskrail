@@ -60,3 +60,4 @@
 | T076 | Name wadsworthai/taskrail as the canonical repository in the CLI, skills and docs | [T076-name-wadsworthai-taskrail-as-the-canonic.md](T076-name-wadsworthai-taskrail-as-the-canonic.md) |
 | T077 | Release v0.2.0 from the canonical repository | [T077-release-v0-2-0-from-the-canonical-reposi.md](T077-release-v0-2-0-from-the-canonical-reposi.md) |
 | T078 | Bump main to 0.3.0.dev0 after the v0.2.0 tag | [T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md](T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md) |
+| T079 | Write the current-branch workflow into DESIGN.md | [T079-write-the-current-branch-workflow-into-d.md](T079-write-the-current-branch-workflow-into-d.md) |
