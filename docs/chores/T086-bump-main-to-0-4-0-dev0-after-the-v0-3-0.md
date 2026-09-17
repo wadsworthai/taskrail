@@ -1,6 +1,6 @@
 # T086 — Bump main to 0.4.0.dev0 after the v0.3.0 tag
 
-Kind: chore · Epic: E01 · Status: implemented
+Kind: chore · Epic: E01 · Status: implemented and documented
 
 ## Goal
 
@@ -231,3 +231,14 @@ The bump:
     `1183 passed in 166.86s (0:02:46)`. It reported `lint` as `not configured`, and the overall
     result was `passed`.
 12. `taskrail validate` on this branch printed `75 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+
+At the implement gate, the change set was approved as committed.
+
+### Docs stage
+
+No documentation needs to change. A grep for `dev0`, `0.4.0` and `0.3.0` in `README.md`,
+`CLAUDE.md`, `DESIGN.md`, `src/taskrail/skills/`, `src/taskrail/integrations/` and `examples/` finds
+only README's *Install* example (`@v0.3.0`), step 3 of README *Releasing*, which describes this bump
+in general terms, and `DESIGN.md`'s status line and its pin and install examples, all at `v0.3.0`,
+still the latest release. CLAUDE.md and the skills name no version. As decided at the scope gate,
+CHANGELOG gets no entry. No follow-up tasks were opened.
