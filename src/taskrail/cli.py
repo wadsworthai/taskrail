@@ -1190,7 +1190,6 @@ def cmd_review(args) -> int:
         return _review_current(args, project, task)
     config = project.config
     root = config.root
-    kind = project.kinds.get(task.kind)
     backlog = config.backlog(task.backlog)
     if config.review.fetch and not args.no_fetch:
         _fetch_records(project)  # before resolving the branch, which another clone may have renamed
