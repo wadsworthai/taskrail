@@ -150,7 +150,10 @@ def cmd_show(args) -> int:
     kind = project.kinds.get(task.kind)
     data["kind_descriptor"] = kind.to_dict(task) if kind else None
     searched = None if branches.is_current(project.config) else data["branch"]  # the checked-out branch is no evidence
-    data["close"] = {"commit": commit_policy(kind, project.config)[0]}
+    data["close"] = {
+        "commit": commit_policy(kind, project.config)[0],
+        "review": "report" if branches.is_current(project.config) else "publish",  # §7.1 (T083)
+    }
     data["prior_work"] = prior.prior_work(
         project.config.root, task.id, searched, data["artifact"], (data["base"] or {}).get("onto"), project.config.backlog(task.backlog).file
     )
@@ -1104,6 +1107,76 @@ def cmd_branch(args) -> int:
     return EXIT_OK
 
 
+def _review_closed(task) -> bool:
+    """Whether `review` may run: the task is done or discarded here; says what to run otherwise."""
+    if task.status in (Status.DONE, Status.DISCARDED):
+        return True
+    print(f"taskrail: {task.id} is {task.status.label} on this branch; run `taskrail done {task.id}` or `taskrail discard {task.id}` first", file=sys.stderr)
+    return False
+
+
+def _review_title_body(args, project, task, since: str | None) -> tuple[str, str]:
+    """The pull request title and description; `Reopens:` trailers come from the commits after `since`."""
+    config = project.config
+    kind = project.kinds.get(task.kind)
+    title = review.pr_title(
+        task,
+        # A discard delivers none of the kind's change, so its squash commit is a chore by default (T065).
+        args.type or (kind.commit_type if kind and kind.commit_type and task.status is Status.DONE else "chore"),
+        args.scope if args.scope is not None else config.review.scope,
+        args.breaking,
+    )
+    body = review.pr_body(task, render(kind.artifact, task, config) if kind else None, review.reopened_ids(config.root, since))
+    return title, body
+
+
+def _review_current(args, project, task) -> int:
+    """`review` under `[git] task_branch = "current"`: a report, with no fetch, rebase or push (DESIGN.md §7.1)."""
+    if args.publish:
+        print(f"taskrail: {review.CURRENT_PUBLISH_REFUSAL}", file=sys.stderr)
+        return EXIT_REFUSED
+    if not _review_closed(task):
+        return EXIT_REFUSED
+    config = project.config
+    root = config.root
+    target = config.backlog(task.backlog).mainline
+    remote = review.resolve_remote(root, target, config.review.remote)
+    head = gitutil.current_branch(root)
+    upstream = review.upstream(root)
+    title, body = _review_title_body(args, project, task, upstream["ref"] if upstream else None)
+    remote_url = gitutil.run(root, "remote", "get-url", remote.name, check=False).stdout.strip()
+    provider = review.detect_provider(config.review, review.parse_remote_url(remote_url) if remote_url else None)
+    found = prior.matching_commits(root, task.id, None, head_only=True)
+    data = {
+        "id": task.id,
+        "head": head,
+        "target": target,
+        "remote": remote.name,
+        "remote_source": remote.source,
+        "fetched": False,
+        "rebase": {
+            "enabled": False, "onto": None, "diverged": False, "needed": False, "reason": review.CURRENT_REBASE_REASON,
+            "dependency": None,
+        },
+        "push": {"enabled": False, "pushed": False, "command": None, "error": None},
+        "pull_request": {"provider": provider, "title": title, "body": body, "url": None},
+        "published": False,
+        "commits": found[: prior.MAX_COMMITS],
+        "commits_total": len(found),
+        "upstream": upstream,
+    }
+    lines = [f'{task.id} {task.status.label} on {head or "detached HEAD"}; review reports only ([git].task_branch is "current")']
+    if found:
+        lines.append(f"{len(found)} commit(s) naming {task.id}:")
+        lines.extend(f"  {commit['sha'][:7]} {commit['subject']}" for commit in data["commits"])
+    else:
+        lines.append(f"no commits naming {task.id}")
+    lines.append(f"upstream {upstream['ref']}: {upstream['ahead']} commit(s) not pushed" if upstream else "no upstream")
+    lines += [f"reference title: {title}", "push with git once the human approves"]
+    _emit(data, args.json, "\n".join(lines))
+    return EXIT_OK
+
+
 def cmd_review(args) -> int:
     """Prepare a closed task for review: fetch, pick the rebase base, push, and link a pull request."""
     project, issues = _load(args)
@@ -1113,9 +1186,10 @@ def cmd_review(args) -> int:
     if task is None:
         print(f"taskrail: no task `{args.id}`", file=sys.stderr)
         return EXIT_NOT_FOUND
+    if branches.is_current(project.config):
+        return _review_current(args, project, task)
     config = project.config
     root = config.root
-    kind = project.kinds.get(task.kind)
     backlog = config.backlog(task.backlog)
     if config.review.fetch and not args.no_fetch:
         _fetch_records(project)  # before resolving the branch, which another clone may have renamed
@@ -1124,8 +1198,7 @@ def cmd_review(args) -> int:
     if current != head:
         print(f"taskrail: run review on the task branch {head} (current: {current or 'detached HEAD'})", file=sys.stderr)
         return EXIT_REFUSED
-    if task.status not in (Status.DONE, Status.DISCARDED):
-        print(f"taskrail: {task.id} is {task.status.label} on this branch; run `taskrail done {task.id}` or `taskrail discard {task.id}` first", file=sys.stderr)
+    if not _review_closed(task):
         return EXIT_REFUSED
 
     settings = config.review
@@ -1164,15 +1237,7 @@ def cmd_review(args) -> int:
     remote_url = gitutil.run(root, "remote", "get-url", remote.name, check=False).stdout.strip()
     parsed = review.parse_remote_url(remote_url) if remote_url else None
     provider = review.detect_provider(settings, parsed)
-    title = review.pr_title(
-        task,
-        # A discard delivers none of the kind's change, so its squash commit is a chore by default (T065).
-        args.type or (kind.commit_type if kind and kind.commit_type and task.status is Status.DONE else "chore"),
-        args.scope if args.scope is not None else settings.scope,
-        args.breaking,
-    )
-    since = base.onto if base and base.onto else None
-    body = review.pr_body(task, render(kind.artifact, task, config) if kind else None, review.reopened_ids(root, since))
+    title, body = _review_title_body(args, project, task, base.onto if base and base.onto else None)
     url = review.pull_request_url(
         provider, review.web_base(settings, parsed), parsed.path if parsed else None, target, head, title, body, settings.url_template
     )

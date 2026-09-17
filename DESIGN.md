@@ -263,7 +263,10 @@ for every stage under `"on-done"`, the declared boolean under `"stages"`. A desc
 `commit = "on-done"` whose stages say `commit = true` is not an issue: the policy wins. Each
 descriptor they report carries `commit`, the effective policy, and `commit_source`: `"kind"`,
 `"config"` or `"default"`. `show` also reports it as `close.commit` and, under `"on-done"`, adds the
-text line `commit on-done (<source>)`, naming the descriptor path or `[git].commit`. A top-level
+text line `commit on-done (<source>)`, naming the descriptor path or `[git].commit`. Next to it,
+`close.review` says how the task is handed off: `"publish"` under `[git].task_branch = "task"`, where
+`review` fetches, rebases and publishes, and `"report"` under `"current"`, where it only reports (§7.1;
+T083). A top-level
 `commit` other than `"stages"` or `"on-done"` — such as a boolean written at the descriptor's top
 level — is a `kind-invalid` error naming the descriptor. The autopilot refuses a run that drives an
 `"on-done"` kind (§12.2).
@@ -529,7 +532,8 @@ source `current`, also while a claim names another branch. No record is ever wri
   worktree (§7.5).
 - `claim_remote` works unchanged: setting it is the human's standing approval to push the claim's
   ref, which lives outside `refs/heads`. `branch_record_remote` is accepted but pushes nothing, since
-  no record is written. No command pushes a branch.
+  no record is written. No command pushes a branch: `review` only reports, and refuses `--publish`
+  (§7.1, *On the current branch*; T083).
 - The autopilot refuses to start, extend or dispatch a run (§12.2).
 
 A record is a file next to the claims, `$(git rev-parse --git-common-dir)/taskrail/branches/<ID>.json`,
@@ -606,7 +610,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate [--no-history] [--history-limit N]` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks. Also warns about reopens committed without a trailer (*Reopens in history* below) |
 | `taskrail list [--epic E01] [--eligible] [--fetch]` | Tasks, with computed blocked and eligible state; each `--json` entry carries `show`'s task fields, `worktree` and `worktree_base` included, without `kind_descriptor` and `prior_work` |
-| `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches; its `row` says whether the base has the task's row, and the text names `taskrail workspace` when only this checkout has it), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; relative to `worktree_base`, with `..` segments for a worktree outside it, and the same from every checkout of the clone (T072); `null` unless `worktree = "required"`), `worktree_base` (the absolute directory `worktree` is relative to and task worktrees are created under: the repository's main checkout — the first entry of `git worktree list` — or, when that entry is a bare repository, the directory holding it; the same from every checkout (T075); `null` when `worktree` is), artifact and index paths, `never_edit`, check commands, `prior_work` (§7.2), `task_branch` (`"task"` or `"current"`; what `"current"` changes is in §6.4), and `close` with `commit`, the task's effective commit policy (§5.1; T081); planned: `close.review` (§13.3) |
+| `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches; its `row` says whether the base has the task's row, and the text names `taskrail workspace` when only this checkout has it), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; relative to `worktree_base`, with `..` segments for a worktree outside it, and the same from every checkout of the clone (T072); `null` unless `worktree = "required"`), `worktree_base` (the absolute directory `worktree` is relative to and task worktrees are created under: the repository's main checkout — the first entry of `git worktree list` — or, when that entry is a bare repository, the directory holding it; the same from every checkout (T075); `null` when `worktree` is), artifact and index paths, `never_edit`, check commands, `prior_work` (§7.2), `task_branch` (`"task"` or `"current"`; what `"current"` changes is in §6.4), and `close` with `commit`, the task's effective commit policy (§5.1; T081), and `review`, `"publish"` under `task_branch = "task"` and `"report"` under `"current"` (§7.1; T083) |
 | `taskrail next [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` or `discarded-branch` task; a task whose `base.row` is `missing` stays listed, its text line ending `(row not on <onto>)`; `--json` entries as for `list` |
 | `taskrail claim <ID> [--run R]` / `taskrail release <ID>` | §6.1, §6.2; `--run` ties the claim to an autopilot run (§12.4) |
 | `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4); exit 5 under `task_branch = "current"` (§6.4) |
@@ -617,7 +621,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail edit <ID> [--title] [--pts] [--depends-on] [--description] [--kind] [--column NAME=VALUE]… [--force] [--local-only]` | Change cells of an existing task row (see the rules below) |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below); `--json` reports `commit`, the task's effective commit policy, and under `"on-done"` the text adds `commit everything <ID> changed now, the status change included` (§5.1; T081) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
-| `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1); planned: report only under `task_branch = "current"` (§13.5) |
+| `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1); under `task_branch = "current"` a report only, with `--publish` refused (§7.1, *On the current branch*; T083) |
 | `taskrail checks <ID> [--stage STAGE] [--check NAME]… [--resource NAME=VALUE]…` | Run a task's configured checks in its worktree with its autopilot lane's resources, or chosen ones, from anywhere in the clone (§7.5) |
 | `taskrail import <FILE> [--write] [--column CORE=HEADER]… [--status VALUE=STATUS]… [--kind VALUE=KIND]… [--default-kind KIND] [--epic-level N] [--epic-name NAME]` | Convert a table-based Markdown backlog without epics into this backlog; a dry run unless `--write` (§7.3) |
 | `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
@@ -629,9 +633,8 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 ### 7.1 Review hand-off
 
 Closing a task ends in a pull or merge request on whatever host the repository uses. `taskrail
-review` owns the deterministic parts; the agent keeps the rebase and its conflicts. *Planned
-(§13.5):* with `[git].task_branch = "current"` it fetches, rebases and pushes nothing, reports the
-task's commits for reference, and refuses `--publish` with exit 5.
+review` owns the deterministic parts; the agent keeps the rebase and its conflicts. With
+`[git].task_branch = "current"` it only reports (*On the current branch* below).
 
 1. `taskrail review <ID>` runs on the task branch (§6.4), only once the task is done or discarded there (T065); the
    branch is `head` in its result, and the one pushed and linked. It fetches
@@ -647,6 +650,31 @@ task's commits for reference, and refuses `--publish` with exit 5.
    `--force-with-lease` on the remote's current commit, and always with `--set-upstream`, so the
    task's own remote branch becomes its upstream; a rejected push exits 4 — and returns the pull
    request title, description and link.
+
+**On the current branch.** With `[git].task_branch = "current"` (§6.4) `taskrail review <ID>` is a
+report for the human who pushes (T083):
+
+- it fetches nothing — neither the mainline's remote nor branch records — chooses no rebase base,
+  pushes nothing, and does not refuse because the checkout is on some branch: the checked-out branch
+  is `head`, `null` on a detached `HEAD`, which is not refused either;
+- it still exits 3 for an unknown ID and requires the task to be `done` or `discarded` in the
+  checkout (exit 5 otherwise);
+- `--publish` exits **5**, checked right after the task is found and before anything else, with
+  `taskrail: [git].task_branch is "current": review does not publish; push with git once the human approves`;
+- `--json` keeps its keys: `head`; `target` the mainline; `remote` and `remote_source`, resolved
+  without fetching; `fetched` `false`; `rebase` with `enabled` and `needed` `false`, `onto` and
+  `dependency` `null` and the `reason` `[git].task_branch is "current": review does not rebase`;
+  `push` with `enabled` `false`; `pull_request` with `provider`, `title` and `body` rendered as below,
+  for reference, and `url` `null`; `published` `false`;
+- it adds `commits` — the commits on `HEAD` alone whose subject names the task in the forms of §7.2
+  (`prefix`, `scope`, `suffix`), newest first, capped at 10, each with `sha`, `subject` and `match` —
+  with `commits_total`, and `upstream`: `{ref, ahead}`, the checked-out branch's upstream (`ref` as
+  `origin/main`) and how many commits `HEAD` has that it lacks, or `null` when the branch has no
+  upstream, its upstream ref is gone, or `HEAD` is detached. Together they say what a push would send;
+- the description's `Reopens:` trailers come from the commits `HEAD` has that the upstream lacks, or
+  from all of `HEAD` without an upstream;
+- the text names the task, its status and `head`, the commits naming it, the upstream with the
+  commits not pushed (or `no upstream`), the reference title, and `push with git once the human approves`.
 
 **The mainline's remote.** Each mainline uses one remote for its base, fetch, push and link:
 `branch.<mainline>.remote` from git config when it names a configured remote, otherwise
@@ -1725,8 +1753,7 @@ commit = "on-done"               # "stages" (default): as each stage's `commit` 
 
 *Implemented (T081): now §4 (`[git].commit`), §5.1 (the effective commit policy, stage `commit`,
 `commit` and `commit_source`, `close.commit`, `done` and `discard`) and §12.2 (the autopilot
-refusal). Still planned for T083: `show`'s `close.review`, `"publish"` with `task_branch = "task"`
-(§7.1) and `"report"` with `"current"` (§13.5).*
+refusal).*
 
 ### 13.4 Decisions gates
 
@@ -1734,21 +1761,8 @@ refusal). Still planned for T083: `show`'s `close.review`, `"publish"` with `tas
 
 ### 13.5 Closing on the current branch
 
-`taskrail review <ID>` under `task_branch = "current"`:
-
-- fetches nothing, chooses no rebase base, pushes nothing, and does not refuse because the checkout
-  is on some branch: the checked-out branch is `head`;
-- still requires the task to be `done` or `discarded` in the checkout (exit 5 otherwise), and exits
-  3 for an unknown ID;
-- keeps its `--json` keys: `head` the checked-out branch, `target` the mainline, `fetched` `false`,
-  `rebase.enabled` `false` with a `reason` naming `[git].task_branch`, `push.enabled` `false`,
-  `pull_request` with `title` and `body` for reference and `url` `null`, `published` `false`;
-- adds `commits` — the commits on `HEAD` whose subject names the task, in the forms of §7.2
-  (`prefix`, `scope`, `suffix`), newest first, capped at 10, with `commits_total` — and `upstream`:
-  `{ref, ahead}`, the upstream of the checked-out branch and how many commits `HEAD` has that it
-  lacks, or `null` when the branch has no upstream. Together they say what a push would send.
-- `--publish` exits **5**, checked right after the task is found and before anything else, with
-  `taskrail: [git].task_branch is "current": review does not publish; push with git once the human approves`.
+*Implemented (T083): now §7.1 (**On the current branch**), with `close.review` in §5.1 and the `show`
+and `review` rows of §7. The executor's close below is still planned (T084).*
 
 **The executor's close** (the `taskrail` skill, T084), when `show`'s `task_branch` is `"current"`:
 
@@ -1804,7 +1818,7 @@ run made before the configuration changed can still be inspected, followed throu
 | T080 | feature | T079 | `[git].task_branch` and its `worktree` check (§13.1, §13.6); `task_branch`, `branch`, `base`, `worktree`, `prior_work` and states under `"current"` in `show`, `list` and `next`; `claim`, `new`, `new --workspace`, `workspace`, `branch`, `edit` and `checks` (§13.2); the `task_branch` refusal of `autopilot start`, `extend` and `next` (§13.7); *implemented (T080)* |
 | T081 | feature | T079 | `[git].commit` and the kind's `commit` policy with their validation (§13.1, §13.6); effective stage `commit`, `kind_descriptor.commit` and `commit_source`, `show`'s `close` with `close.commit`, and `done`'s and `discard`'s output (§13.3); the `on-done` refusal of `autopilot start`, `extend` and `next` (§13.7); *implemented (T081)* |
 | T082 | feature | T079 | `gate = "decisions"` in kind loading, overrides, `show` and `kind list`, and the autopilot's `lane --gate` and `escalate_gates` (§13.4, §13.6); *implemented (T082)* |
-| T083 | feature | T080, T081 | `review` under `"current"`: no fetch, rebase or push, `commits` and `upstream`, and `--publish` refused with exit 5 (§13.5); `show`'s `close.review` (§13.3) |
+| T083 | feature | T080, T081 | `review` under `"current"`: no fetch, rebase or push, `commits` and `upstream`, and `--publish` refused with exit 5 (§13.5); `show`'s `close.review` (§13.3); *implemented (T083)* |
 | T084 | chore | T080–T083 | the `taskrail` skill (workspace step skipped, commits after `done`, ask before any push, the decisions gate), executor skills and integration notes, and the README's single-maintainer configuration (§13.4, §13.5) |
 
 T080 and T081 both edit `[git]` loading in `config.py` and
