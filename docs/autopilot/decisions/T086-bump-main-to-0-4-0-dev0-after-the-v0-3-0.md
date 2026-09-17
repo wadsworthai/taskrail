@@ -37,3 +37,13 @@ re-run with `taskrail checks T086 --stage implement` (1183 passed, lint not conf
 | # | Question | Options | Decision | Reason |
 |---|---|---|---|---|
 | 1 | Approve the implement stage | approve · request changes | **approve** | Exactly the approved change set, and the install from `v0.3.0` is verified. |
+
+## close gate
+
+Reviewed: the docs stage (`8049d24`, the artifact only) and `taskrail done` committed on its own in
+`2cd14f2` (only T086's status cell); no upstream on the branch; clean worktree; `review --json`
+reports no rebase needed onto `origin/main`; `taskrail validate` clean.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request title | `chore(release): bump main to 0.4.0.dev0 after the v0.3.0 tag (T086)` · other | **as decided at scope** | As T078. |
