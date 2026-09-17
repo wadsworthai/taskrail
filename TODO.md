@@ -27,7 +27,7 @@ Done when: v0.2.0 is tagged and a repository installs it with uv and runs it thr
 | ✅ | T077 | chore   | —   | —          | Release v0.2.0 from the canonical repository | Set the version to 0.2.0, lock, and turn Unreleased into 0.2.0 in CHANGELOG.md; the tag follows the merge, and T078 records the install from it and bumps main.                                                                |
 | ✅ | T078 | chore   | —   | T077       | Bump main to 0.3.0.dev0 after the v0.2.0 tag | Once v0.2.0 is pushed on T077's squash commit, record the tag and a clean install from wadsworthai/taskrail@v0.2.0, then set 0.3.0.dev0 and lock; stop at scope if the tag does not exist. |
 | ✅ | T085 | chore   | —   | —          | Release v0.3.0                 | Set the version to 0.3.0, lock, and turn Unreleased into 0.3.0 in CHANGELOG.md with the current-branch workflow (E07); the tag follows the merge with the human's approval, and T086 records the install from it and bumps main to 0.4.0.dev0.                   |
-| ⬜ | T086 | chore   | —   | T085       | Bump main to 0.4.0.dev0 after the v0.3.0 tag | Once v0.3.0 is pushed on T085's squash commit, record the tag and a clean install from wadsworthai/taskrail@v0.3.0, then set 0.4.0.dev0 and lock; stop at scope if the tag does not exist. |
+| ✅ | T086 | chore   | —   | T085       | Bump main to 0.4.0.dev0 after the v0.3.0 tag | Once v0.3.0 is pushed on T085's squash commit, record the tag and a clean install from wadsworthai/taskrail@v0.3.0, then set 0.4.0.dev0 and lock; stop at scope if the tag does not exist. |
 
 ## E02 — taskrail phase 2
 

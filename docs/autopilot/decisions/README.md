@@ -67,3 +67,4 @@
 | T083 | Close a current-branch task without fetch, rebase or publish | [T083-close-a-current-branch-task-without-fetc.md](T083-close-a-current-branch-task-without-fetc.md) |
 | T084 | Teach the skills the current-branch workflow, on-done commits and decisions gates | [T084-teach-the-skills-the-current-branch-work.md](T084-teach-the-skills-the-current-branch-work.md) |
 | T085 | Release v0.3.0 | [T085-release-v0-3-0.md](T085-release-v0-3-0.md) |
+| T086 | Bump main to 0.4.0.dev0 after the v0.3.0 tag | [T086-bump-main-to-0-4-0-dev0-after-the-v0-3-0.md](T086-bump-main-to-0-4-0-dev0-after-the-v0-3-0.md) |
