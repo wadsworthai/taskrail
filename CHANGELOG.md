@@ -21,6 +21,15 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
   on the mainline; `checks` runs in the checkout; and `autopilot start`, `extend` and `next` exit 5.
   `show`, `list` and `next` report the setting as `task_branch` under every configuration (T080).
 
+- **Commit a task's changes only when it is done.** `[git] commit = "on-done"`, or a top-level
+  `commit = "on-done"` in a kind descriptor, which wins over `[git]` either way, makes a task's
+  effective commit policy `"on-done"`: `show --json` and `kind list --json` then report every
+  stage's `commit` as `false`, and each descriptor carries `commit` and `commit_source`; `show` adds
+  `close.commit`, and `done` and `discard` report `commit` and tell the executor to commit everything
+  the task changed. Any other value exits 2 in `[git]` and is a `kind-invalid` error in a descriptor.
+  `autopilot start`, `extend` and `next` exit 5 when a kind the run drives commits on done. The
+  skills still commit per stage until they learn `close.commit` (T081).
+
 ## 0.2.0
 
 Adds the autopilot (DESIGN.md §12), `edit`, `import`, `checks`, `workspace`, `branch` and a merge

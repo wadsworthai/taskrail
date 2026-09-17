@@ -12,6 +12,7 @@ from taskrail import __version__, branches, checks, claims, gitutil, history, id
 from taskrail.autopilot import runs as autopilot_runs
 from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
+from taskrail.kinds import commit_policy, commit_source_label
 from taskrail.model import NONE_MARKERS, Project, Status
 from taskrail.project import load_project
 from taskrail.query import STATES, base_dict, blocked_by, eligible, main_checkout, state, task_dict, unmerged_dependencies
@@ -149,6 +150,7 @@ def cmd_show(args) -> int:
     kind = project.kinds.get(task.kind)
     data["kind_descriptor"] = kind.to_dict(task) if kind else None
     searched = None if branches.is_current(project.config) else data["branch"]  # the checked-out branch is no evidence
+    data["close"] = {"commit": commit_policy(kind, project.config)[0]}
     data["prior_work"] = prior.prior_work(
         project.config.root, task.id, searched, data["artifact"], (data["base"] or {}).get("onto"), project.config.backlog(task.backlog).file
     )
@@ -179,6 +181,8 @@ def cmd_show(args) -> int:
             else:
                 mark = ""
             lines.append(f"  · {stage.name} (gate: {stage.gate}{', commit' if stage.commit else ''}){mark}")
+    if data["close"]["commit"] == "on-done":
+        lines.append(f"  commit on-done ({commit_source_label(kind, project.config)})")
     if task.description:
         lines.append(f"  {task.description}")
     lines.append(f"  {task.file}:{task.line}")
@@ -806,7 +810,9 @@ def _change_status(args, status: Status) -> int:
 
     edits = writer.Edits(config)
     writer.set_status(edits, task, status)
-    code = _write(edits, args.json, {"id": task.id, "status": status.label}, f"{task.id} {status.label}")
+    policy, _ = commit_policy(project.kinds.get(task.kind), config)
+    text = f"{task.id} {status.label}" + (f"\ncommit everything {task.id} changed now, the status change included" if policy == "on-done" else "")
+    code = _write(edits, args.json, {"id": task.id, "status": status.label, "commit": policy}, text)
     if code == EXIT_OK and claim is not None:
         try:
             claims.release(config, task.id, owner, force=True)

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import dataclasses
 import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from taskrail.config import CORE_TASK_COLUMNS, Config
+from taskrail.config import COMMIT_POLICIES, CORE_TASK_COLUMNS, Config
 from taskrail.issues import Issue, error, warning
 from taskrail.model import Task
 from taskrail.predicates import ColumnPredicate, parse_column_predicate, parse_match, resolve_column
@@ -88,6 +89,8 @@ class Kind:
     routes: tuple[Route, ...]
     source: str  # "core" | "local" | "override"
     path: str
+    commit: str = "stages"  # the effective commit policy (DESIGN.md §5.1)
+    commit_source: str = "default"  # "kind" | "config" | "default"
 
     def skill_for(self, task: Task) -> str | None:
         for route in self.routes:
@@ -110,6 +113,8 @@ class Kind:
             "artifact_index": self.artifact_index,
             "never_edit": list(self.never_edit),
             "commit_type": self.commit_type,
+            "commit": self.commit,
+            "commit_source": self.commit_source,
             "stages": [stage.to_dict(task) for stage in self.stages],
             "routes": [{"when": r.when_dict(), "skill": r.skill} for r in self.routes],
             "source": self.source,
@@ -150,6 +155,9 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
     commit_type = text("commit_type")
     if commit_type is not None and not re.match(r"^[a-z]+$", commit_type):
         problems.append("`commit_type` must be lowercase letters, such as feat or fix")
+    declared_commit = data.get("commit")
+    if declared_commit is not None and (not isinstance(declared_commit, str) or declared_commit not in COMMIT_POLICIES):
+        problems.append('`commit` must be "stages" or "on-done", the kind\'s commit policy; a stage\'s `commit` is true or false')
     for key, template in (("branch", branch), ("artifact", artifact), ("artifact_index", artifact_index)):
         for placeholder in PLACEHOLDER_RE.findall(template or ""):
             if placeholder not in PLACEHOLDERS:
@@ -207,6 +215,10 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
                 issues.append(error("stage-column-unknown", f"stage `{stage_name}`: {unknown}", label))
         stages.append(Stage(stage_name, str(raw.get("summary", "")), gate, commit, tuple(checks), predicate, judgement))
 
+    policy, policy_source = _commit_policy(declared_commit, config)
+    if policy == "on-done":  # the policy wins over every stage's boolean
+        stages = [dataclasses.replace(stage, commit=False) for stage in stages]
+
     routes: list[Route] = []
     raw_routes = data.get("route", [])
     if not isinstance(raw_routes, list):
@@ -240,7 +252,33 @@ def _parse(path: Path, source: str, label: str, config: Config, issues: list[Iss
         routes=tuple(routes),
         source=source,
         path=label,
+        commit=policy,
+        commit_source=policy_source,
     )
+
+
+def _commit_policy(declared: object, config: Config) -> tuple[str, str]:
+    """The effective commit policy and its source: the kind's, else `[git].commit`, else "stages"."""
+    if isinstance(declared, str) and declared in COMMIT_POLICIES:
+        return declared, "kind"
+    if config.commit is not None:
+        return config.commit, "config"
+    return "stages", "default"
+
+
+def commit_policy(kind: Kind | None, config: Config) -> tuple[str, str]:
+    """A task's effective commit policy and its source; the configuration's when its kind is not loaded."""
+    if kind is not None:
+        return kind.commit, kind.commit_source
+    return _commit_policy(None, config)
+
+
+def commit_source_label(kind: Kind | None, config: Config) -> str:
+    """Where a task's policy is set, as `show`'s text names it: the descriptor path, `[git].commit` or `default`."""
+    _, source = commit_policy(kind, config)
+    if source == "kind" and kind is not None:
+        return kind.path
+    return "[git].commit" if source == "config" else "default"
 
 
 def _parse_route(index: int, raw: object, config: Config, problems: list[str], issues: list[Issue], label: str) -> Route | None:

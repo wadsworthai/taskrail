@@ -15,6 +15,7 @@ CONFIG_PATH = Path(".taskrail") / "config.toml"
 PREFIX_RE = re.compile(r"^[A-Z]{1,4}$")
 NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 CORE_TASK_COLUMNS = ("✓", "ID", "Kind", "Depends On", "Title", "Pts", "Description")
+COMMIT_POLICIES = ("stages", "on-done")  # [git].commit and a kind's top-level `commit` (DESIGN.md §4, §5.1)
 
 
 @dataclass(frozen=True)
@@ -99,6 +100,7 @@ class Config:
     column_aliases: dict[str, str] = field(default_factory=dict)  # core task column -> this repository's header
     points_scale: tuple[int, ...] = ()
     push_task_branch: bool = True
+    commit: str | None = None  # [git].commit: "stages" | "on-done"; None when unset
     claim_remote: str = ""
     branch_record_remote: str = ""  # mirror branch records to this remote (DESIGN.md §6.4)
     claim_grace_minutes: int = 15
@@ -226,6 +228,9 @@ def load_config(root: Path) -> Config:
     git = data.get("git", {})
     git = git if isinstance(git, dict) else {}
     push_task_branch = expect(git, "push_task_branch", bool, True)
+    commit = git.get("commit")
+    if commit is not None and (not isinstance(commit, str) or commit not in COMMIT_POLICIES):
+        problems.append('git.commit must be "stages" or "on-done"')
     claim_remote = expect(git, "claim_remote", str, "")
     branch_record_remote = expect(git, "branch_record_remote", str, "")
     claim_grace_minutes = expect(git, "claim_grace_minutes", int, 15)
@@ -287,6 +292,7 @@ def load_config(root: Path) -> Config:
         column_aliases=aliases,
         points_scale=tuple(scale),
         push_task_branch=push_task_branch,
+        commit=commit,
         claim_remote=claim_remote,
         branch_record_remote=branch_record_remote,
         claim_grace_minutes=claim_grace_minutes,
