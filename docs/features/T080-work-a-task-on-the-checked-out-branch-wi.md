@@ -1,6 +1,6 @@
 # T080 — Work a task on the checked-out branch with task_branch = current
 
-Kind: feature · Epic: E07 · Status: planned
+Kind: feature · Epic: E07 · Status: implemented
 
 Source: `DESIGN.md` §13.1, §13.2, §13.6, §13.7 and the T080 row of §13.8, as merged in T079; the
 T079 decision record (`docs/autopilot/decisions/T079-write-the-current-branch-workflow-into-d.md`,
@@ -19,7 +19,8 @@ on whatever branch the checkout has, the mainline included:
 - A task is never `done-branch` or `discarded-branch`, a dependency blocks until it is `✅` in the
   checkout, and no task is stacked on another.
 - `claim` records the checked-out branch in the claim, writes no branch record, gives no warning
-  and records `base` `null`; on a detached `HEAD` it keeps today's warning.
+  and records `base` `null`; on a detached `HEAD` it warns to check out a branch to work the task
+  on (plan gate decision 2).
 - `new --workspace` exits 5 before reserving an ID; `workspace <ID>` and `branch <ID> <NAME>` exit
   5; each message names `[git].task_branch`. `new` without `--workspace` never warns on the
   mainline (`warning` is `null`).
@@ -53,7 +54,8 @@ Under the default `"task"` nothing changes except the new `task_branch` field.
    is `blocked` by it, `next` does not list the dependent, and `claim` of the dependent exits 5.
 8. Under `"current"`, `claim` exits 0 with `warning` `null` and `branch_recorded` `false`, the claim
    records the checked-out branch and `base` `null`, and no branch record file is written; on a
-   detached `HEAD` the claim has `branch` `null` and the warning is returned.
+   detached `HEAD` the claim has `branch` `null` and the warning, returned and printed, says to check
+   out a branch to work the task on and does not name `taskrail branch`.
 9. Under `"current"`, `new --workspace` exits 5 naming `[git].task_branch`, reserves no ID (the next
    `new` gets the ID it would have got) and creates no branch; `workspace <ID>` and
    `branch <ID> <NAME>` exit 5 naming `[git].task_branch` and change nothing.
@@ -122,6 +124,64 @@ Documentation:
 - `claim_remote` and `branch_record_remote` stay as they are: records are simply never written, so
   nothing is pushed; `--fetch` still fetches mirrored records.
 
+## Plan gate decisions
+
+Recorded in `docs/autopilot/decisions/T080-work-a-task-on-the-checked-out-branch-wi.md`:
+
+1. The prior-work search gets no branch under `"current"`, so `commits` has no `branch` form.
+2. On a detached `HEAD` under `"current"`, `claim` warns
+   `<ID> was claimed on a detached HEAD: check out a branch to work the task on`, not naming
+   `taskrail branch`, which exits 5 there; §6.1 and §13.2's pointer say so.
+3. `workspace` and `branch` refuse right after the task is found; `new --workspace` after its epic is
+   found, before the record fetch, any name check and the ID reservation.
+4. §13.2's body is a one-line *Implemented (T080)* pointer; the `task_branch` bullets of §13.6 and
+   §13.7 and the T080 row of §13.8 are marked in place; §12.2 carries the `task_branch` refusal.
+5. `review` exiting 2 under `"current"` until T083 is accepted (see the risks below).
+
+## Implementation
+
+- `config.py`: `Config.task_branch`; `load_config` checks the value and the `worktree = "never"`
+  requirement.
+- `branches.py`: `CURRENT`, `is_current()`, `CURRENT_REFUSAL`; `resolve()` returns the checked-out
+  branch (cached per project as `current_branch`) with source `current`.
+- `stack.py`: `_find()` returns nothing under `"current"`, which also empties
+  `query.unmerged_dependencies`, so no task is stacked.
+- `query.py`: `base_dict()` returns `None` under `"current"`; `task_dict()` adds `task_branch`.
+- `cli.py`: `cmd_show` passes no branch to `prior.prior_work` (with `base` `null`, no `onto` either);
+  `_freeze_branch` returns no record and warns only on a detached `HEAD`; `cmd_new`, `cmd_workspace`
+  and `cmd_branch` refuse with `CURRENT_REFUSAL`; `cmd_new` skips the mainline warning.
+- `checks.py`: `worktree()` returns the checkout's top level when the claim records no existing
+  worktree.
+- `branchrows.py`: `branch_of()` returns `None`.
+- `autopilot/commands.py`: `_task_branch_refusal(config)`, called after the `enabled` check in
+  `cmd_start`, `cmd_extend` and `cmd_next`.
+- `cmd_edit` is unchanged: it records only a `template` source.
+
+## Acceptance criteria and tests
+
+All in `tests/test_current_branch.py`.
+
+| # | Tests |
+|---|---|
+| 1 | `test_task_branch_defaults_to_task`, `test_current_with_worktree_never_loads`, `test_an_unknown_task_branch_exits_2_naming_the_key` (3 values) |
+| 2 | `test_current_requires_worktree_never` (absent and `"required"`) |
+| 3 | `test_show_list_and_next_report_task_branch` |
+| 4 | `test_branch_is_the_checked_out_branch_with_no_base_or_worktree`, `test_branch_follows_the_checkout_while_the_claim_names_another`, `test_branch_is_null_on_a_detached_head` |
+| 5 | `test_branch_is_the_checked_out_branch_with_no_base_or_worktree`, `test_show_text_has_no_base_line` |
+| 6 | `test_prior_work_reports_no_branches_and_no_prepared_workspace` (includes a commit only the `branch` form would match) |
+| 7 | `test_a_task_closed_on_another_branch_is_not_done_branch` (the same refs give `done-branch`, `discarded-branch` and a stacked base under `"task"`), `test_a_dependency_done_in_the_checkout_unblocks` |
+| 8 | `test_claim_records_the_checked_out_branch_without_a_warning_or_record`, `test_claim_on_a_detached_head_warns_to_check_out_a_branch` |
+| 9 | `test_new_workspace_is_refused_before_reserving_an_id`, `test_new_workspace_with_branch_is_refused_the_same_way`, `test_new_workspace_with_an_unknown_epic_still_exits_3`, `test_workspace_and_branch_are_refused` (2), `test_workspace_and_branch_of_an_unknown_task_still_exit_3` (2) |
+| 10 | `test_new_on_the_mainline_does_not_warn` |
+| 11 | `test_edit_never_records_the_old_branch` |
+| 12 | `test_checks_run_in_the_checkout_without_a_claim`, `test_checks_run_in_the_checkout_on_a_detached_head`, `test_checks_run_in_the_claims_worktree_when_it_exists` |
+| 13 | `test_autopilot_start_extend_and_next_are_refused` (start `--count` and `--tasks`, extend, next preview and `--run`; status still exits 0), `test_the_enabled_check_comes_first` |
+| 14 | the full suite: 1083 passed |
+
+Written before the code: 31 tests, of which 25 failed and 6 passed on the plan's commit. The 6 that
+passed guard orderings the change must keep (exit 3 for an unknown epic or task, the `enabled` check
+first, a claim's worktree used by `checks`, a dependency done in the checkout unblocking).
+
 ## Open questions and risks
 
 1. **`prior_work.commits` and the `branch` form.** Under `"current"` the task's "branch" is the
@@ -141,6 +201,9 @@ Documentation:
    §6.1, §6.4, §7, §7.2 and §7.5, since keeping it would describe the same behaviour twice.
    Alternative: keep §13.2 whole and add an *Implemented (T080)* mark. §12.2 is outside §4–§8 but
    is where §13.7's refusal belongs, next to the `enabled` refusal.
-5. **Conflict risk.** T081 edits the same §4 note, the §12.2 bullet, `load_config`, `task_dict` and
+5. **`review` under `"current"` until T083.** `base_dict` is `None` there, so `review` with
+   `[review].rebase` on exits 2 "could not determine the base"; accepted at the plan gate. T083
+   replaces `review`'s behaviour under `"current"`.
+6. **Conflict risk.** T081 edits the same §4 note, the §12.2 bullet, `load_config`, `task_dict` and
    the three autopilot commands. Each of this task's hunks is kept on its own lines; the §4 note and
    §12.2 bullet are the likely textual conflicts, resolved by keeping both halves.

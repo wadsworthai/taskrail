@@ -79,6 +79,8 @@ def base_dict(task: Task, project: Project) -> dict | None:
     mainline = backlog.mainline if backlog else None
     if not mainline:
         return None
+    if branches.is_current(project.config):  # no workspace to create and nothing to rebase onto
+        return None
     root = project.config.root
     try:
         gitutil.common_dir(root)
@@ -196,6 +198,7 @@ def task_dict(task: Task, project: Project, claimed: dict | None = None) -> dict
         "epic": task.epic,
         "status": task.status.label if task.status else None,
         "state": state(task, project, claimed),
+        "task_branch": config.task_branch,
         "kind": task.kind,
         "points": task.points,
         "depends_on": task.depends_on,

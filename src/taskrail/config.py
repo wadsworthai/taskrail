@@ -104,6 +104,7 @@ class Config:
     claim_grace_minutes: int = 15
     worktree: str = "required"  # "required" | "never"
     worktree_dir: str = ".worktrees"
+    task_branch: str = "task"  # "task": one branch per task; "current": the checked-out branch (DESIGN.md §6.4)
     checks: dict[str, str] = field(default_factory=dict)
     review: ReviewConfig = field(default_factory=ReviewConfig)
     allowed_kinds: tuple[str, ...] = ()  # empty: every defined kind is allowed
@@ -234,6 +235,11 @@ def load_config(root: Path) -> Config:
     if worktree not in ("required", "never"):
         problems.append('git.worktree must be "required" or "never"')
     worktree_dir = expect(git, "worktree_dir", str, ".worktrees")
+    task_branch = expect(git, "task_branch", str, "task")
+    if task_branch not in ("task", "current"):
+        problems.append('git.task_branch must be "task" or "current"')
+    elif task_branch == "current" and worktree != "never":
+        problems.append('git.task_branch = "current" requires git.worktree = "never"')
 
     raw_review = data.get("review", {})
     raw_review = raw_review if isinstance(raw_review, dict) else {}
@@ -286,6 +292,7 @@ def load_config(root: Path) -> Config:
         claim_grace_minutes=claim_grace_minutes,
         worktree=worktree,
         worktree_dir=worktree_dir,
+        task_branch=task_branch,
         checks=dict(checks),
         review=review,
         allowed_kinds=tuple(allowed_kinds or ()),

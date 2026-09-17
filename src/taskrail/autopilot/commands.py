@@ -33,6 +33,13 @@ def _fail(message: str, code: int) -> int:
     return code
 
 
+def _task_branch_refusal(config) -> int | None:
+    """Exit 5 when tasks are worked on the checked-out branch: a run needs a branch per task (DESIGN.md §12.2)."""
+    if config.task_branch == "current":
+        return _fail('the autopilot needs a branch per task; [git].task_branch is "current" in .taskrail/config.toml', EXIT_REFUSED)
+    return None
+
+
 def _task_ids(raw: str) -> list[str]:
     """`--tasks` IDs in the order given, each once."""
     return list(dict.fromkeys(item.strip() for item in raw.split(",") if item.strip()))
@@ -74,6 +81,8 @@ def cmd_start(args) -> int:
     config = project.config
     if not config.autopilot.enabled:
         return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot start`", EXIT_REFUSED)
+    if (refused := _task_branch_refusal(config)) is not None:
+        return refused
     named = _task_ids(args.tasks) if args.tasks is not None else None
     if named is None and args.count is None:
         return _fail("autopilot start needs --count N, the number of tasks to complete, or --tasks with their IDs", EXIT_USAGE)
@@ -120,6 +129,8 @@ def cmd_extend(args) -> int:
     config = project.config
     if not config.autopilot.enabled:
         return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot extend`", EXIT_REFUSED)
+    if (refused := _task_branch_refusal(config)) is not None:
+        return refused
     stored = runs.read(config, args.run)
     if stored is None:
         return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
@@ -307,6 +318,8 @@ def cmd_next(args) -> int:
     config = project.config
     if not config.autopilot.enabled:
         return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot next`", EXIT_REFUSED)
+    if (refused := _task_branch_refusal(config)) is not None:
+        return refused
     if _refuse_if_invalid(issues, args):
         return EXIT_INVALID
     if args.run is not None:

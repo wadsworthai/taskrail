@@ -13,6 +13,14 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
   to approve the stage. `validate` accepts it, `show` and `kind list` report it, and the autopilot
   records and escalates it like any gate (DESIGN.md §5.6, §12.6; T082).
 
+- **Work tasks on the checked-out branch with `[git] task_branch = "current"`.** With
+  `worktree = "never"` (required, exit 2 otherwise), a task has no branch of its own: `show`, `list`
+  and `next` report the checked-out branch with `branch_source` `"current"`, no `base` or worktree,
+  and never `done-branch`, `discarded-branch` or a stacked base; `claim` records that branch without a
+  warning or branch record; `new --workspace`, `workspace` and `branch` exit 5; `new` no longer warns
+  on the mainline; `checks` runs in the checkout; and `autopilot start`, `extend` and `next` exit 5.
+  `show`, `list` and `next` report the setting as `task_branch` under every configuration (T080).
+
 ## 0.2.0
 
 Adds the autopilot (DESIGN.md §12), `edit`, `import`, `checks`, `workspace`, `branch` and a merge
