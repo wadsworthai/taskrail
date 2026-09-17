@@ -317,3 +317,13 @@ The implement stage was approved, with two fixes:
      and T083 adds "show's close.review reads task_branch".
 
    Each edit returned its from/to pair and `files: ["TODO.md"]`.
+
+## Docs
+
+- `CLAUDE.md`: the layout line for `DESIGN.md` now names §13, the planned current-branch workflow,
+  next to §12.
+- `README.md` and `CHANGELOG.md` are unchanged (scope decision 15). The README gains the
+  single-maintainer configuration in T084.
+- No shipped skill or integration note changes: they describe current behaviour, and T084 teaches
+  them the workflow once it is built.
+- No follow-up tasks were opened.
