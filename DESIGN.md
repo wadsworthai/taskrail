@@ -1766,7 +1766,7 @@ run made before the configuration changed can still be inspected, followed throu
 | T080 | feature | T079 | `[git].task_branch` and its `worktree` check (§13.1, §13.6); `task_branch`, `branch`, `base`, `worktree`, `prior_work` and states under `"current"` in `show`, `list` and `next`; `claim`, `new`, `new --workspace`, `workspace`, `branch`, `edit` and `checks` (§13.2); the `task_branch` refusal of `autopilot start`, `extend` and `next` (§13.7) |
 | T081 | feature | T079 | `[git].commit` and the kind's `commit` policy with their validation (§13.1, §13.6); effective stage `commit`, `kind_descriptor.commit` and `commit_source`, `show`'s `close` with `close.commit`, and `done`'s and `discard`'s output (§13.3); the `on-done` refusal of `autopilot start`, `extend` and `next` (§13.7) |
 | T082 | feature | T079 | `gate = "decisions"` in kind loading, overrides, `show` and `kind list`, and the autopilot's `lane --gate` and `escalate_gates` (§13.4, §13.6) |
-| T083 | feature | T080 | `review` under `"current"`: no fetch, rebase or push, `commits` and `upstream`, and `--publish` refused with exit 5 (§13.5); `show`'s `close.review` (§13.3) |
+| T083 | feature | T080, T081 | `review` under `"current"`: no fetch, rebase or push, `commits` and `upstream`, and `--publish` refused with exit 5 (§13.5); `show`'s `close.review` (§13.3) |
 | T084 | chore | T080–T083 | the `taskrail` skill (workspace step skipped, commits after `done`, ask before any push, the decisions gate), executor skills and integration notes, and the README's single-maintainer configuration (§13.4, §13.5) |
 
 T080 and T081 both edit `[git]` loading in `config.py` and
