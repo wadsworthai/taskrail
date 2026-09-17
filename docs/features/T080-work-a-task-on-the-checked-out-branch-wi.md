@@ -1,6 +1,6 @@
 # T080 — Work a task on the checked-out branch with task_branch = current
 
-Kind: feature · Epic: E07 · Status: implemented
+Kind: feature · Epic: E07 · Status: verified
 
 Source: `DESIGN.md` §13.1, §13.2, §13.6, §13.7 and the T080 row of §13.8, as merged in T079; the
 T079 decision record (`docs/autopilot/decisions/T079-write-the-current-branch-workflow-into-d.md`,
@@ -181,6 +181,39 @@ All in `tests/test_current_branch.py`.
 Written before the code: 31 tests, of which 25 failed and 6 passed on the plan's commit. The 6 that
 passed guard orderings the change must keep (exit 3 for an unknown epic or task, the `enabled` check
 first, a claim's worktree used by `checks`, a dependency done in the checkout unblocking).
+
+## Verify
+
+The real CLI (`uv run --project <worktree> taskrail`) against a throwaway repository: `main` pushed
+to a bare `origin`, `[git] worktree = "never"`, `task_branch = "current"`, `[autopilot] enabled`, a
+`test` check printing its directory, and T001 plus T002 depending on it.
+
+- `show T001` text: no base line. `show T001 --json`: `task_branch` `current`, `branch` `main`,
+  `branch_source` `current`, `base`, `worktree` and `worktree_base` `null`, state `pending`;
+  `prior_work` all empty with `prepared` `null`, even with a local `T001-base-task` branch present.
+- `list --json`: T002 `blocked` by T001, every entry `current` on `main` with `base` `null`;
+  `next` lists only T001.
+- `claim T001 --json`: claim on `main`, `base` `null`, `branch_recorded` `false`, `warning` `null`;
+  no `.git/taskrail/branches` directory was created.
+- `checks T001`: ran in the repository's checkout, exit 0.
+- `new --workspace`, `workspace T001` and `branch T001 feature/x`: exit 5 with
+  `taskrail: [git].task_branch is "current": tasks have no branch of their own; work on the checked-out branch`.
+- `new --json` on `main`: `warning` `null`.
+- `autopilot start --count 1` and `autopilot next`: exit 5 with
+  `taskrail: the autopilot needs a branch per task; [git].task_branch is "current" in .taskrail/config.toml`.
+- `done T001`, then `show T002`: `pending`.
+- On a detached `HEAD`, `claim T002 --json`: claim `branch` `null`, and stderr and `warning` both read
+  `T002 was claimed on a detached HEAD: check out a branch to work the task on`.
+- With `worktree = "required"`, `validate` exits 2:
+  `taskrail: .taskrail/config.toml: git.task_branch = "current" requires git.worktree = "never"`.
+
+The behaviour matches the plan.
+
+## Implement gate decisions
+
+Recorded in the decisions file: `new --workspace` refuses before the `--branch` name check; `edit`
+needs no change of its own; the `branchrows.branch_of` hunk stays; the §13 marks follow the wording
+`— *implemented (T080)*, now §N`.
 
 ## Open questions and risks
 
