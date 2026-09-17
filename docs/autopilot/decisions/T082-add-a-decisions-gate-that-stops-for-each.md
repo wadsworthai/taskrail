@@ -35,3 +35,16 @@ not configured).
 |---|---|---|---|---|
 | 1 | Approve the implement stage | approve · change | **as recommended** | The diff matches the plan and the touch map; every criterion has a test observed failing first. |
 | 2 | Wording of the §13 in-place marks | "— *implemented (T082)*, now §x.y" · bare "*implemented (T082)*" | **as recommended** | The pointer says where the rule lives now; T080 and T081 are told to use the same form. |
+
+## close gate
+
+Reviewed: the verify section (commit `9595636`) and `taskrail done` committed on its own in `3feb255`
+(only T082's status cell); no upstream on the branch; clean worktree; `review --json` reports no
+rebase needed onto `origin/main`; `autopilot status` shows no escalation and no governing path.
+Exercised in a scratch repository with this branch's CLI: an override setting spike's gates to
+`decisions` gives `validate` 0 errors and `show` prints `(gate: decisions, commit)`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request title's type and scope | `feat(cli)` · `feat(kinds)` | **`feat(cli)`** | A new accepted value in the CLI's kind descriptors, the lane's suggestion; CLAUDE.md asks for a scope. |
+| 2 | Hand-off order among T080, T081, T082 | T082 first · wait for the others | **T082 first** | It is the first done and the smallest; T080 and T081 rebase onto it at their hand-off (conflicts limited to known classes and separate DESIGN.md lines). |
