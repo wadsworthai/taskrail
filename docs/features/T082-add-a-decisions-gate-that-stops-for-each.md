@@ -158,3 +158,22 @@ All in `tests/test_decisions_gate.py`:
 | 6 | `test_lane_records_a_decisions_gate_and_status_reports_it` |
 | 7 | `test_escalate_gates_flags_a_decisions_gate` |
 | 8 | `test_start_and_next_accept_kinds_with_decisions_gates` |
+
+## Verify
+
+The CLI from this branch (`uv run --project <worktree> taskrail --root <scratch>`) was run against a
+scratch repository with one spike task, a bare `origin`, `[autopilot] enabled = true`,
+`escalate_gates = ["spike:decide"]` and an override that copies the core spike kind with
+`gate = "decisions"` on `decide`:
+
+| Command | Result |
+|---|---|
+| `validate` | `1 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`, exit 0 |
+| `show T001` | `· decide (gate: decisions, commit)` |
+| `kind list --json` | spike, `override`, stages `frame` always, `investigate` none, `decide` decisions |
+| `autopilot start --count 1 --tasks T001`, then `claim T001 --run R` in a lane worktree | both exit 0 |
+| `autopilot lane T001 --run R --state gate --gate decide --reason "which library"` | `T001 in run R: gate at decide (which library)`, exit 0 |
+| `autopilot status --run R` | `T001   gate … — which library  ESCALATE: gate spike:decide`; JSON `state` gate, `gate` decide, `escalate_gate` spike:decide, `escalation` ["escalate-gate"] |
+| `validate` with the override's gate changed to `"decision"` | ``stage `decide`: gate must be one of always, conditional, decisions, none [kind-invalid]``, exit 1 |
+
+The behaviour matches the plan; no gap.
