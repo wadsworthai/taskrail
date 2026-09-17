@@ -80,8 +80,8 @@ Files checked and left unchanged:
    human runs `git fetch origin`, finds the squash commit of this pull request on `origin/main`,
    then runs `git tag -a v0.3.0 <squash commit> -m "taskrail 0.3.0"` and
    `git push origin v0.3.0`. The tag goes on that commit, not on whatever `main` is by then.
-2. **Verify and bump in a follow-up chore, T086**, as T078 did after T077. It is created on this branch
-   with `taskrail new` (no `--workspace`), in E01, depending on T085:
+2. **Verify and bump in a follow-up chore, T086**, as T078 did after T077. It is created on this
+   branch with `taskrail new` (no `--workspace`), in E01, depending on T085:
    `Bump main to 0.4.0.dev0 after the v0.3.0 tag`, described as "Once v0.3.0 is pushed on T085's
    squash commit, record the tag and a clean install from wadsworthai/taskrail@v0.3.0, then set
    0.4.0.dev0 and lock; stop at scope if the tag does not exist." Its scope stage stops if
@@ -254,3 +254,16 @@ installed `taskrail` was never used.
 
 The install from the published tag, the wrapper's `uvx` fallback and `self upgrade --dry-run` wait
 for the tag. T086 covers them.
+
+At the implement gate, the change set was approved as committed, and the long line in item 2 of
+*After the merge* was reflowed in the docs stage.
+
+### Docs stage
+
+No documentation needs to change beyond the change set. README *Releasing* already describes this
+process: a pull request, then the tag, then the install check and the bump. CLAUDE.md describes the
+changelog as "under Unreleased until a release", and an empty `## Unreleased` is kept. A grep for
+`dev0`, `0.3.0` and `Unreleased` in `README.md`, `CLAUDE.md`, `src/taskrail/skills/`,
+`src/taskrail/integrations/` and `examples/` finds only README's install example, already at
+`v0.3.0`, step 3 of *Releasing*, and CLAUDE.md's changelog line. The skills name no version. T086
+was opened in the implement stage, and no other follow-up is needed.
