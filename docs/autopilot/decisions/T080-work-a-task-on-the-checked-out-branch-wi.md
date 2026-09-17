@@ -41,3 +41,17 @@ configured).
 | 2 | `edit`'s `branch.source` is `current` from the shared resolver | accept · change `edit` | **as recommended** | One resolver answers every command, as §6.4 says; `recorded` stays false. |
 | 3 | `branchrows.branch_of` returns `None` under `"current"` | keep · drop | **as recommended** | No task branch can hold a row under `"current"`; it keeps `checks` and the autopilot from reading the checked-out tip as a task branch. |
 | 4 | (orchestrator) Wording of the §13 marks | T082's published form · keep this branch's | **T082's form** | T082, already published, marks in-place lines "— *implemented (T082)*, now §x.y" and ends its §13.8 row "; *implemented (T082)*". Use "— *implemented (T080)*, now §4" (and §12.2) for the §13.6 and §13.7 lines, and move the §13.8 mark to the end of the row as "; *implemented (T080)*", so the three branches mark §13 alike. |
+
+## close gate
+
+Reviewed: the §13 mark rewording (`c216e67`), the verify section (`b2054de`) and `taskrail done`
+committed on its own in `1806543` (only T080's status cell); no upstream on the branch; clean
+worktree; `review --json` reports no rebase needed onto `origin/main` at close; `autopilot status`
+shows no escalation. Exercised with this branch's CLI in the lane's scratch repository: `show T002
+--json` gives `task_branch` `current`, `branch` `main` with `branch_source` `current`, `base` and
+`worktree` null; `branch T002 x` exits 5 with the `[git].task_branch` message.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request title's type and scope | `feat(cli)` · other | **`feat(cli)`** | New CLI behaviour; CLAUDE.md asks for a scope. |
+| 2 | Hand-off timing | now · after T082 merges | **after T082 merges** | Hand-off is one branch at a time and T082 is in review; T080 is rebased onto the mainline then, resolving the CHANGELOG (known class) and separate DESIGN.md §13 lines. |
