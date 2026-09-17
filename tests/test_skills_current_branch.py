@@ -83,6 +83,19 @@ def test_claim_happens_in_the_checkout_on_the_current_branch(skill_copy):
     assert 'from inside the workspace — under `"current"`, the checkout you are in — run `taskrail claim <id>`' in text
 
 
+def test_a_claim_warning_on_the_current_branch_means_a_detached_head(skill_copy):
+    """Implement gate fix: `taskrail branch` exits 5 under "current", so the warning cannot mean a branch to name."""
+    text = step(skill_copy("taskrail/SKILL.md"), "4. **Claim.**", "5. **Stages.**")
+    assert "switch to that branch, or name it with `taskrail branch`, before any edit" in text
+    assert_phrases(
+        text,
+        (
+            'under `"current"`, where `taskrail branch` exits 5, a `warning` means a detached `head`',
+            "check out a branch before any edit",
+        ),
+    )
+
+
 # --- 2. Stages and commits -------------------------------------------------------------------------
 
 
@@ -107,6 +120,8 @@ def test_the_close_commits_as_close_commit_says(skill_copy):
         (
             "run `taskrail done <id>`",
             "commit as `close.commit` says",
+            'inside the workspace — under `"current"`, in the checkout —',
+            'under `"current"` no branch is recorded',
             '`"stages"` — commit that status change on its own',
             '`"on-done"` — make one or more logical commits of everything the task changed, the status change included',
         ),

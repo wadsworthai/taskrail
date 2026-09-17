@@ -58,16 +58,16 @@ of `taskrail show`) supplies what happens inside each stage.
 3. **Workspace.** When `task_branch` is `"current"`, skip this step: the task is worked on the
    checked-out branch — whichever it is, the mainline included — so `base`, `worktree` and
    `worktree_base` are `null`, and `taskrail new --workspace`, `taskrail workspace` and
-   `taskrail branch` exit 5. Stop and ask only when `branch` is `null` (a detached `HEAD`) or
-   when the task's live claim (`claim.branch`) names another branch than `branch`; otherwise go
-   on to claiming, in the checkout you are in. Under `"task"`: run `git fetch <base.remote>` first, with the mainline's own remote that
-   `show` reported, then `taskrail show <ID> --json --fetch` — which also brings in branch names
-   other clones recorded, when the repository mirrors them: its `base.onto` is the ref to branch
-   from — the local or the remote mainline, whichever is further ahead, or, when
-   `base.dependency` names a dependency finished only on its unmerged branch, that branch.
-   If `base.diverged` is true, stop and ask which one to use; if `base.onto` is null, stop and
-   report `base.reason`. If `base.row` is `missing`, the task's row exists only in this checkout,
-   and a workspace created from `base.onto` would not contain it: run
+   `taskrail branch` exit 5. Stop and ask only when `branch` is `null` (a detached `HEAD`) or when
+   the task's live claim (`claim.branch`) names another branch than `branch`; otherwise go on to
+   claiming, in the checkout you are in. Under `"task"`: run `git fetch <base.remote>` first, with
+   the mainline's own remote that `show` reported, then `taskrail show <ID> --json --fetch` —
+   which also brings in branch names other clones recorded, when the repository mirrors them: its
+   `base.onto` is the ref to branch from — the local or the remote mainline, whichever is further
+   ahead, or, when `base.dependency` names a dependency finished only on its unmerged branch, that
+   branch. If `base.diverged` is true, stop and ask which one to use; if `base.onto` is null, stop
+   and report `base.reason`. If `base.row` is `missing`, the task's row exists only in this
+   checkout, and a workspace created from `base.onto` would not contain it: run
    `taskrail workspace <ID> --json` instead of the git commands below. It creates the branch and
    worktree from `base.onto`, moves the row there with its ID and removes it from this checkout;
    commit the row inside the workspace, and the removal here when `removed_from.uncommitted` is
@@ -87,31 +87,34 @@ of `taskrail show`) supplies what happens inside each stage.
    (if you already did, run it afterwards so taskrail adopts the new name). It renames the local
    branch, keeps the worktree where it is, and never touches a remote branch: it exits 5 for a branch
    already pushed, and renaming one with `--force` is a decision to report at your next gate.
-4. **Claim.** From inside the workspace — under `"current"`, the checkout you are in — run `taskrail claim <ID>` before any edit. On the task's
-   branch it records that name, so a later title edit cannot change it. A `warning` in its
-   result means the workspace is not on the task's branch: switch to that branch, or name it
-   with `taskrail branch`, before any edit.
-5. **Stages.** Take `kind_descriptor.stages` in order. Skip a stage whose `applies` is false:
-   its column does not match this task. When `applies` and `judgement` are both true, decide
-   whether the stage is relevant to this task; to skip it, record the stage and your reason in
-   the artifact and in the next gate report — and if its gate is `always`, stop and ask before
-   skipping it; a stage whose gate is `decisions` is skipped without asking. For each stage you run: do its work (a stage the executor skill does not
-   describe is done as its `summary` says), run its checks with
-   `taskrail checks <ID> --stage <stage>`, which runs each command from the `checks` map in the
-   task's worktree and reports one it does not define as not configured (say so), commit when
-   the stage's `commit` is true, then apply its gate (see *Gates*). `commit` is the effective
-   value: under `close.commit` `"stages"`, `commit = false` means a commit is not required at that
-   point, not that one is forbidden; under `"on-done"` every stage reports `false`, and you commit
-   nothing until the task is done (step 8). Where an executor skill says to commit, that holds
-   only when the stage's `commit` is true.
+4. **Claim.** From inside the workspace — under `"current"`, the checkout you are in — run
+   `taskrail claim <ID>` before any edit. On the task's branch it records that name, so a later
+   title edit cannot change it. A `warning` in its result means the workspace is not on the task's
+   branch: switch to that branch, or name it with `taskrail branch`, before any edit. Under
+   `"current"`, where `taskrail branch` exits 5, a `warning` means a detached `HEAD`: check out a
+   branch before any edit.
+5. **Stages.** Take `kind_descriptor.stages` in order. Skip a stage whose `applies` is false: its
+   column does not match this task. When `applies` and `judgement` are both true, decide whether
+   the stage is relevant to this task; to skip it, record the stage and your reason in the
+   artifact and in the next gate report — and if its gate is `always`, stop and ask before
+   skipping it; a stage whose gate is `decisions` is skipped without asking. For each stage you
+   run: do its work (a stage the executor skill does not describe is done as its `summary` says),
+   run its checks with `taskrail checks <ID> --stage <stage>`, which runs each command from the
+   `checks` map in the task's worktree and reports one it does not define as not configured (say
+   so), commit when the stage's `commit` is true, then apply its gate (see *Gates*). `commit` is
+   the effective value: under `close.commit` `"stages"`, `commit = false` means a commit is not
+   required at that point, not that one is forbidden; under `"on-done"` every stage reports
+   `false`, and you commit nothing until the task is done (step 8). Where an executor skill says
+   to commit, that holds only when the stage's `commit` is true.
 6. **Scope.** Never edit the areas in `never_edit`. Work you discover outside the task's scope
    becomes a follow-up task (see *Creating tasks*); mention it at the next gate. Only fix
    something directly on the way when it is small and inseparable from the task.
 7. **Artifact.** Write the kind's document at `artifact`, and add a row for it to
    `artifact_index`, creating that index as a heading plus a table if it does not exist.
-8. **Close.** With every check passing, run `taskrail done <ID>` inside the workspace — it marks
-   the row in this branch and releases the claim; the task keeps its recorded branch name — and
-   commit as `close.commit` says:
+8. **Close.** With every check passing, run `taskrail done <ID>` inside the workspace — under
+   `"current"`, in the checkout — it marks the row in this branch and releases the claim; the task
+   keeps its recorded branch name, and under `"current"` no branch is recorded — and commit as
+   `close.commit` says:
    - `"stages"` — commit that status change on its own;
    - `"on-done"` — make one or more logical commits of everything the task changed, the status
      change included, and leave nothing of the task uncommitted.
