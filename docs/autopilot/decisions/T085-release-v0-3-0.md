@@ -42,3 +42,15 @@ wrapper and current-branch checks from the built wheel; the checks re-run with
 |---|---|---|---|---|
 | 1 | Approve the implement stage | approve · request changes | **approve** | The diff is the approved change set; the release was exercised from the built package. |
 | 2 | A long line in the artifact's *After the merge* | leave · reflow | **reflow it in the docs stage** | Cheap, and it keeps the artifact's wrap. |
+
+## close gate
+
+Reviewed: the docs stage (`0057b15`, the artifact only) and `taskrail done` committed on its own in
+`23fd607` (only T085's status cell); no upstream on the branch; clean worktree; `review --json`
+reports no rebase needed onto `origin/main`; `taskrail validate` clean; the scratch virtual
+environment built from this branch prints `taskrail 0.3.0`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request title | `chore(release): release v0.3.0 (T085)` · other | **as decided at scope (D7)** | As T077 and T078. |
+| 2 | The `v0.3.0` tag | after the merge with the human's explicit approval · now | **after the merge, only with the human's explicit approval** | A published tag never moves; it must sit on this pull request's squash commit. |
