@@ -55,3 +55,23 @@ kind `on-done` from `config` with every stage's `commit` false.
 |---|---|---|---|---|
 | 1 | Pull request title's type and scope | `feat(cli)` · other | **`feat(cli)`** | New CLI behaviour; CLAUDE.md asks for a scope. |
 | 2 | Hand-off timing | now · after T082 and T080 | **after T082 and T080, in that order** | One branch at a time; T081 is rebased then, keeping both halves where it meets T080 (config load, `cmd_show`, the autopilot call lines, §4 and §12.2 notes) and T082 (§5.1 note, §13 lines), and the changelog. |
+
+## rebase after T082 and T080
+
+T082 (`49ccec0`) and T080 (`456f3bc`) were merged into main. The branch was rebased onto
+`origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `docs/features/README.md`, `docs/autopilot/decisions/README.md` and `CHANGELOG.md` | keep both · stop | **keep both** | Known class 2: appended index rows and changelog bullets, one per task. |
+| 2 | Conflict in `TODO.md` (status cells of T080, T081, T082) | ✅ wins per ID · stop | **✅ wins per ID** | Known class 1; no `Reopens:` commit on either side; `taskrail validate` clean. |
+| 3 | Conflicts in `autopilot/commands.py` (the refusal call after `enabled`, ×3) and `cli.py` (`cmd_show`'s `searched` and `close` lines) | keep both · stop | **keep both: the `task_branch` refusal first, then the on-done refusal; both `cmd_show` lines** | Outside the known classes, so escalated; the human chose "the orchestrator combines both". Independent adjacent hunks the touch map predicted; §13.7 lists the `task_branch` refusal first. |
+| 4 | Conflicts in DESIGN.md §4 (example lines, config-check paragraphs), §5.1, §7 `show` row, §12.2, §13.6, §13.7, §13.8 | combine · stop | **combine: keep each side's implemented text and marks, drop the "Planned" notes each side left for the other; §7's `show` row names `task_branch` and `close.commit` as current and only `close.review` as planned** | Same escalation and answer; each side had marked its own part implemented and the other's planned. |
+
+Answered by the human (repository owner), in the orchestrator session, for items 3 and 4.
+
+After the rebase: no conflict markers (`git diff --check` clean); `taskrail validate` reports no
+errors or warnings; `taskrail checks T081` re-run: 1118 passed (lint not configured). Exercised the
+combined CLI in a scratch repository with `worktree = "never"`, `task_branch = "current"` and
+`commit = "on-done"`: `autopilot start --count 1` exits 5 with the `task_branch` message first, and
+`show --json` reports `task_branch` `current`, `branch_source` `current` and `close` `{"commit": "on-done"}`.
