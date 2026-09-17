@@ -43,9 +43,17 @@ def _claim(project: Project, task_id: str):
 
 
 def worktree(project: Project, task: Task, claim) -> Path:
-    """The claim's worktree when it exists, else the worktree that has the task's branch checked out."""
+    """The claim's worktree when it exists, else the worktree that has the task's branch checked out.
+
+    Under `task_branch = "current"`, else the checkout the command runs from.
+    """
     if claim is not None and claim.worktree and Path(claim.worktree).is_dir():
         return Path(claim.worktree).resolve()
+    if branches.is_current(project.config):  # the checkout it runs from (DESIGN.md §7.5)
+        try:
+            return gitutil.toplevel(project.config.root).resolve()
+        except gitutil.GitError:
+            return project.config.root.resolve()
     branch, _ = branches.resolve(task, project)
     try:
         found = gitutil.worktree_branches(project.config.root).get(branch) if branch else None

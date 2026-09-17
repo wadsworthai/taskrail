@@ -26,6 +26,8 @@ ADOPTED_ORDER = 10**9  # adopted rows sort after every row of the checkout at eq
 
 def branch_of(project: Project, task_id: str, claimed: dict | None) -> str | None:
     """The branch a task absent from the checkout lives on: its live claim's, else its recorded one."""
+    if branches.is_current(project.config):  # a task has no branch of its own to hold its row
+        return None
     claim = (claimed or {}).get(task_id)
     if claim is not None and claim.branch:
         return claim.branch

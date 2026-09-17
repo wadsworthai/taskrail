@@ -148,8 +148,9 @@ def cmd_show(args) -> int:
     data = task_dict(task, project, claimed)
     kind = project.kinds.get(task.kind)
     data["kind_descriptor"] = kind.to_dict(task) if kind else None
+    searched = None if branches.is_current(project.config) else data["branch"]  # the checked-out branch is no evidence
     data["prior_work"] = prior.prior_work(
-        project.config.root, task.id, data["branch"], data["artifact"], (data["base"] or {}).get("onto"), project.config.backlog(task.backlog).file
+        project.config.root, task.id, searched, data["artifact"], (data["base"] or {}).get("onto"), project.config.backlog(task.backlog).file
     )
     lines = [
         f"{task.id} — {task.title}",
@@ -291,6 +292,8 @@ def cmd_claim(args) -> int:
 def _freeze_branch(task, project: Project, claimed_on: str | None) -> tuple[bool, str | None]:
     """Record the template branch a task is claimed on, so a later title edit cannot move it; warn on any other branch."""
     resolved, source = branches.resolve(task, project)
+    if source == branches.CURRENT:  # the checked-out branch is the task's: nothing to record (DESIGN.md §6.1)
+        return False, None if claimed_on else f"{task.id} was claimed on a detached HEAD: check out a branch to work the task on"
     if claimed_on and claimed_on == resolved:
         if source == branches.TEMPLATE:
             branches.write(project.config, task.id, resolved)
@@ -457,6 +460,9 @@ def cmd_new(args) -> int:
     values.update(custom)
 
     config = origin_config = project.config
+    if args.workspace and branches.is_current(config):
+        print(f"taskrail: {branches.CURRENT_REFUSAL}", file=sys.stderr)
+        return EXIT_REFUSED
     if args.workspace:
         _fetch_records(project)
     if args.branch is not None:
@@ -524,7 +530,7 @@ def cmd_new(args) -> int:
             result["record_remote"] = _mirror_record(origin_config, written)
 
     warning = None
-    if not workspace and gitutil.current_branch(config.root) == backlog.config.mainline:
+    if not workspace and not branches.is_current(config) and gitutil.current_branch(config.root) == backlog.config.mainline:
         warning = (
             f"{task_id} was written to this checkout of {backlog.config.mainline}, uncommitted; commit it to "
             f"{backlog.config.mainline}, or run `taskrail workspace {task_id}` to move it into its own branch"
@@ -623,6 +629,9 @@ def cmd_workspace(args) -> int:
     if task is None:
         print(f"taskrail: no task `{args.id}`", file=sys.stderr)
         return EXIT_NOT_FOUND
+    if branches.is_current(project.config):
+        print(f"taskrail: {branches.CURRENT_REFUSAL}", file=sys.stderr)
+        return EXIT_REFUSED
     if task.status is not Status.PENDING:
         label = task.status.label if task.status else f"`{task.status_raw}`"
         print(f"taskrail: {task.id} is {label}, not pending", file=sys.stderr)
@@ -1011,6 +1020,9 @@ def cmd_branch(args) -> int:
         print(f"taskrail: no task `{args.id}`", file=sys.stderr)
         return EXIT_NOT_FOUND
     config = project.config
+    if branches.is_current(config):
+        print(f"taskrail: {branches.CURRENT_REFUSAL}", file=sys.stderr)
+        return EXIT_REFUSED
     root = config.root
     gitutil.common_dir(root)
     if not args.local_only:

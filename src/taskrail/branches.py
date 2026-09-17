@@ -27,6 +27,8 @@ from taskrail.templates import render
 CACHE_KEY = "branch_records"
 RECORDED = "recorded"
 TEMPLATE = "template"
+CURRENT = "current"  # `[git].task_branch = "current"`: the checked-out branch, never recorded
+CURRENT_CACHE_KEY = "current_branch"
 REMOTE_NAMESPACE = "refs/taskrail/branches"
 RECORD_FILE = "branch.json"
 
@@ -199,8 +201,28 @@ def template_branch(task: Task, project: Project) -> str | None:
     return render(kind.branch, task, project.config) if kind else None
 
 
+def is_current(config: Config) -> bool:
+    """Whether tasks are worked on the checked-out branch instead of a branch of their own (DESIGN.md §6.4)."""
+    return config.task_branch == CURRENT
+
+
+# Why `new --workspace`, `workspace` and `branch` exit 5 under `task_branch = "current"` (DESIGN.md §6.4).
+CURRENT_REFUSAL = '[git].task_branch is "current": tasks have no branch of their own; work on the checked-out branch'
+
+
+def _checked_out_branch(project: Project) -> str | None:
+    if CURRENT_CACHE_KEY not in project.cache:
+        try:
+            project.cache[CURRENT_CACHE_KEY] = gitutil.current_branch(project.config.root)
+        except gitutil.GitError:
+            project.cache[CURRENT_CACHE_KEY] = None
+    return project.cache[CURRENT_CACHE_KEY]
+
+
 def resolve(task: Task, project: Project) -> tuple[str | None, str]:
-    """The task's branch and where it comes from: `recorded` or `template`."""
+    """The task's branch and where it comes from: `recorded` or `template`, or `current` under `task_branch = "current"`."""
+    if is_current(project.config):
+        return _checked_out_branch(project), CURRENT
     found = _records(project).get(task.id)
     if found is not None:
         return found.branch, RECORDED

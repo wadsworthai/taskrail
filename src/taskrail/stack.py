@@ -92,6 +92,8 @@ def _cached(project: Project) -> tuple[dict[str, DoneOnBranch], dict[str, DoneOn
 def _find(project: Project) -> tuple[dict[str, DoneOnBranch], dict[str, DoneOnBranch]]:
     config = project.config
     root = config.root
+    if branches.is_current(config):  # no task has a branch of its own, so none is closed on one (DESIGN.md §6.4)
+        return {}, {}
     try:
         gitutil.common_dir(root)
         existing = set(gitutil.refs(root, "refs/heads")) | set(gitutil.refs(root, "refs/remotes"))

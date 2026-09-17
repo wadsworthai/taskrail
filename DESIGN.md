@@ -141,7 +141,7 @@ branch_record_remote = ""        # e.g. "origin" to share task branch records ac
 claim_grace_minutes = 15         # how long a claim's branch may be missing before it is stale
 worktree = "required"            # "required": one worktree per task; "never": a branch in this checkout
 worktree_dir = ".worktrees"
-task_branch = "task"             # planned (§13): "current" works tasks on the checked-out branch
+task_branch = "task"             # "current": work tasks on the checked-out branch (§6.4); needs worktree = "never"
 commit = "stages"                # planned (§13): "on-done" commits a task's changes after `done`
 
 [review]                         # hand-off after closing (§7.1)
@@ -195,8 +195,11 @@ and a malformed `[[autopilot.resource]]`: a missing, duplicate or malformed `nam
 letters, digits and underscores, starting with a letter), or `values` that are not a non-empty
 list of unique non-empty strings. Every message names the table entry and the key.
 
-*Planned (§13.6):* `[git].task_branch` and `[git].commit` join these checks — an unknown value, or
-`task_branch = "current"` without `worktree = "never"`, exits 2.
+`[git].task_branch` is checked the same way: a value other than `"task"` or `"current"`, or
+`task_branch = "current"` without `worktree = "never"` (`git.task_branch = "current" requires git.worktree = "never"`;
+`worktree` defaults to `"required"`, so it must be written), exits 2 (*T080*).
+
+*Planned (§13.6):* `[git].commit` joins these checks — an unknown value exits 2.
 
 ## 5. Kinds
 
@@ -427,6 +430,10 @@ owner and branch is a no-op. A held claim also settles the task's branch name (�
 the name its template renders and with no record yet, `claim` records that name, so a later hand
 edit of the title no longer changes the branch; claimed on any other branch — another name, a
 mainline or a detached `HEAD` — it records nothing and warns on stderr, naming `taskrail branch`.
+With `[git].task_branch = "current"` (§6.4) the checked-out branch is the task's: `claim` records it in
+the claim, writes no branch record, gives no warning and records `base` `null`; on a detached `HEAD` the
+claim's `branch` is `null` and the warning says to check out a branch to work the task on, since
+`taskrail branch` is refused there (*T080*).
 `--json` returns `branch_recorded`, the same `warning` (`null` when there is none) and
 `record_remote` (§6.4); the exit code stays 0. `taskrail release <ID>` removes a claim; releasing someone
 else's needs `--force`. The owner defaults to `$TASKRAIL_OWNER`, then `user@host`.
@@ -469,8 +476,32 @@ not move the counter.
 A task's branch is its **recorded** branch when one exists, otherwise the name its kind's
 `branch` template renders. One resolver answers that for every command — `show`, `list`, `next`,
 `new --workspace`, `review`, `done-branch` detection, a dependent's base and prior work — and
-nothing else renders the template. *Planned (§13.2):* with `[git].task_branch = "current"` it
-answers the checked-out branch instead, and no record is written.
+nothing else renders the template.
+
+**The current branch.** With `[git].task_branch = "current"` (which requires `worktree = "never"`, §4)
+a task has no branch of its own: it is worked on whatever branch the checkout has, the mainline
+included, and the resolver answers the checked-out branch — `null` on a detached `HEAD` — with the
+source `current`, also while a claim names another branch. No record is ever written (*T080*):
+
+- `show`, `list` and `next` report a top-level `task_branch`, `"task"` or `"current"`, under every
+  setting, so an executor reads its workflow from them. Under `"current"`, `branch_source` is
+  `"current"`; `base`, `worktree` and `worktree_base` are `null` (there is no workspace to create, no
+  fork point and no `row` to check) and the text of `show` has no base line; `prior_work.branches` is
+  `[]` and `prepared` is `null`, and the commit search has no `branch` form, since the checked-out
+  branch is no evidence of earlier work (§7.2).
+- `done-branch` and `discarded-branch` are never derived: a task's state comes from the checkout's
+  rows and the claims alone, so a dependency blocks until it is `✅` in this checkout — which `done`
+  makes it — and no task is stacked on another (§7, *Dependencies and the base*).
+- `claim` records the checked-out branch (§6.1). `new --workspace` exits 5 before reserving an ID,
+  and `workspace <ID>` and `branch <ID> <NAME>` exit 5 once the task is found, each with
+  `taskrail: [git].task_branch is "current": tasks have no branch of their own; work on the checked-out branch`.
+  `new` without `--workspace` never warns on the mainline (`warning` is `null`), `edit` never records a
+  task's old branch name, and `checks` runs in the checkout when the claim records no existing
+  worktree (§7.5).
+- `claim_remote` works unchanged: setting it is the human's standing approval to push the claim's
+  ref, which lives outside `refs/heads`. `branch_record_remote` is accepted but pushes nothing, since
+  no record is written. No command pushes a branch.
+- The autopilot refuses to start, extend or dispatch a run (§12.2).
 
 A record is a file next to the claims, `$(git rev-parse --git-common-dir)/taskrail/branches/<ID>.json`,
 holding `id`, `branch` and `recorded` (a timestamp). Every worktree of the clone sees it; it is
@@ -546,14 +577,14 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate [--no-history] [--history-limit N]` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks. Also warns about reopens committed without a trailer (*Reopens in history* below) |
 | `taskrail list [--epic E01] [--eligible] [--fetch]` | Tasks, with computed blocked and eligible state; each `--json` entry carries `show`'s task fields, `worktree` and `worktree_base` included, without `kind_descriptor` and `prior_work` |
-| `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches; its `row` says whether the base has the task's row, and the text names `taskrail workspace` when only this checkout has it), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; relative to `worktree_base`, with `..` segments for a worktree outside it, and the same from every checkout of the clone (T072); `null` unless `worktree = "required"`), `worktree_base` (the absolute directory `worktree` is relative to and task worktrees are created under: the repository's main checkout — the first entry of `git worktree list` — or, when that entry is a bare repository, the directory holding it; the same from every checkout (T075); `null` when `worktree` is), artifact and index paths, `never_edit`, check commands, and `prior_work` (§7.2); planned: `task_branch` and `close`, and what `"current"` changes (§13.2, §13.3) |
+| `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches; its `row` says whether the base has the task's row, and the text names `taskrail workspace` when only this checkout has it), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; relative to `worktree_base`, with `..` segments for a worktree outside it, and the same from every checkout of the clone (T072); `null` unless `worktree = "required"`), `worktree_base` (the absolute directory `worktree` is relative to and task worktrees are created under: the repository's main checkout — the first entry of `git worktree list` — or, when that entry is a bare repository, the directory holding it; the same from every checkout (T075); `null` when `worktree` is), artifact and index paths, `never_edit`, check commands, `prior_work` (§7.2), and `task_branch` (`"task"` or `"current"`; what `"current"` changes is in §6.4); planned: `close` (§13.3) |
 | `taskrail next [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` or `discarded-branch` task; a task whose `base.row` is `missing` stays listed, its text line ending `(row not on <onto>)`; `--json` entries as for `list` |
 | `taskrail claim <ID> [--run R]` / `taskrail release <ID>` | §6.1, §6.2; `--run` ties the claim to an autopilot run (§12.4) |
-| `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4); planned: exit 5 under `task_branch = "current"` (§13.2) |
+| `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4); exit 5 under `task_branch = "current"` (§6.4) |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
 | `taskrail reserve-id` / `taskrail unreserve-id <ID>` | §6.3 |
-| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there — the worktree at `<worktree_dir>/<branch>` under `show`'s `worktree_base`, the path `show` reports, whichever checkout runs the command (T073, T075); `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved; without `--workspace`, on a checkout of the backlog's mainline, it warns on stderr, naming `taskrail workspace`, and returns the text in `warning` (`null` otherwise); planned under `task_branch = "current"`: `--workspace` exits 5 and no warning (§13.2) |
-| `taskrail workspace <ID> [--branch NAME]` | Create the branch and worktree of a task whose row is missing from its base (`base.row`), from that base — the worktree where `new --workspace` puts it — and move the row there with its ID, keeping it reserved (see *A row missing from its base*); planned: exit 5 under `task_branch = "current"` (§13.2) |
+| `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there — the worktree at `<worktree_dir>/<branch>` under `show`'s `worktree_base`, the path `show` reports, whichever checkout runs the command (T073, T075); `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved; without `--workspace`, on a checkout of the backlog's mainline, it warns on stderr, naming `taskrail workspace`, and returns the text in `warning` (`null` otherwise); under `task_branch = "current"`, `--workspace` exits 5 and there is no warning (§6.4) |
+| `taskrail workspace <ID> [--branch NAME]` | Create the branch and worktree of a task whose row is missing from its base (`base.row`), from that base — the worktree where `new --workspace` puts it — and move the row there with its ID, keeping it reserved (see *A row missing from its base*); exit 5 under `task_branch = "current"` (§6.4) |
 | `taskrail edit <ID> [--title] [--pts] [--depends-on] [--description] [--kind] [--column NAME=VALUE]… [--force] [--local-only]` | Change cells of an existing task row (see the rules below) |
 | `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below); planned: `--json` reports the task's commit policy (§13.3) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
@@ -735,6 +766,9 @@ dependencies block the task, and `blocked_by` lists them. `show`'s `base` holds 
 `new --workspace --depends-on …` branches from the same base, and refuses with exit 5 when two or
 more dependencies are unmerged.
 
+With `[git].task_branch = "current"` none of this applies: `base` is `null`, no task is `done-branch`
+and none is stacked, so a dependency blocks until it is `done` in the checkout (§6.4).
+
 **A row missing from its base.** `show`, `list` and `next` read the working tree, so a row that
 `new` wrote without `--workspace` — uncommitted on a mainline checkout, or committed on a branch that
 is not the base — reads `pending` while `onto` lacks it, and a workspace created from `onto` could
@@ -789,7 +823,8 @@ skill asks the agent to look at them and mention them at its first gate.
 
 - `artifact` — where the artifact file exists: `working tree`, then each local and
   remote-tracking branch tip that has it (one `git cat-file --batch` over all tips).
-- `branches` — the task branch (§6.4) as a local branch and as `<remote>/<branch>`.
+- `branches` — the task branch (§6.4) as a local branch and as `<remote>/<branch>`; `[]` under
+  `task_branch = "current"`, where the commit search also has no `branch` form and `prepared` is `null`.
 - `commits` — commits reachable from `HEAD`, local and remote-tracking branches (not tags or
   claim refs) whose subject names the task, newest first and capped at 10, with
   `commits_total` for the full count. Each carries the form it matched: `prefix` (the subject
@@ -997,7 +1032,8 @@ the whole section (`git config --remove-section merge.taskrail`) to opt out.
 `taskrail checks <ID>` runs the checks named by the stages of the task's kind that apply to it —
 in stage order, each once, the same set as `show`'s `checks` — or only those of `--stage`, or
 only the `--check` names. It runs them in the task's worktree: the one its claim records when
-that directory exists, else the one that has its branch checked out; the commands and kinds
+that directory exists, else the one that has its branch checked out — under
+`task_branch = "current"`, else the checkout it runs from, never exit 5; the commands and kinds
 come from that worktree's own configuration. Each runs through the platform shell with the
 worktree as working directory and, when an autopilot run lists the task (the claim's run, else
 the newest run), its lane's resource values as `TASKRAIL_RESOURCE_<NAME>` (§12.7).
@@ -1205,9 +1241,13 @@ in use and hand-off queue. Other commands — `show`, `list`, plain `next`, `cla
 - A repository opts in with `[autopilot].enabled = true`. Until then `autopilot start` refuses
   with exit 5 and names the key, and the skill stops when it sees that refusal. The refusal is a
   CLI guarantee, so it holds on any agent (*implemented, T029*).
-- *Planned (§13.7):* `autopilot start`, `extend` and `next` also refuse with exit 5, after that check,
-  a repository with `[git].task_branch = "current"` or a driven kind whose commit policy is
-  `"on-done"`.
+- `autopilot start`, `extend` and `next` (preview included) also refuse with exit 5, right after that
+  check, a repository with `[git].task_branch = "current"` (§6.4):
+  `taskrail: the autopilot needs a branch per task; [git].task_branch is "current" in .taskrail/config.toml`.
+  A run needs a branch per task (§12.3, §12.8); `status`, `lane`, `decision`, `approve-governing`,
+  `merged`, `notify` and `close` keep working, so a run made before the configuration changed can
+  still be inspected, followed through and closed (*implemented, T080*).
+- *Planned (§13.7):* they also refuse a driven kind whose commit policy is `"on-done"`.
 
 The spike had recommended installing the skill only where the autopilot is enabled, through the
 kind filter. The human chose to install it always, so every consumer receives the same skills.
@@ -1642,41 +1682,7 @@ commit = "on-done"               # "stages" (default): as each stage's `commit` 
 
 ### 13.2 The current branch
 
-With `task_branch = "current"` a task has no branch of its own: it is worked on whatever branch the
-checkout has, the mainline included.
-
-**`show`, `list` and `next`.**
-
-- A top-level `task_branch` field, `"task"` or `"current"`, under every setting, so an executor reads
-  its workflow from `show` (in `list` and `next` entries too).
-- `branch` is the checked-out branch, `null` on a detached `HEAD`, with `branch_source` `"current"`
-  — also while a claim names another branch; `claim.branch` still says where the task was claimed.
-  The resolver of §6.4 answers this for every command.
-- `base` is `null`: there is no workspace to create, no fork point to rebase onto and no `row` to
-  check. The text form omits its base line.
-- `worktree` and `worktree_base` are `null`, as with `worktree = "never"` today.
-- `prior_work.branches` is `[]`, since the checked-out branch is no evidence of earlier work, and
-  `prepared` is `null`; `artifact` and `commits` are reported as before (§7.2).
-- `done-branch` and `discarded-branch` are never derived. A task's state comes from the checkout's
-  rows and the claims alone, so a dependency blocks until it is `✅` in this checkout — which `done`
-  makes it — and no task is ever stacked on another (§7, *Dependencies and the base*).
-
-**Commands.**
-
-- `claim` records the checked-out branch in the claim, writes no branch record (§6.4) and gives no
-  warning; on a detached `HEAD` it keeps today's warning, with `branch` `null`. The claim's `base`
-  is `null`. Staleness (§6.1) is unchanged.
-- `new --workspace` exits **5** before reserving an ID; `workspace <ID>` and `branch <ID> <NAME>`
-  exit **5**. Each message names `[git].task_branch`, for example
-  `taskrail: [git].task_branch is "current": tasks have no branch of their own; work on the checked-out branch`.
-- `new` without `--workspace` never warns on the mainline checkout (`warning` is `null`): committing
-  there is the workflow.
-- `edit` never records a task's old branch name, since there is no template name to keep.
-- `checks` runs in the claim's worktree when it exists, else in the checkout it runs from, and never
-  exits 5 for a missing worktree.
-- `claim_remote` works unchanged: setting it is the human's standing approval to push the claim's
-  ref, which lives outside `refs/heads`. `branch_record_remote` is accepted but pushes nothing, since
-  no record is written. No command pushes a branch.
+*Implemented (T080): now in §6.4 (**The current branch**), with `claim` in §6.1 — whose detached-`HEAD` warning says to check out a branch to work the task on — the `show`, `new`, `workspace` and `branch` rows and *Dependencies and the base* in §7, `prior_work` in §7.2 and `checks` in §7.5.*
 
 ### 13.3 On-done commits
 
@@ -1745,10 +1751,10 @@ The workspace step of the procedure is skipped: the executor claims in the check
 
 - **Configuration** — checked when the config loads, so every command, `validate` included, exits
   **2** naming the key:
-  - `git.task_branch` other than `"task"` or `"current"`;
+  - `git.task_branch` other than `"task"` or `"current"` — *implemented (T080)*, now §4;
   - `git.commit` other than `"stages"` or `"on-done"`;
   - `git.task_branch = "current" requires git.worktree = "never"` — `worktree` defaults to
-    `"required"`, so it must be written.
+    `"required"`, so it must be written — *implemented (T080)*, now §4.
 - **Kinds** — reported by `validate` as `kind-invalid` errors (exit 1), naming the descriptor:
   - a stage `gate` outside `always`, `conditional`, `decisions` and `none` — *implemented (T082)*, now §5.6;
   - a top-level `commit` other than `"stages"` or `"on-done"`, such as a boolean written at the
@@ -1764,7 +1770,8 @@ restarted from its branch and the orchestrator can review commit ranges at gates
 `[autopilot].enabled` check (§12.2):
 
 - with `task_branch = "current"`:
-  `taskrail: the autopilot needs a branch per task; [git].task_branch is "current" in .taskrail/config.toml`;
+  `taskrail: the autopilot needs a branch per task; [git].task_branch is "current" in .taskrail/config.toml`
+  — *implemented (T080)*, now §12.2;
 - when the effective commit policy (§13.3) of any kind the run drives (§12.1) — for `start`, its
   `--kinds` or the kinds of its `--tasks`; for `extend` and `next --run`, the run's; for the
   preview, `[autopilot].kinds`; every allowed kind wherever none is given — is `"on-done"`, naming
@@ -1779,7 +1786,7 @@ run made before the configuration changed can still be inspected, followed throu
 | Task | Kind | Depends on | Builds |
 |---|---|---|---|
 | T079 | chore | — | this section |
-| T080 | feature | T079 | `[git].task_branch` and its `worktree` check (§13.1, §13.6); `task_branch`, `branch`, `base`, `worktree`, `prior_work` and states under `"current"` in `show`, `list` and `next`; `claim`, `new`, `new --workspace`, `workspace`, `branch`, `edit` and `checks` (§13.2); the `task_branch` refusal of `autopilot start`, `extend` and `next` (§13.7) |
+| T080 | feature | T079 | `[git].task_branch` and its `worktree` check (§13.1, §13.6); `task_branch`, `branch`, `base`, `worktree`, `prior_work` and states under `"current"` in `show`, `list` and `next`; `claim`, `new`, `new --workspace`, `workspace`, `branch`, `edit` and `checks` (§13.2); the `task_branch` refusal of `autopilot start`, `extend` and `next` (§13.7); *implemented (T080)* |
 | T081 | feature | T079 | `[git].commit` and the kind's `commit` policy with their validation (§13.1, §13.6); effective stage `commit`, `kind_descriptor.commit` and `commit_source`, `show`'s `close` with `close.commit`, and `done`'s and `discard`'s output (§13.3); the `on-done` refusal of `autopilot start`, `extend` and `next` (§13.7) |
 | T082 | feature | T079 | `gate = "decisions"` in kind loading, overrides, `show` and `kind list`, and the autopilot's `lane --gate` and `escalate_gates` (§13.4, §13.6); *implemented (T082)* |
 | T083 | feature | T080, T081 | `review` under `"current"`: no fetch, rebase or push, `commits` and `upstream`, and `--publish` refused with exit 5 (§13.5); `show`'s `close.review` (§13.3) |
