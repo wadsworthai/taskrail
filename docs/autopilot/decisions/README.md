@@ -64,3 +64,4 @@
 | T082 | Add a decisions gate that stops for each decision instead of each stage | [T082-add-a-decisions-gate-that-stops-for-each.md](T082-add-a-decisions-gate-that-stops-for-each.md) |
 | T080 | Work a task on the checked-out branch with task_branch = current | [T080-work-a-task-on-the-checked-out-branch-wi.md](T080-work-a-task-on-the-checked-out-branch-wi.md) |
 | T081 | Commit a task's changes only when it is done with commit = on-done | [T081-commit-a-task-s-changes-only-when-it-is.md](T081-commit-a-task-s-changes-only-when-it-is.md) |
+| T083 | Close a current-branch task without fetch, rebase or publish | [T083-close-a-current-branch-task-without-fetc.md](T083-close-a-current-branch-task-without-fetc.md) |
