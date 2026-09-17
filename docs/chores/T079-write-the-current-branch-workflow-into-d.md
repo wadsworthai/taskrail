@@ -299,3 +299,21 @@ describes the need in general terms only. The change set and its boundary were a
 - `taskrail validate` → `73 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
 - `taskrail checks T079 --stage implement` → `test: uv run pytest -q` `1052 passed in 149.59s`;
   `lint: not configured`; `passed`.
+
+## Decisions at the implement gate
+
+Recorded in [the autopilot decision record](../autopilot/decisions/T079-write-the-current-branch-workflow-into-d.md).
+The implement stage was approved, with two fixes:
+
+1. **T082's row.** `taskrail edit T082 --description` now opens with `DESIGN.md §13.4:` and names
+   `show, kind list` instead of `kind show`, which is not a command. This matches §13.8.
+2. **`close.review` goes to T083.** T080, T081 and T082 run in parallel, and T083 runs only once all
+   three are merged, so T083 is the one task that sees both settings. The following changed:
+   - §13.3: T081 adds `close` with `commit`, and T083 adds `review`.
+   - §13.8: the T081 row names `close.commit`, and the T083 row adds `show`'s `close.review`. The
+     note below the table no longer says "whichever of T080 and T081 lands second"; its conflict
+     note about `config.py`/`show` and `kinds.py` stays.
+   - `taskrail edit --description`: T081 names `close.commit` instead of `close {commit, review}`,
+     and T083 adds "show's close.review reads task_branch".
+
+   Each edit returned its from/to pair and `files: ["TODO.md"]`.
