@@ -62,3 +62,4 @@
 | T078 | Bump main to 0.3.0.dev0 after the v0.2.0 tag | [T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md](T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md) |
 | T079 | Write the current-branch workflow into DESIGN.md | [T079-write-the-current-branch-workflow-into-d.md](T079-write-the-current-branch-workflow-into-d.md) |
 | T082 | Add a decisions gate that stops for each decision instead of each stage | [T082-add-a-decisions-gate-that-stops-for-each.md](T082-add-a-decisions-gate-that-stops-for-each.md) |
+| T080 | Work a task on the checked-out branch with task_branch = current | [T080-work-a-task-on-the-checked-out-branch-wi.md](T080-work-a-task-on-the-checked-out-branch-wi.md) |
