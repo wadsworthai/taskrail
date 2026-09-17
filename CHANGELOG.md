@@ -8,6 +8,14 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
 
 ## Unreleased
 
+- **The skills follow the repository's workflow.** The `taskrail` skill reads `task_branch`,
+  `close.commit`, `close.review` and each stage's gate from `show`: under `task_branch = "current"`
+  it skips the workspace step, claims in the checkout and closes with `review --json` as a report,
+  **asking the human before any push**; under `commit = "on-done"` it commits nothing before `done`
+  and then commits everything the task changed; a `"decisions"` gate stops only for a decision. The
+  executor skills, the Claude Code and OpenCode notes and the autopilot skill follow, and the README
+  documents a single-maintainer configuration (T084).
+
 - **Close a current-branch task with a report.** Under `[git] task_branch = "current"`,
   `taskrail review <ID>` no longer exits 2: it fetches, rebases and pushes nothing, keeps its `--json`
   keys with `fetched`, `rebase.enabled`, `push.enabled` and `published` `false` and a reference pull
@@ -34,8 +42,7 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
   stage's `commit` as `false`, and each descriptor carries `commit` and `commit_source`; `show` adds
   `close.commit`, and `done` and `discard` report `commit` and tell the executor to commit everything
   the task changed. Any other value exits 2 in `[git]` and is a `kind-invalid` error in a descriptor.
-  `autopilot start`, `extend` and `next` exit 5 when a kind the run drives commits on done. The
-  skills still commit per stage until they learn `close.commit` (T081).
+  `autopilot start`, `extend` and `next` exit 5 when a kind the run drives commits on done (T081).
 
 ## 0.2.0
 

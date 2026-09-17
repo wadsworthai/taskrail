@@ -12,6 +12,12 @@ Follow the `taskrail` skill's procedure; this skill defines the stages. If the f
 too large for a short plan, say so at the plan gate instead of writing a long one; the human
 may split it into several tasks.
 
+The gate in each heading below is the core kind's default; follow the gate and the `commit` that
+`taskrail show` reports for each stage, which a repository may change. "Commit" in a stage holds
+only when that stage's `commit` is true. Under a `decisions` gate, where a stage says the human
+approves at the gate, record what would be approved in the artifact and continue: stop only for a
+decision, and every "stop and ask" below is one.
+
 ## plan — gate: always
 
 Write the artifact with these sections:

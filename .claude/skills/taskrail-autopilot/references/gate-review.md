@@ -57,6 +57,8 @@ never on the lane's report alone.
   this task's row and rows the task added.
 - The checks pass, `taskrail validate` reports no errors, and the artifact, its index row and the
   decision record are committed.
+- When a stage's gate was `decisions`, the lane never stopped at that stage's end: apply that
+  stage's criteria above to the close review, with the whole diff.
 - Every path in the task's `governing_touched` was escalated and answered in its decision record.
   `status` no longer flags a `done-branch` or `discarded-branch` task, so a governing path changed after the last gate
   escalates now; a path missing from `governing_approved` was never approved or changed after

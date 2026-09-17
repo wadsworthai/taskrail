@@ -1,6 +1,6 @@
 # T084 — Teach the skills the current-branch workflow, on-done commits and decisions gates
 
-Kind: chore · Epic: E07 · Status: scope
+Kind: chore · Epic: E07 · Status: implemented
 
 Contract: DESIGN.md §13.5's *The executor's close* and its workspace sentence, the skills' part of
 §5.6 (decisions gates) and §12.6, the T084 row of §13.8 and the T084 row of TODO.md. Prior work:
@@ -94,7 +94,7 @@ What the skills say today, file by file:
 | File (section) | Change |
 |---|---|
 | `src/taskrail/skills/taskrail/SKILL.md` step 2 *Inspect* | One sentence: `task_branch`, `close.commit`, `close.review` and each stage's `gate` and `commit` are the repository's workflow; read them before starting. |
-| same, step 3 *Workspace* | Opens with: when `task_branch` is `"current"`, skip this step — the task is worked on the checked-out branch, `base` and `worktree` are `null`, and `new --workspace`, `workspace` and `branch` exit 5; stop and ask if `HEAD` is detached or the checkout is not on the branch the human means to work on. The rest of the step unchanged. |
+| same, step 3 *Workspace* | Opens with: when `task_branch` is `"current"`, skip this step — the task is worked on the checked-out branch, `base` and `worktree` are `null`, and `new --workspace`, `workspace` and `branch` exit 5; stop and ask only when `branch` is `null` (a detached `HEAD`) or when the task's live claim (`claim.branch`) names another branch than `branch` (scope decision 9); any other checked-out branch is the task's. The rest of the step unchanged. |
 | same, step 4 *Claim* | "From inside the workspace — under `"current"`, the checkout you are in —". |
 | same, step 5 *Stages* | The judgement-skip rule adds that a `decisions` stage is skipped without asking (§5.6). The commit sentence reads the effective `commit`: under `close.commit` `"on-done"` every stage reports `false`, and nothing is committed before `done`; where an executor skill says to commit, that holds only when the stage's `commit` is `true`. Then "apply its gate (see *Gates*)". |
 | same, step 8 *Close* | Split by `show`'s `close`: run `taskrail done <ID>`; commit as `close.commit` says — `"stages"`: the status change on its own; `"on-done"`: one or more logical commits of everything the task changed, the status change included. Then by `close.review`: `"publish"` — the existing fetch/rebase/title/publish bullets, unchanged; `"report"` — run `taskrail review <ID> --json` and read `head`, `commits`, `upstream` and `pull_request.title` for reference; never rebase, never run `--publish` (it exits 5), never merge; **ask the human before any push**, with what `upstream.ahead` and `commits` say it would send, and push with plain `git push` only once approved, never forced. |
@@ -156,6 +156,13 @@ What the skills say today, file by file:
    code with its own tests. *Alternatives:* add commented lines here (widening into `install.py` and
    its tests); or open a follow-up chore.
 
+## Decisions at the scope gate
+
+Recorded in [the decision record](../autopilot/decisions/T084-teach-the-skills-the-current-branch-work.md):
+decisions 1–7 as recommended; 8, leave `init`'s seeded config with no follow-up; 9 (orchestrator),
+step 3's stop under `"current"` is concrete — a detached `HEAD` or a live claim on another branch —
+and tested. The change set above reads as amended by decision 9.
+
 ## Out of scope
 
 - Any CLI behaviour: T080–T083 built it; the skills describe what it reports.
@@ -174,3 +181,45 @@ What the skills say today, file by file:
   step (claim in the checkout, no stage commits, `done`, one logical commit, `review --json`,
   `--publish` exit 5) matches what the skill says, and no command the skill shows is refused.
 - `taskrail validate` reports no errors; `grep` for private names in the diff finds none.
+
+### Results (implement)
+
+- **Checks.** `.taskrail/bin/taskrail checks T084 --stage implement`: `1180 passed in 170.69s`;
+  `lint: not configured`; `T084 in <worktree>: passed`, exit 0. Before the new file, the full suite
+  with only the notes constants updated: `1134 passed`. The new file alone:
+  `uv run pytest -q tests/test_skills_current_branch.py` → `46 passed` (source, claude and opencode
+  copies of each assertion; the notes and portability tests; every `taskrail` command and flag the core
+  skill shows exists in the parser, subcommands such as `epic add` included).
+- **Installed copies.** `.taskrail/bin/taskrail upgrade` updated `.claude/skills/taskrail`,
+  `taskrail-autopilot` (`SKILL.md`, `references/gate-review.md`, `references/lane-brief.md`) and the
+  four executor skills, and `.taskrail/installed.json`. `diff` of each source against its copy: the
+  executor skills and references are identical; `taskrail` and `taskrail-autopilot` differ only at the
+  `<!-- taskrail:harness -->` marker, where the Claude Code notes are inserted.
+- **Walk-through.** A scratch repository with a bare `origin` that `main` tracks,
+  `taskrail init --integration claude`, the README's `[git]` block and its chore override copied
+  verbatim from the README:
+  - `validate` → exit 0, `0 error(s), 2 warning(s)` — `kind-check-unknown` for `test` and `lint`,
+    which the seeded config leaves undefined, as for any kind;
+  - `show T001 --json` → `task_branch "current"`, `branch "main"`, `branch_source "current"`, `base`,
+    `worktree`, `worktree_base` `null`, `close {"commit": "on-done", "review": "report"}`, stages
+    `scope`, `implement`, `docs` each `gate decisions commit False`, `source override`;
+  - step 3 skipped: `workspace T001`, `branch T001 x` and `new … --workspace` each exit 5 with
+    `taskrail: [git].task_branch is "current": tasks have no branch of their own; work on the checked-out branch`;
+  - step 4: `claim T001` → `claimed T001 as …`, exit 0;
+  - decision 9's two stops are visible to the executor: on `main` with its own claim,
+    `branch "main" claim.branch "main"` (go on); after `git switch -c topic`,
+    `branch "topic" claim.branch "main"` (stop and ask); after `git switch --detach`,
+    `branch null claim.branch "main"` (stop and ask);
+  - stages: artifact and a change written, nothing committed (`git status`: `?? docs/`, `?? thing.txt`);
+  - step 8: `done T001` → `T001 done` / `commit everything T001 changed now, the status change included`;
+    one commit `chore(demo): tidy the thing (T001)` left the tree clean;
+  - `review T001 --json` → `head "main"`, `fetched false`, `rebase.enabled false`, `push.enabled false`,
+    `pull_request.url null`, `published false`, `commits` [the `(T001)` commit, `match "suffix"`],
+    `upstream {"ref": "origin/main", "ahead": 2}` — what the push question names; the text ends
+    `push with git once the human approves`;
+  - `review T001 --publish` → exit 5,
+    `taskrail: [git].task_branch is "current": review does not publish; push with git once the human approves`;
+  - nothing was pushed: `origin`'s `main` is still `6a4a725`, `HEAD` is `b74600c`.
+- **Backlog.** `.taskrail/bin/taskrail validate` → `73 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+- **Publishing constraint.** The diff names no host, path, person or project beyond the repository's
+  own public URL.

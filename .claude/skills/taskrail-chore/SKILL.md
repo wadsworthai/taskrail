@@ -11,6 +11,12 @@ metadata:
 Follow the `taskrail` skill's procedure; this skill defines the stages. A chore is judged by
 its boundary: the approved change set is the contract.
 
+The gate in each heading below is the core kind's default; follow the gate and the `commit` that
+`taskrail show` reports for each stage, which a repository may change. "Commit" in a stage holds
+only when that stage's `commit` is true. Under a `decisions` gate, where a stage says the human
+approves at the gate, record what would be approved in the artifact and continue: stop only for a
+decision, and every "stop and ask" below is one.
+
 ## scope — gate: always
 
 Edit nothing except the artifact.

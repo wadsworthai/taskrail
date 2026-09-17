@@ -40,6 +40,8 @@ you have no channel to the human.
   question with your recommendation and the alternatives; what you will do next; what you will
   not do. Never shorten evidence.
 - You are resumed with `continue <ID>` plus the answers. An approval covers that stage only.
+- A stage whose gate is `decisions` stops only when a decision appears, as the `taskrail` skill
+  says; carry what you would report to your next stop or the close.
 - The orchestrator records its decisions in `<DECISIONS>` and commits them on your branch while you
   are stopped; do not edit that file.
 

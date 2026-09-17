@@ -318,8 +318,8 @@ when a resolved kind names it.
 Shared by every kind, and written once in the core skill rather than copied per kind: one
 worktree and branch per task, commit points, "reject a kind that is not yours and name the
 right one", the gate protocol, rebase onto the mainline the branch came from, marking the
-task done, and the handoff report. The branch, commit points, gates and rebase are planned to
-become configurable for a repository worked on its checked-out branch (§13).
+task done, and the handoff report. The branch, commit points, gates and rebase are configurable
+for a repository worked on its checked-out branch (§4, §5.6, §6.4, §7.1, §8).
 
 ### 5.4 Conditional stages
 
@@ -1126,6 +1126,33 @@ Frontmatter is limited to `name`, `description`, `license`, `compatibility` and 
 fields every supported agent accepts. Skills describe gates as "ask the human if you can,
 otherwise stop and return the report to whoever invoked you".
 
+**The repository's workflow** (*T084*). The core skill reads the workflow from `show --json`
+(§4, §5.1, §6.4) and follows it; executor skills defer to it:
+
+- **`task_branch`.** Under `"current"` the workspace step of the procedure is skipped: the executor
+  claims in the checkout it is in, whichever branch that is. It stops and asks only when `branch` is
+  `null` (a detached `HEAD`) or when the task's live claim names another branch than `branch`. Commit
+  subjects end with the task ID in parentheses, so `review`'s `commits` (§7.1) lists them.
+- **Stage commits.** The executor commits after a stage whose effective `commit` is `true`; under the
+  commit policy `"on-done"` every stage reports `false` and nothing is committed before `done`.
+  Where an executor skill says to commit, that holds only when the stage's `commit` is `true`.
+- **Gates.** The executor uses the gate `show` reports, not the one an executor skill's heading
+  names. A `"decisions"` gate stops as soon as a decision appears and never to approve the stage;
+  reports carry to the next stop or the close (§5.6). Under it, what an executor skill calls
+  approved is what the artifact records.
+- **The executor's close**, when `show`'s `task_branch` is `"current"` (`close.review` `"report"`):
+  1. run `taskrail done <ID>`;
+  2. commit as `close.commit` says (§5.1): the status change on its own under `"stages"`, one or more
+     logical commits of everything the task changed, the status change included, under `"on-done"`;
+  3. run `taskrail review <ID> --json` and report the task's commits, `upstream` and the reference
+     title in the hand-off;
+  4. **ask the human before any push**, and push with git only once approved, never with force.
+     Never rebase, never publish, never merge.
+
+  The rule to ask before a push is in the portable prose of the core skill, not only in an
+  integration's notes, so every agent reads it. Under `"publish"` the close is the fetch, rebase and
+  publish of §7.1.
+
 ### Integrations
 
 An integration decides where skills are written and adds short agent-specific notes to a
@@ -1136,8 +1163,8 @@ portable text names no agent.
 
 | Integration | Skills directory | Notes in `taskrail` | Notes in `taskrail-autopilot` |
 |---|---|---|---|
-| `claude` | `.claude/skills/` | ask with AskUserQuestion; create task worktrees with git rather than subagent isolation; one allowlistable command per call, without `cd … &&` chains, and `taskrail checks` | lanes are background subagents resumed with `SendMessage`; the model per lane; no timer; the same command shape, and lane checks re-run with `taskrail checks` |
-| `opencode` | `.opencode/skills/` | ask in plain text; a subagent's final message returns to its caller | lanes are task tool calls resumed by `task_id`; gates answered in waves; at an escalation, end the turn with the question; record handles and run `status` when a batch returns |
+| `claude` | `.claude/skills/` | ask with AskUserQuestion at a gate, at a decision and before a push; create task worktrees with git rather than subagent isolation; one allowlistable command per call, without `cd … &&` chains, and `taskrail checks` | lanes are background subagents resumed with `SendMessage`; the model per lane; no timer; the same command shape, and lane checks re-run with `taskrail checks` |
+| `opencode` | `.opencode/skills/` | ask in plain text at a gate, at a decision and before a push; a subagent's final message returns to its caller | lanes are task tool calls resumed by `task_id`; gates answered in waves; at an escalation, end the turn with the question; record handles and run `status` when a batch returns |
 
 OpenCode also reads `.claude/skills/` and requires skill names to be unique across every
 location it reads. With both integrations installed, the skills are therefore written once, to
@@ -1221,7 +1248,7 @@ taskrail/
    resolves backlog table conflicts (§7.4, T004). The autopilot is designed in §12 and delivered by T017 (stacked
    base and `done-branch`), T027 (unreadable manifest), T029–T032 (the `autopilot` commands),
    then T024 (the skill), and trialled by T033 (§12.10).
-3. **Current-branch workflow** (E07, planned) — working tasks on the checked-out branch, on-done
+3. **Current-branch workflow** (E07, implemented) — working tasks on the checked-out branch, on-done
    commits, decisions gates and closing without review (§13), designed by T079 and built by
    T080–T084.
 
@@ -1689,13 +1716,13 @@ The design changes if:
 
 Rejected alternatives, with their reasons, are in the spike's *Options considered*.
 
-## 13. Current-branch workflow (planned)
+## 13. Current-branch workflow (implemented)
 
-Status: **planned, not implemented.** Decided at T079's scope gate
+Status: **implemented.** Decided at T079's scope gate
 ([artifact](docs/chores/T079-write-the-current-branch-workflow-into-d.md),
 [decision record](docs/autopilot/decisions/T079-write-the-current-branch-workflow-into-d.md)) and
-built by T080–T084 (§13.8). Nothing in this section describes what the CLI or the skills do today;
-each implementing task moves its part into §4–§8 and marks it here.
+built by T080–T084 (§13.8); each part now lives in §4–§8 and §12, and the subsections below point
+there.
 
 Everything before this section assumes a repository that merges through pull requests: one branch
 per task, commits at stage boundaries, a stop at every `always` gate, and a hand-off that fetches,
@@ -1757,23 +1784,14 @@ refusal).*
 
 ### 13.4 Decisions gates
 
-*Implemented (T082): now §5.6 (gate values, decisions, judgement skips) and §12.6 (the autopilot).*
+*Implemented (T082): now §5.6 (gate values, decisions, judgement skips) and §12.6 (the autopilot);
+the skills' part (T084), now §8.*
 
 ### 13.5 Closing on the current branch
 
 *Implemented (T083): now §7.1 (**On the current branch**), with `close.review` in §5.1 and the `show`
-and `review` rows of §7. The executor's close below is still planned (T084).*
-
-**The executor's close** (the `taskrail` skill, T084), when `show`'s `task_branch` is `"current"`:
-
-1. run `taskrail done <ID>`;
-2. commit as `close.commit` says (§13.3);
-3. run `taskrail review <ID> --json` and report the task's commits, `upstream` and the reference
-   title in the hand-off;
-4. **ask the human before any push**, and push with git only once approved. Never rebase, never
-   publish, never merge.
-
-The workspace step of the procedure is skipped: the executor claims in the checkout it is in.
+and `review` rows of §7; implemented (T084): the executor's close and the skipped workspace step,
+now §8 (**The repository's workflow**).*
 
 ### 13.6 Validation
 
@@ -1819,7 +1837,7 @@ run made before the configuration changed can still be inspected, followed throu
 | T081 | feature | T079 | `[git].commit` and the kind's `commit` policy with their validation (§13.1, §13.6); effective stage `commit`, `kind_descriptor.commit` and `commit_source`, `show`'s `close` with `close.commit`, and `done`'s and `discard`'s output (§13.3); the `on-done` refusal of `autopilot start`, `extend` and `next` (§13.7); *implemented (T081)* |
 | T082 | feature | T079 | `gate = "decisions"` in kind loading, overrides, `show` and `kind list`, and the autopilot's `lane --gate` and `escalate_gates` (§13.4, §13.6); *implemented (T082)* |
 | T083 | feature | T080, T081 | `review` under `"current"`: no fetch, rebase or push, `commits` and `upstream`, and `--publish` refused with exit 5 (§13.5); `show`'s `close.review` (§13.3); *implemented (T083)* |
-| T084 | chore | T080–T083 | the `taskrail` skill (workspace step skipped, commits after `done`, ask before any push, the decisions gate), executor skills and integration notes, and the README's single-maintainer configuration (§13.4, §13.5) |
+| T084 | chore | T080–T083 | the `taskrail` skill (workspace step skipped, commits after `done`, ask before any push, the decisions gate), executor skills and integration notes, and the README's single-maintainer configuration (§13.4, §13.5); *implemented (T084)* |
 
 T080 and T081 both edit `[git]` loading in `config.py` and
 `show`'s fields, and T081 and T082 both edit descriptor parsing in `kinds.py`, so lanes running them

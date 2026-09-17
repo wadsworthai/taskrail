@@ -111,6 +111,11 @@ Nothing wakes you on a timer. Whenever you wake — a lane stopped, the human wr
 A conditional gate with nothing to decide does not stop a lane; if one stops anyway, let it
 continue.
 
+A stage whose gate is `decisions` stops a lane during the stage, only when a decision appears, and
+never at the stage's end. Record the stop with `--gate <stage>`, naming the stage the decision arose
+in, and answer the decision as above. With no stage-end stops, the close is your first full review
+of the lane's diff: apply there the criteria `references/gate-review.md` gives for that stage.
+
 **Touch map.** At each lane's first gate, once its plan names the files and sections it will change,
 build or extend the touch map: which lane edits what, what each lane leaves alone, and how the
 conflicts you expect will be resolved. Record it with

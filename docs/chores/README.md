@@ -18,3 +18,4 @@
 | T077 | Release v0.2.0 from the canonical repository | [T077-release-v0-2-0-from-the-canonical-reposi.md](T077-release-v0-2-0-from-the-canonical-reposi.md) |
 | T078 | Bump main to 0.3.0.dev0 after the v0.2.0 tag | [T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md](T078-bump-main-to-0-3-0-dev0-after-the-v0-2-0.md) |
 | T079 | Write the current-branch workflow into DESIGN.md | [T079-write-the-current-branch-workflow-into-d.md](T079-write-the-current-branch-workflow-into-d.md) |
+| T084 | Teach the skills the current-branch workflow, on-done commits and decisions gates | [T084-teach-the-skills-the-current-branch-work.md](T084-teach-the-skills-the-current-branch-work.md) |
