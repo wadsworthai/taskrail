@@ -36,3 +36,17 @@ premise's exit 2; the checks re-run with `taskrail checks T083 --stage implement
 | 1 | Approve the implement stage | approve · change | **approve** | The diff matches the plan and the plan-gate answers; every criterion has a test observed failing first (criterion 7 guards existing exit codes). |
 | 2 | `head_only` flag instead of a `revisions` list | keep · list argument | **as recommended** | One extra caller, and the default path stays as it was. |
 | 3 | Narrowing T081's `close` assertions to `close.commit` | narrow · compare whole object | **as recommended** | Those tests cover `close.commit`; `close.review` has its own test here. |
+
+## close gate
+
+Reviewed: the verify section (`30bf15c`) and `taskrail done` committed on its own in `96956d7` (only
+T083's status cell); no upstream on the branch; clean worktree; `review --json` reports no rebase
+needed onto `origin/main`. Exercised with this branch's CLI in a scratch repository with
+`task_branch = "current"` and a bare remote: after `done T001` and its commit, `review T001` exits 0
+with "review reports only", `upstream origin/main: 1 commit(s) not pushed` and the reference title,
+leaving `origin/main` unchanged; `review T002 --publish` exits 5 with the publish refusal; `show
+--json` reports `close` `{"commit": "stages", "review": "report"}`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request title's type and scope | `feat(cli)` · other | **`feat(cli)`** | New CLI behaviour; CLAUDE.md asks for a scope. |
