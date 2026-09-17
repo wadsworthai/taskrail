@@ -1,6 +1,6 @@
 # T081 — Commit a task's changes only when it is done with commit = on-done
 
-Kind: feature · Epic: E07 · Status: implemented
+Kind: feature · Epic: E07 · Status: verified
 
 Contract: DESIGN.md §13.1, §13.3, §13.6, §13.7 and the T081 row of §13.8, decided at T079's scope
 gate (decisions 7, 8 and 12 of its decision record). Prior work: none (`show` lists no artifact,
@@ -157,3 +157,26 @@ All in `tests/test_commit_policy.py`.
 | 7 | `test_done_and_discard_report_the_policy`, `test_done_and_discard_text_under_on_done`, `test_done_and_discard_under_stages` |
 | 8 | `test_autopilot_refuses_a_config_on_done`, `test_autopilot_names_every_on_done_kind_with_its_source`, `test_autopilot_refuses_existing_runs_after_the_switch`, `test_autopilot_checks_only_the_kinds_a_run_drives`, `test_a_disabled_autopilot_is_refused_first` |
 | 9 | `test_autopilot_refuses_existing_runs_after_the_switch` (its `autopilot status` step) |
+
+## Verification
+
+Run with this branch's CLI (`uv run --project <worktree> taskrail --root <scratch>`) against a scratch
+repository: the core kinds, three pending tasks (feature, chore, bug), `[checks] test = "true"`,
+`[git] commit = "on-done"` and `[autopilot] enabled = true`.
+
+| Step | Seen |
+|---|---|
+| `show T001` | stage lines `· plan (gate: always)`, `· implement (gate: always)`, `· verify (gate: conditional)` with no `, commit`, and the line `commit on-done ([git].commit)` |
+| `show T001 --json` | `close` `{"commit": "on-done"}`; `kind_descriptor.commit` `on-done` from `config`; every stage `commit: false` |
+| `kind list --json` | bug, chore, feature and spike each `on-done` from `config`, every stage `false` |
+| `autopilot next`, `autopilot start --count 1` | exit 5: `taskrail: the autopilot needs lanes that commit as each stage ends; kind `bug` commits on done ([git].commit in .taskrail/config.toml); …` for all four kinds |
+| `autopilot status` | exit 0, `no autopilot runs` |
+| override `feature` with `commit = "stages"` and one `commit = true` stage; `[autopilot] kinds = ["feature"]` | `show T001 --json`: `close.commit` `stages`, `stages` from `kind`, `build` `commit: true`; `autopilot next` exit 0, dispatching T001 in the preview |
+| `autopilot start --tasks T002` (a chore) | exit 5, naming only `chore` from `[git].commit`; the on-done check comes before `start`'s own exit 5 for a kind `[autopilot].kinds` leaves out |
+| `claim T002`, `done T002` | `T002 done` and `commit everything T002 changed now, the status change included` |
+| `discard T003 --json` | `"commit": "on-done"` |
+| `done T001 --force` (the `stages` override) | `T001 done` only |
+| override's top-level `commit = true`, then `validate` | exit 1: `.taskrail/overrides/feature/kind.toml: error: `commit` must be "stages" or "on-done", the kind's commit policy; a stage's `commit` is true or false [kind-invalid]` |
+| `[git] commit = "later"`, then `validate` | exit 2: `taskrail: .taskrail/config.toml: git.commit must be "stages" or "on-done"` |
+
+The behaviour matches the plan.
