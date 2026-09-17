@@ -8,6 +8,7 @@
 | E02 | taskrail phase 2 | Parallel execution and migration from existing backlogs | —    |
 | E05 | Adoption | Let a consumer project replace its own task system with taskrail | —    |
 | E06 | Repository tooling | How this repository runs its own backlog with taskrail while it is worked on | —    |
+| E07 | Current-branch workflow | Let a single maintainer work tasks on the checked-out branch, commit when a task is done and stop only for decisions | —    |
 
 ## E01 — taskrail release
 
@@ -103,3 +104,16 @@ Done when: this repository's own backlog runs through the taskrail autopilot
 |----|------|---------|-----|------------|--------------------------------|--------------------------------|
 | ✅ | T058 | chore   | 1   | —          | Enable the autopilot in this repository | Add an [autopilot] block to .taskrail/config.toml with CLAUDE.md and DESIGN.md as governing documents and spike decide gates escalated; verified by taskrail autopilot start --count exiting 0 against a scratch clone and by validate. |
 | ✅ | T060 | chore   | 1   | —          | Remove DESIGN.md and CLAUDE.md from the autopilot's governing paths | Empty [autopilot].governing in this repository's config so lane edits to DESIGN.md and CLAUDE.md are decided by the orchestrator and reviewed by the human in the pull request; keep both documents named as what the orchestrator reads first; verified by taskrail validate and autopilot status loading the empty key. |
+
+## E07 — Current-branch workflow
+
+Done when: a repository configured for the current branch works a task from claim to close with no task branch, no stage approvals and no push the human did not approve
+
+| ✓  | ID   | Kind    | Pts | Depends On | Title                          | Description                    |
+|----|------|---------|-----|------------|--------------------------------|--------------------------------|
+| ⬜ | T079 | chore   | —   | —          | Write the current-branch workflow into DESIGN.md | Decide and document [git] task_branch = "current", commit = "on-done" (global or per kind), gate = "decisions" and closing without review: key names, how they combine with worktree = "never" and kind overrides, what show, claim, done, review and validate report, and that autopilot start refuses them; the tasks below build from it. |
+| ⬜ | T080 | feature | —   | T079       | Work a task on the checked-out branch with task_branch = current | [git] task_branch = "current" (requiring worktree = "never"): show reports the current branch as the task's branch with no base or worktree to create, claim records it without a warning, new --workspace and workspace refuse, done-branch detection does not apply, and autopilot start refuses; verified by pytest with a fixture repository. |
+| ⬜ | T081 | feature | —   | T079       | Commit a task's changes only when it is done with commit = on-done | [git] commit = "on-done", overridable per kind: show reports every stage's commit as false and a close.commit field telling the executor to follow done with logical commits of everything the task changed, the status change included; validate rejects other values; verified by pytest on config, kind overrides and show --json. |
+| ⬜ | T082 | feature | —   | T079       | Add a decisions gate that stops for each decision instead of each stage | Accept gate = "decisions" in kind descriptors and overrides: never a stop to approve a stage, but a stop as soon as a decision appears; show, kind show and the autopilot's gate states and escalate_gates handle it; verified by pytest on kind loading, overrides and autopilot lane --gate. |
+| ⬜ | T083 | feature | —   | T080       | Close a current-branch task without fetch, rebase or publish | With task_branch = "current", review reports the task's commits and a pull request title for reference without fetching, rebasing or pushing, and --publish refuses with exit 5 naming the setting; verified by pytest with a fixture repository and a remote. |
+| ⬜ | T084 | chore   | —   | T080, T081, T082, T083 | Teach the skills the current-branch workflow, on-done commits and decisions gates | The taskrail skill skips the workspace step, commits after done and asks before any push when the repository says so, and describes the decisions gate; executor skills and integration notes follow; README documents a single-maintainer configuration; verified by tests asserting the rules in the skill sources and installed copies. |
