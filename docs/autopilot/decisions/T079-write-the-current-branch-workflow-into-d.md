@@ -31,3 +31,18 @@ ends at §12, so a new §13 renumbers nothing. The stage defines no checks.
 
 §13 opens with a status line saying it is planned and names T080–T084. Keep the need described in
 general terms only (publishing constraint).
+
+## implement gate
+
+Reviewed: `git diff origin/main..b7f8e61` in the lane's worktree — §13 read in full, every pointer
+hunk in §4, §5.1, §5.3, §6.4, the §7 table, §7.1, §11 and §12.2 (only pointer text added to existing
+rows and sentences, no heading changed), the T080, T081 and T083 row edits, and the chores index
+row; the checks re-run with `taskrail checks T079 --stage implement` (test passed, lint not
+configured) and `taskrail validate` (no errors or warnings). No code changed, so there is no runtime
+to exercise.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | T082's row names `kind show`, which does not exist | leave it for T082's plan gate · edit it now | **edit it now** | The row is the contract T082's lane starts from; fixing it here costs one `taskrail edit` and keeps §13.8 and the row consistent. |
+| 2 | (orchestrator) §13.8 leaves `close.review` to "whichever of T080 and T081 lands second" | assign `close.review` to T083 · leave it | **assign it to T083** | The human runs T080, T081 and T082 in parallel and T083 after all three merge, so T083 is the one task that sees both settings; T081 adds `close` with `commit` only. Update §13.3's table note, §13.8 and the T081 and T083 rows to match. |
+| 3 | The artifact file reported as changed on disk while appending | keep as committed · investigate | **keep as committed** | The committed content is what the lane wrote; the orchestrator did not edit the artifact. |
