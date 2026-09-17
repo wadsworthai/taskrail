@@ -1,6 +1,6 @@
 # T081 — Commit a task's changes only when it is done with commit = on-done
 
-Kind: feature · Epic: E07 · Status: planned
+Kind: feature · Epic: E07 · Status: implemented
 
 Contract: DESIGN.md §13.1, §13.3, §13.6, §13.7 and the T081 row of §13.8, decided at T079's scope
 gate (decisions 7, 8 and 12 of its decision record). Prior work: none (`show` lists no artifact,
@@ -128,3 +128,32 @@ command's existing exit 3, 2 or 5 still reports them.
 4. **Conflict risk with T080 and T082.** Same regions of `config.py`, `cmd_show`, the three
    autopilot handlers and `_parse`; kept to separate small hunks as the touch map asks. Both
    refusals sit right after the `enabled` check; if T080 lands first, mine goes after its line.
+
+Answered at the plan gate
+([decision record](../autopilot/decisions/T081-commit-a-task-s-changes-only-when-it-is.md)): 1, 2 and
+3 as recommended; the plan approved, with the effective stage `commit` required for a `[git].commit`
+set in config as well as for a descriptor policy, in both `show` and `kind list`.
+
+## Implementation notes
+
+- The effective policy is resolved in `kinds._parse`, which already receives the loaded `Config`, so
+  every kind the project loads — core, local and override — carries its effective `commit`,
+  `commit_source` and stage booleans; `show`, `kind list` and the autopilot read them from there.
+- §13.3 keeps a one-line pointer (run decision 1) and names what stays planned for T083
+  (`close.review`), since §13.5 and T083's row still point at it.
+
+## Acceptance criteria and tests
+
+All in `tests/test_commit_policy.py`.
+
+| # | Tests |
+|---|---|
+| 1 | `test_config_commit_accepts_both_policies`, `test_config_commit_is_unset_by_default`, `test_config_commit_rejects_other_values` |
+| 2 | `test_kind_commit_accepts_both_policies`, `test_kind_commit_rejects_other_values` |
+| 3 | `test_show_reports_the_default_policy` |
+| 4 | `test_config_on_done_turns_every_stage_commit_off_in_show_and_kind_list`, `test_config_stages_keeps_the_declared_booleans` |
+| 5 | `test_kind_stages_wins_over_config_on_done`, `test_kind_on_done_without_config` |
+| 6 | `test_on_done_kind_with_committing_stages_is_not_an_issue` |
+| 7 | `test_done_and_discard_report_the_policy`, `test_done_and_discard_text_under_on_done`, `test_done_and_discard_under_stages` |
+| 8 | `test_autopilot_refuses_a_config_on_done`, `test_autopilot_names_every_on_done_kind_with_its_source`, `test_autopilot_refuses_existing_runs_after_the_switch`, `test_autopilot_checks_only_the_kinds_a_run_drives`, `test_a_disabled_autopilot_is_refused_first` |
+| 9 | `test_autopilot_refuses_existing_runs_after_the_switch` (its `autopilot status` step) |

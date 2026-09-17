@@ -76,6 +76,44 @@ def _named_problem(project, task_ids: list[str], claimed: dict) -> tuple[str, in
     return None
 
 
+def _on_done_refusal(project, args) -> str | None:
+    """Why the run this command drives cannot use lanes that commit only on done (DESIGN.md §12.2; T081).
+
+    The kinds checked: a named run's named tasks and the tasks `--tasks` names; a count-only run's
+    kinds as `next` drives them; for `start --count` its `--kinds`, and for the preview none, both
+    intersected with `[autopilot].kinds` — every allowed kind when neither is set. Unknown runs,
+    tasks and kinds are left to the command's own checks.
+    """
+    config = project.config
+    task_ids = _task_ids(args.tasks) if getattr(args, "tasks", None) is not None else []
+    names: set[str] = set()
+    run_id = getattr(args, "run", None)
+    if run_id is not None:
+        stored = runs.read(config, run_id)
+        if stored is None or runs.is_closed(stored):
+            return None
+        if runs.is_named(stored):
+            task_ids = list(stored["named"]) + task_ids
+        else:
+            names = dispatch.run_kinds(project, stored) or set(project.kinds)
+            task_ids = []
+    elif not task_ids:
+        given = getattr(args, "kinds", None)
+        run = {"kinds": [name.strip() for name in given.split(",") if name.strip()]} if given is not None else None
+        names = dispatch.run_kinds(project, run) or set(project.kinds)
+    if task_ids:
+        claimed = _local_claims(project)
+        names |= {task.kind for task_id in dict.fromkeys(task_ids) if (task := branchrows.find(project, task_id, claimed)) is not None}
+    offending = [project.kinds[name] for name in sorted(names) if name in project.kinds and project.kinds[name].commit == "on-done"]
+    if not offending:
+        return None
+    sources = [
+        f"kind `{kind.name}` commits on done ({kind.path if kind.commit_source == 'kind' else '[git].commit in .taskrail/config.toml'})"
+        for kind in offending
+    ]
+    return "the autopilot needs lanes that commit as each stage ends; " + "; ".join(sources)
+
+
 def cmd_start(args) -> int:
     project, issues = _load(args)
     config = project.config
@@ -83,6 +121,8 @@ def cmd_start(args) -> int:
         return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot start`", EXIT_REFUSED)
     if (refused := _task_branch_refusal(config)) is not None:
         return refused
+    if (refusal := _on_done_refusal(project, args)) is not None:
+        return _fail(refusal, EXIT_REFUSED)
     named = _task_ids(args.tasks) if args.tasks is not None else None
     if named is None and args.count is None:
         return _fail("autopilot start needs --count N, the number of tasks to complete, or --tasks with their IDs", EXIT_USAGE)
@@ -131,6 +171,8 @@ def cmd_extend(args) -> int:
         return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot extend`", EXIT_REFUSED)
     if (refused := _task_branch_refusal(config)) is not None:
         return refused
+    if (refusal := _on_done_refusal(project, args)) is not None:
+        return _fail(refusal, EXIT_REFUSED)
     stored = runs.read(config, args.run)
     if stored is None:
         return _fail(f"no autopilot run `{args.run}`", EXIT_NOT_FOUND)
@@ -320,6 +362,8 @@ def cmd_next(args) -> int:
         return _fail("the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot next`", EXIT_REFUSED)
     if (refused := _task_branch_refusal(config)) is not None:
         return refused
+    if (refusal := _on_done_refusal(project, args)) is not None:
+        return _fail(refusal, EXIT_REFUSED)
     if _refuse_if_invalid(issues, args):
         return EXIT_INVALID
     if args.run is not None:
