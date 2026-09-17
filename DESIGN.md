@@ -39,7 +39,7 @@ Non-goals for v1:
 | Task | One table row: status, ID, kind, dependencies, title, short description. |
 | Kind | A task type, defined by a descriptor: routing, stages, gates, artifact, branch pattern. |
 | Stage | A step of a kind's workflow. `commit = true` requires a commit at its end; `false` means none is required, not that one is forbidden. |
-| Gate | A stop for human approval: `always`, or `conditional` (only when it has content). |
+| Gate | When a stage stops for the human: `always` (for approval), `conditional` (only when it has content), `decisions` (as soon as a decision appears, never for approval) or `none` (§5.6). |
 | Artifact | The durable document a kind must produce, e.g. a root-cause write-up for a bug. |
 | Claim | An exclusive, persisted reservation of a task by one agent session. |
 
@@ -230,9 +230,11 @@ gate = "conditional"             # only if follow-up tasks were opened
 
 A stage may also apply only to some tasks of its kind (§5.4).
 
-*Planned (§13.1):* a stage's `gate` may also be `"decisions"` — stop as soon as a decision appears,
-never to approve the stage (§13.4) — and a descriptor may declare a top-level `commit` policy,
-`"stages"` or `"on-done"`, a string unlike a stage's boolean `commit` (§13.3).
+A stage's `gate` may also be `"decisions"`: stop as soon as a decision appears, never to approve the
+stage (§5.6).
+
+*Planned (§13.1):* a descriptor may declare a top-level `commit` policy, `"stages"` or `"on-done"`, a
+string unlike a stage's boolean `commit` (§13.3).
 
 Routing on a column, used by a repository-local `spec` kind (§5.5):
 
@@ -330,8 +332,9 @@ stage without one. Both flags are booleans. `kind list --json` has no task, so i
 
 The core skill skips a stage whose `applies` is false. When `applies` and `judgement` are both
 true, the executor decides; a skipped stage and the reason go into the artifact and the next gate
-report, and a stage whose gate is `always` is not skipped without asking. A stage the executor
-skill does not describe, such as one an override adds, is done as its `summary` says.
+report, and a stage whose gate is `always` is not skipped without asking; one whose gate is
+`decisions` is, as for `conditional` (§5.6). A stage the executor skill does not describe, such as
+one an override adds, is done as its `summary` says.
 
 ### 5.5 Routes
 
@@ -363,6 +366,40 @@ skill = "new-screen-pipeline"
 
 `show --json` and `kind list --json` report each route as `{"when": {<column>: <value>}, "skill": …}`,
 with the declared column name and the trimmed value: a string for one value, a list for several.
+
+### 5.6 Gates
+
+A stage's `gate` says when the executor stops for the human. It is one of four values, the same in
+core, local and override descriptors, and defaults to `none`:
+
+| Gate | Stops | For |
+|---|---|---|
+| `always` | at the stage's end | approval of the stage |
+| `conditional` | at the stage's end, when there is something to decide or report | the decision or the report |
+| `decisions` | mid-stage, as soon as a decision appears | the decision only |
+| `none` | never | — |
+
+A stage whose `gate` is `"decisions"` (*implemented, T082*):
+
+- **stops as soon as a decision appears** during the stage: the executor asks it — a direct question
+  with its recommendation and the alternatives — and continues once it is answered;
+- **never stops at the end of the stage** to have the stage approved, or to report;
+- carries what `conditional` would stop to report — follow-up tasks opened, results — to the next
+  stop, or to the close hand-off.
+
+A **decision** is a choice that the task, the artifact already written, the repository's
+instructions and the executor skill do not settle, and whose options differ in a way the human would
+care about. Every place an executor skill says to stop and ask — widening an approved change set, a
+diagnosis that changes the task's premise — is one; under a `"decisions"` gate the artifact the
+skill calls "approved" is the one recorded, and the human sees it at the close. A `judgement` stage
+(§5.4) whose gate is `"decisions"` may be skipped without asking: the skip and its reason go into
+the artifact and the next stop, as for `conditional`.
+
+There is no repository-wide gate key: a repository changes a kind's gates with an override (§5.2).
+`validate` reports any other `gate` value as `kind-invalid`, naming the four values. `show` and
+`kind list` report the value as they report any gate (there is no `kind show` command); the text
+form of `show` prints `gate: decisions`. The autopilot handles a `"decisions"` gate like any other
+(§12.6).
 
 ## 6. Claims and IDs
 
@@ -1348,7 +1385,13 @@ the question to the human (*implemented, T024*).
   `status` flags it when the task is `gate` or `escalated` and `<kind>:<stage>` is in
   `escalate_gates`. A task that has moved on (`done-branch` and later) is not flagged. That
   includes `close`, recorded once the task is `done-branch`, so a `<kind>:close` entry in
-  `escalate_gates` never flags.
+  `escalate_gates` never flags. A stage whose gate is `"decisions"` (§5.6) is allowed in a run and
+  recorded the same way: a lane stopped for a decision runs
+  `autopilot lane <ID> --run R --state gate --gate <stage>`, naming the stage the decision arose in,
+  and `status` and `escalate_gates` treat it like any gate, so `spike:decide` still escalates when
+  that stage's gate is `"decisions"`. The orchestrator answers from `read_first` as usual; with no
+  stage-end stops, its first full review of the lane's diff is the close review (*implemented,
+  T082*).
 - **Conflicts outside the known classes get no computed flag** (decided at T032's plan gate). A
   merge conflict exists only during the rebase the orchestrator itself runs, where git already
   names the files; and the known classes of §12.8 are defined by content — rows added on both
@@ -1593,7 +1636,7 @@ commit = "on-done"               # "stages" (default): as each stage's `commit` 
   booleans apply at all (§13.3).
 - **`gate`** gains the value `"decisions"` next to `always`, `conditional` and `none`, in core, local
   and override descriptors alike. There is no repository-wide gate key: a repository changes gates
-  through overrides, as it already does to set `conditional`.
+  through overrides, as it already does to set `conditional` — *implemented (T082)*, now §5.6.
 - The settings are independent: `commit = "on-done"` works on a task branch, and `"decisions"` gates
   work with either `task_branch`.
 
@@ -1667,34 +1710,7 @@ The autopilot refuses a run that drives a kind whose effective policy is `"on-do
 
 ### 13.4 Decisions gates
 
-A stage whose `gate` is `"decisions"`:
-
-- **stops as soon as a decision appears** during the stage: the executor asks it — a direct question
-  with its recommendation and the alternatives — and continues once it is answered;
-- **never stops at the end of the stage** to have the stage approved, or to report;
-- carries what `conditional` would stop to report — follow-up tasks opened, results — to the next
-  stop, or to the close hand-off.
-
-A **decision** is a choice that the task, the artifact already written, the repository's
-instructions and the executor skill do not settle, and whose options differ in a way the human would
-care about. Every place an executor skill says to stop and ask — widening an approved change set, a
-diagnosis that changes the task's premise — is one; under a `"decisions"` gate the artifact the
-skill calls "approved" is the one recorded, and the human sees it at the close.
-
-Compared with the other gates: `always` stops at the stage's end for approval; `conditional` stops
-at the stage's end when there is something to decide *or report*; `decisions` stops mid-stage, and
-only to decide; `none` never stops. A `judgement` stage (§5.4) whose gate is `"decisions"` may be
-skipped without asking: the skip and its reason go into the artifact and the next stop, as for
-`conditional`.
-
-**In the autopilot** a `"decisions"` gate is allowed. A lane stopped for a decision runs
-`autopilot lane <ID> --run R --state gate --gate <stage>`, naming the stage the decision arose in,
-and `status` and `escalate_gates` treat it like any gate: `spike:decide` still escalates when that
-stage's gate is `"decisions"`. The orchestrator answers from `read_first` as usual (§12.6). With no
-stage-end stops, its first full review of the lane's diff is the close review.
-
-`show` and `kind list` report the value as they report any gate (there is no `kind show` command);
-the text form of `show` prints `gate: decisions`.
+*Implemented (T082): now §5.6 (gate values, decisions, judgement skips) and §12.6 (the autopilot).*
 
 ### 13.5 Closing on the current branch
 
@@ -1734,7 +1750,7 @@ The workspace step of the procedure is skipped: the executor claims in the check
   - `git.task_branch = "current" requires git.worktree = "never"` — `worktree` defaults to
     `"required"`, so it must be written.
 - **Kinds** — reported by `validate` as `kind-invalid` errors (exit 1), naming the descriptor:
-  - a stage `gate` outside `always`, `conditional`, `decisions` and `none`;
+  - a stage `gate` outside `always`, `conditional`, `decisions` and `none` — *implemented (T082)*, now §5.6;
   - a top-level `commit` other than `"stages"` or `"on-done"`, such as a boolean written at the
     descriptor's top level.
 - Nothing else is new: no warning for stage booleans under `"on-done"`, for `claim_remote` or
@@ -1765,7 +1781,7 @@ run made before the configuration changed can still be inspected, followed throu
 | T079 | chore | — | this section |
 | T080 | feature | T079 | `[git].task_branch` and its `worktree` check (§13.1, §13.6); `task_branch`, `branch`, `base`, `worktree`, `prior_work` and states under `"current"` in `show`, `list` and `next`; `claim`, `new`, `new --workspace`, `workspace`, `branch`, `edit` and `checks` (§13.2); the `task_branch` refusal of `autopilot start`, `extend` and `next` (§13.7) |
 | T081 | feature | T079 | `[git].commit` and the kind's `commit` policy with their validation (§13.1, §13.6); effective stage `commit`, `kind_descriptor.commit` and `commit_source`, `show`'s `close` with `close.commit`, and `done`'s and `discard`'s output (§13.3); the `on-done` refusal of `autopilot start`, `extend` and `next` (§13.7) |
-| T082 | feature | T079 | `gate = "decisions"` in kind loading, overrides, `show` and `kind list`, and the autopilot's `lane --gate` and `escalate_gates` (§13.4, §13.6) |
+| T082 | feature | T079 | `gate = "decisions"` in kind loading, overrides, `show` and `kind list`, and the autopilot's `lane --gate` and `escalate_gates` (§13.4, §13.6); *implemented (T082)* |
 | T083 | feature | T080, T081 | `review` under `"current"`: no fetch, rebase or push, `commits` and `upstream`, and `--publish` refused with exit 5 (§13.5); `show`'s `close.review` (§13.3) |
 | T084 | chore | T080–T083 | the `taskrail` skill (workspace step skipped, commits after `done`, ask before any push, the decisions gate), executor skills and integration notes, and the README's single-maintainer configuration (§13.4, §13.5) |
 

@@ -1,6 +1,6 @@
 # T082 — Add a decisions gate that stops for each decision instead of each stage
 
-Kind: feature · Epic: E07 · Status: planned
+Kind: feature · Epic: E07 · Status: implemented
 
 The contract is DESIGN.md §13.4, with the `gate` bullet of §13.1, the kind `gate` bullet of §13.6
 and the T082 row of §13.8, decided at T079's scope gate
@@ -124,3 +124,37 @@ the documentation.
    DESIGN.md §5.1's *Planned* note and §13.1/§13.6/§13.8 lines, which both lanes mark. The
    `kinds.py` change is a single line at the top of the module; the DESIGN.md edits are separate
    lines or bullets, so a rebase should resolve them by keeping both sides.
+
+## Plan gate
+
+Approved as written; decisions in the
+[decision record](../autopilot/decisions/T082-add-a-decisions-gate-that-stops-for-each.md): §13.4's
+body becomes a one-line pointer and the other §13 lines are marked *implemented (T082)* in place;
+the gate semantics go into a new §5.6 *Gates*.
+
+## Implementation
+
+- `src/taskrail/kinds.py`: `GATES` is `("always", "conditional", "decisions", "none")`.
+- `DESIGN.md`: §2 `Gate` row; §5.1 note split (the gate half is current, the `commit` half stays
+  planned for T081); §5.4 judgement skips; new §5.6 *Gates*; §12.6 *Escalated gates*; §13.1 `gate`
+  bullet, §13.4, §13.6 kind-gate bullet and §13.8 T082 row marked.
+- `CHANGELOG.md`: one bullet under *Unreleased*.
+
+The new tests were run before the `GATES` change and all eight failed (a `decisions` gate was
+`kind-invalid`, so descriptors did not load, `validate` exited 1 and every command refusing an
+invalid backlog refused); after it, all eight pass.
+
+## Acceptance criteria and tests
+
+All in `tests/test_decisions_gate.py`:
+
+| # | Test |
+|---|---|
+| 1 | `test_local_kind_loads_a_decisions_gate` |
+| 2 | `test_override_of_a_core_kind_loads_a_decisions_gate` |
+| 3 | `test_an_unknown_gate_names_the_four_values` |
+| 4 | `test_show_reports_a_decisions_gate` |
+| 5 | `test_kind_list_reports_a_decisions_gate` |
+| 6 | `test_lane_records_a_decisions_gate_and_status_reports_it` |
+| 7 | `test_escalate_gates_flags_a_decisions_gate` |
+| 8 | `test_start_and_next_accept_kinds_with_decisions_gates` |

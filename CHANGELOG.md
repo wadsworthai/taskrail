@@ -8,6 +8,11 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
 
 ## Unreleased
 
+- **A `decisions` gate.** A stage in a core, local or override kind descriptor may set
+  `gate = "decisions"`: the executor stops as soon as a decision appears during the stage and never
+  to approve the stage. `validate` accepts it, `show` and `kind list` report it, and the autopilot
+  records and escalates it like any gate (DESIGN.md §5.6, §12.6; T082).
+
 ## 0.2.0
 
 Adds the autopilot (DESIGN.md §12), `edit`, `import`, `checks`, `workspace`, `branch` and a merge
