@@ -1,6 +1,6 @@
 # T094 — Warn about a key taskrail does not know in `.taskrail/config.toml`
 
-Kind: feature · Epic: E08 · Status: planned
+Kind: feature · Epic: E08 · Status: implemented
 
 Contract: DESIGN.md §4 (the configuration surface) and §7's `validate` row. Evidence:
 [T088](../spikes/T088-measure-the-cli-and-configuration-surfac.md) **E2** and its cost table **E9**.
@@ -143,3 +143,67 @@ Each is testable, and each gets at least one test observed failing before the co
   config written for a newer one will now see warnings at `validate`. That is the intended signal,
   it is a warning rather than an error for exactly that reason, and T088 E2 shows the alternative
   is silence.
+
+## How it was built
+
+The plan was approved on 2026-09-18 with all five decisions as recommended, one condition and one
+placement constraint; both are met and recorded in
+[`docs/autopilot/decisions/T094-warn-about-a-key-taskrail-does-not-know.md`](../autopilot/decisions/T094-warn-about-a-key-taskrail-does-not-know.md).
+
+- **Q2's condition — the suggestion must be shown firing.**
+  `test_a_near_miss_suggests_the_key_it_missed` writes `clam_remote = ""` under `[git]` and asserts
+  the message carries ``did you mean `claim_remote`?``. `difflib.get_close_matches` at cutoff 0.8
+  rates that pair 0.96, so the default cutoff stands and nothing had to be loosened. The suggestion
+  is one line of the standard library with a caller today, inside the message the task asks for —
+  not an option and not an abstraction kept for later.
+- **Q5's placement constraint.** The §4 paragraph sits **after** the example config block, at the
+  end of §4 below the `[git].commit` paragraph; nothing inside the block is touched, so T096's edit
+  at line 194 does not meet it. The same holds in `config.py`: the diff's hunks are at lines 2-14,
+  111-121 and 303-308 of the old file, while `HANDOFF_MODES` is at line 48, 34 lines from the
+  nearest hunk.
+
+**The shape of the code.** `TABLE_KEYS` in `src/taskrail/config.py` declares every name §4 defines,
+by the table it sits in, with `None` for `[checks]` — the one free-form table. `unknown_names(data)`
+walks a parsed config against it and returns `Issue`s; `load_config` calls it once and carries the
+result on `Config.warnings`, and `load_project` puts those at the front of the issues it already
+returns. `cmd_validate` is unchanged: it counts, prints and serialises them like any other issue,
+and its exit code is computed from errors alone, so warnings leave it 0. No call site of
+`load_config` changed.
+
+## Acceptance criteria, and the tests that cover them
+
+All in `tests/test_config_unknown_keys.py`. Run against the code stubbed out — `unknown_names`
+returning `[]` and an empty `Config.warnings` — 7 of the 10 failed, each on its own assertion, and
+all 10 pass against the implementation. The three that could not be red are the negative ones
+(5, 6, 10): they assert that nothing warns, which a stub satisfies by doing nothing. They are
+regression guards, and criterion 6 is the guard that keeps this warning from becoming noise.
+
+| # | Test | Observed failing first |
+|---|---|---|
+| 1 | `test_an_unknown_key_in_a_known_table_warns_naming_the_key_and_the_table` | yes |
+| 2 | `test_an_unknown_top_level_key_warns` | yes |
+| 3 | `test_an_unknown_table_warns_once_and_is_not_descended_into` | yes |
+| 4 | `test_an_unknown_key_in_a_repeatable_table_names_its_entry` | yes |
+| 5 | `test_the_free_form_tables_never_warn` | no — a negative assertion |
+| 6 | `test_nothing_taskrail_defines_warns` | no — a negative assertion |
+| 7 | `test_an_unknown_key_is_never_an_error` | yes |
+| 8 | `test_validate_json_reports_the_warning_and_stays_valid` | yes |
+| 9 | `test_a_near_miss_suggests_the_key_it_missed` | yes |
+| 10 | `test_a_config_taskrail_defines_adds_no_issue` | no — a negative assertion |
+
+Criterion 6 holds both drift guards: the config `taskrail init` seeds (`install.default_config`)
+loads with no unknown-name warning, and the example config of DESIGN.md §4, parsed out of the file
+itself, produces none either. The §4 guard calls `unknown_names` on the parsed block rather than
+loading it as a repository, because that example is a two-backlog illustration that would not load
+as a whole; what it guards is the declaration, which is exactly what can drift.
+
+## Deviations from the plan
+
+None in behaviour. Two details the plan left open were settled while building:
+
+- the suggestion for an unknown **table** is bracketed (``did you mean [review]?``), and an unknown
+  **top-level key** is matched against the table names as well as `version`, since that is where a
+  misspelling at the top level most likely belongs;
+- `AUTOPILOT_ENTRY_KEYS` declares the keys of `[[autopilot.group]]` and `[[autopilot.resource]]`
+  separately from `TABLE_KEYS`, because they are nested one level deeper than the other repeatable
+  table, `[[backlog]]`.

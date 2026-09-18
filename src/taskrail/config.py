@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import difflib
 import re
 import tomllib
 import dataclasses
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from taskrail.issues import ConfigError
+from taskrail.issues import ConfigError, Issue, warning
 from taskrail.predicates import ColumnPredicate, parse_column_predicate, resolve_column
 
 CONFIG_PATH = Path(".taskrail") / "config.toml"
@@ -112,9 +113,80 @@ class Config:
     review: ReviewConfig = field(default_factory=ReviewConfig)
     allowed_kinds: tuple[str, ...] = ()  # empty: every defined kind is allowed
     autopilot: AutopilotConfig = field(default_factory=AutopilotConfig)
+    warnings: tuple[Issue, ...] = ()  # names the file holds that taskrail does not define (T094)
 
     def backlog(self, name: str) -> BacklogConfig | None:
         return next((b for b in self.backlogs if b.name == name), None)
+
+
+# Every name `.taskrail/config.toml` may hold, by the table it sits in (DESIGN.md §4). taskrail
+# ignores anything else, so `validate` warns about it: without that, a typo and a key a newer
+# taskrail no longer defines are equally silent (T088 E2). A key is warned about, never refused, so
+# a config written for another version still loads.
+TOP_LEVEL_KEYS = ("version",)
+TABLE_KEYS: dict[str, tuple[str, ...] | None] = {  # None: free-form, the repository names its own
+    "backlog": ("name", "prefix", "file", "mainline", "artifacts", "may_depend_on", "epic_prefix", "id_digits"),
+    "columns": ("custom", "aliases"),  # the keys under `aliases` are core column names, checked in _column_aliases
+    "points": ("scale",),
+    "git": ("push_task_branch", "commit", "claim_remote", "branch_record_remote", "claim_grace_minutes", "worktree", "worktree_dir", "task_branch"),
+    "review": ("remote", "fetch", "rebase", "provider", "web_url", "url_template", "scope"),
+    "kinds": ("allowed",),
+    "checks": None,
+    "autopilot": ("enabled", "max_lanes", "kinds", "governing", "read_first", "escalate_gates", "decisions", "decisions_index", "silent_minutes", "handoff", "notify", "notify_on", "group", "resource"),
+}
+AUTOPILOT_ENTRY_KEYS = {"group": ("name", "limit", "column", "match"), "resource": ("name", "values")}
+
+
+def _hint(name: str, known, table: bool = False) -> str:
+    """`did you mean …? ` when `name` is a near miss of one that exists, empty otherwise."""
+    close = difflib.get_close_matches(name, list(known), 1, 0.8)
+    if not close:
+        return ""
+    return f"did you mean [{close[0]}]? " if table else f"did you mean `{close[0]}`? "
+
+
+def unknown_names(data: dict) -> list[Issue]:
+    """Warn about every name in a parsed config that taskrail does not define (§4).
+
+    Never an error: a repository pinned to an older CLI must keep loading a config written for a
+    newer one, and the other way round. A table taskrail does not know is reported once, as a
+    table, and not descended into.
+    """
+    found: list[Issue] = []
+    where = str(CONFIG_PATH)
+
+    def keys(table: dict, known: tuple[str, ...], label: str) -> None:
+        for name in table:
+            if name not in known:
+                found.append(warning("config-unknown-key", f"unknown key `{name}` in {label}; {_hint(name, known)}taskrail ignores it", where))
+
+    def entries(raw, label: str, known: tuple[str, ...]) -> None:
+        """Each entry of a repeatable table, labelled by its `name` when it has one."""
+        for index, entry in enumerate(raw if isinstance(raw, list) else [], start=1):
+            if isinstance(entry, dict):
+                name = entry.get("name")
+                keys(entry, known, f"{label} `{name}`" if isinstance(name, str) and name else f"{label} #{index}")
+
+    for name, value in data.items():
+        if name in TOP_LEVEL_KEYS:
+            continue
+        if name not in TABLE_KEYS:
+            if isinstance(value, dict) or (isinstance(value, list) and value and all(isinstance(item, dict) for item in value)):
+                found.append(warning("config-unknown-table", f"unknown table [{name}]; {_hint(name, TABLE_KEYS, table=True)}taskrail ignores it", where))
+            else:
+                found.append(warning("config-unknown-key", f"unknown top-level key `{name}`; {_hint(name, (*TOP_LEVEL_KEYS, *TABLE_KEYS))}taskrail ignores it", where))
+            continue
+        known = TABLE_KEYS[name]
+        if known is None:
+            continue
+        if name == "backlog":
+            entries(value, "[[backlog]]", known)
+        elif isinstance(value, dict):
+            keys(value, known, f"[{name}]")
+            if name == "autopilot":
+                for table, entry_keys in AUTOPILOT_ENTRY_KEYS.items():
+                    entries(value.get(table), f"[[autopilot.{table}]]", entry_keys)
+    return found
 
 
 def find_root(start: Path) -> Path:
@@ -304,6 +376,7 @@ def load_config(root: Path) -> Config:
         review=review,
         allowed_kinds=tuple(allowed_kinds or ()),
         autopilot=autopilot,
+        warnings=tuple(unknown_names(data)),
     )
 
 

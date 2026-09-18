@@ -8,6 +8,14 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
 
 ## Unreleased
 
+- **`validate` warns about a name in `.taskrail/config.toml` that taskrail does not define.** A key
+  taskrail does not know was ignored in silence, so a typo did nothing and no configuration key
+  could be withdrawn without a repository quietly losing what it had set. `validate` now reports it
+  as a warning — in its text and in `--json` — naming the key and the table it sits in, with
+  `did you mean …?` for a near miss, and one warning for a whole table it does not know. It is never
+  an error: the exit code stays 0 and every command goes on working, so a config written for another
+  version still loads (T094).
+
 - **Every executor reads the repository's own instructions before it plans.** The `taskrail` skill's
   procedure now opens its stages step by telling the executor to read the repository's agent
   instruction files, if it has any, and follow what they ask of the work at hand — so every kind
