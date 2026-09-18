@@ -90,6 +90,11 @@ def used_ids(config: Config, backlog: BacklogConfig) -> set[str]:
     found: set[str] = set()
 
     def scan(read) -> None:
+        # The archive first: an ID whose row has moved there is used, or `new` would hand it out
+        # again once the branches carrying the row are gone (DESIGN.md §6.3, §7.6).
+        archived = read(backlog.archive_path)
+        if archived is not None:
+            found.update(_task_ids(archived, backlog.prefix, config.column_aliases))
         main = read(backlog.file)
         if main is None:
             return
@@ -111,7 +116,7 @@ def used_ids(config: Config, backlog: BacklogConfig) -> set[str]:
     if config.claim_remote:
         revisions += gitutil.refs(config.root, f"refs/remotes/{config.claim_remote}")
     mains = gitutil.read_blobs(config.root, [f"{rev}:{backlog.file}" for rev in revisions])
-    epic_specs = []
+    epic_specs = [f"{rev}:{backlog.archive_path}" for rev in revisions]
     for rev in revisions:
         text = mains.get(f"{rev}:{backlog.file}")
         if text is None:

@@ -59,26 +59,40 @@ lives, and the merge driver's existing table merge applies unchanged. Sections a
 append-only and never reordered: rows go to the end of their epic's table, a new epic section to
 the end of the file.
 
-## Acceptance criteria
+## Acceptance criteria, and the tests that cover them
 
-Each is a test in `tests/test_archive.py` unless noted, written before the implementation.
+Every test below was written before the implementation and observed failing — `22 failed, 80
+passed` across `tests/test_archive.py` and `tests/test_merge_driver.py` before a line of the
+feature existed (see *Evidence*). Tests are in `tests/test_archive.py` unless named otherwise.
 
-| # | Criterion |
-|---|---|
-| 1 | `archive` moves a closed row out of its epic's table into the archive file, keeping every cell, and `validate` passes afterwards |
-| 2 | A pending row is never moved; neither is a closed row that a remaining row depends on — it is reported held back, naming the dependent |
-| 3 | An epic whose every row archives loses its `## Epics` row and its section; its objective and `Done when:` line appear in the archived section |
-| 4 | An epic in its own file is archived with its file: the file is gone, the listing row is gone, and the merge driver's `.gitattributes` block no longer names it |
-| 5 | An epic that keeps one row keeps its heading and table, and the archive holds only the moved rows |
-| 6 | The archive file is created with its heading on first use, and a second run appends under the existing epic section instead of repeating it |
-| 7 | The archive's table keeps the source table's header, including `[columns].aliases` and custom columns |
-| 8 | `--dry-run` writes nothing and reports what would move; `--json` reports `archived`, `epics`, `held_back`, `archive` and `files` |
-| 9 | `taskrail new` after an archive never re-allocates an archived ID, on the working tree and from a branch (`tests/test_ids.py` style, git fixture) |
-| 10 | `validate` does not read the archive: an archive holding a row whose kind and dependencies would be invalid in a backlog produces no issue, and `show`/`list` do not report archived tasks |
-| 11 | `taskrail reopen <ID>` of an archived task exits 3 and the message names the archive file the ID sits in, instead of the bare `no task` |
-| 12 | `init --merge-driver` and `upgrade` write `/docs/archive.md merge=taskrail` in the block (`tests/test_merge_driver.py`) |
-| 13 | The merge driver merges two branches' archives row by row: both sets of rows, one copy of a row both added (`tests/test_merge_driver.py`) |
-| 14 | `[[backlog]].archive` is a known config key (no T094 warning), empty or a template with an unknown placeholder exits 2, and two backlogs resolving to the same archive path exits 2 (`tests/test_config_unknown_keys.py` neighbours) |
+| # | Criterion | Test |
+|---|---|---|
+| 1 | Closed rows move out of their epic's table into the archive, cell for cell, and `validate` passes afterwards | `test_closed_rows_move_into_the_archive_and_the_backlog_stays_valid` |
+| 2 | A discarded (`❌`) row archives exactly like a done (`✅`) one | `test_a_discarded_row_archives_exactly_like_a_done_row` |
+| 3 | A closed row a remaining row depends on is held back, and the output names what keeps it | `test_a_row_a_remaining_row_depends_on_is_held_back_and_named` |
+| 4 | Holding one row back holds back the closed rows it depends on, to a fixed point | `test_a_chain_of_closed_rows_behind_a_held_back_one_stays_whole` |
+| 5 | An epic whose every row moves loses its `## Epics` row and its section, and its objective and `Done when:` are carried across | `test_a_fully_closed_epic_loses_its_listing_row_and_section` |
+| 6 | An epic that keeps a row keeps its heading and table, and its objective is not carried | `test_an_epic_that_keeps_a_row_keeps_its_heading_and_table` |
+| 7 | An epic in its own file is archived with the file: the file is gone, so is its listing row, and the backlog validates | `test_an_epic_in_its_own_file_is_archived_with_its_file` |
+| 8 | The archive is created once, a second run appends under the same section in order, and an epic archived later gains its objective there | `test_the_archive_is_created_once_and_a_second_run_appends_to_its_section` |
+| 9 | The archived table keeps the source header, `[columns].aliases` and custom columns | `test_the_archived_table_keeps_aliases_and_custom_columns` |
+| 10 | `--dry-run` writes nothing and reports what would move and what is held back; `--json` carries `dry_run`, `archived`, `epics`, `held_back` | `test_dry_run_writes_nothing_and_reports_what_would_move` |
+| 11 | Nothing to archive is reported, and the archive is left byte-identical | `test_nothing_to_archive_is_reported_and_writes_nothing` |
+| 12 | `--backlog` archives one backlog and leaves the others; an unknown name exits 2 | `test_backlog_selects_one_backlog_and_an_unknown_name_is_usage` |
+| 13 | `[[backlog]].archive` is a template: `docs/{backlog}/closed.md` is honoured and the default is not written | `test_the_archive_path_is_configurable` |
+| 14 | An empty `archive`, or one with an unknown placeholder, exits 2 when the config loads | `test_a_bad_archive_value_is_a_configuration_error` |
+| 15 | Two backlogs sharing an archive, or an archive that is another backlog's file, are refused by the command, not by the config | `test_two_backlogs_may_not_archive_into_one_file` |
+| 16 | `archive` is a known configuration key: writing it warns nothing (T094) | `test_archive_is_a_known_configuration_key` |
+| 17 | `validate`, `show` and `list` ignore the archive, even one holding a row that would be invalid in a backlog | `test_validate_show_and_list_ignore_the_archive` |
+| 18 | `reopen` of an archived ID exits 3 naming the archive file; an ID nowhere at all keeps the bare message | `test_reopening_an_archived_task_names_the_archive` |
+| 19 | An archived ID is never allocated again from the working tree | `test_an_archived_id_is_never_allocated_again` |
+| 20 | …nor from a revision, when the working tree no longer has the archive at all | `test_an_archived_id_counts_from_a_branch_that_no_longer_has_the_file` |
+| 21 | `init --merge-driver` and `upgrade` write `/docs/archive.md merge=taskrail` in the block | `tests/test_merge_driver.py::test_init_merge_driver_writes_attributes_config_and_the_extra` |
+| 22 | Two branches archiving at once merge row by row, and a row both archived appears once | `tests/test_merge_driver.py::test_two_branches_archiving_at_once_merge_row_by_row` |
+
+Criterion 22 is the one that **passed before the implementation as well as after**, and that is the
+result, not an accident: the archive was shaped as an ordinary backlog table precisely so the
+driver needs no new code. All the archive needed was its path in the block (criterion 21).
 
 ## Affected areas
 
@@ -86,12 +100,12 @@ Each is a test in `tests/test_archive.py` unless noted, written before the imple
 |---|---|
 | `src/taskrail/archive.py` | New. Selecting what archives, building the archive document, and the edits that remove the rows, the epic sections and the listing rows. |
 | `src/taskrail/cli.py` | `cmd_archive` and its parser entry; the archive hint in `cmd_reopen`'s not-found path. |
-| `src/taskrail/config.py` | `BacklogConfig.archive`, its default, its placeholder and collision checks, and `TABLE_KEYS["backlog"]`. |
-| `src/taskrail/writer.py` | Deleting a file through `Edits` (an epic file that archives with its epic), and removing an epic's listing row and section — the inverse of `add_epic`/`split_epic`. |
+| `src/taskrail/config.py` | `BacklogConfig.archive`, the `archive_path` property, the default, the empty and placeholder checks, and `TABLE_KEYS["backlog"]`. |
+| `src/taskrail/writer.py` | `Edits.delete` (an epic file that archives with its epic; `apply` unlinks it and overlays it empty so anything still referencing it is reported), and `remove_epic`, the inverse of `add_epic`/`split_epic`. |
 | `src/taskrail/ids.py` | `used_ids` scans the archive file too, in the working tree and on every scanned revision. |
 | `src/taskrail/mergedriver.py` | `known_conflict_paths` lists each backlog's archive, class `backlog`. |
-| `tests/test_archive.py` | New; criteria 1-11. |
-| `tests/test_merge_driver.py`, `tests/test_ids.py`, `tests/test_config_unknown_keys.py` | Criteria 9, 12-14. |
+| `tests/test_archive.py` | New; criteria 1-20. |
+| `tests/test_merge_driver.py` | Criteria 21-22: the new archive line in the block's expected contents, and the two-branch merge. |
 | `DESIGN.md` | §3.1 (closed rows stay *until archived*), §4 (`archive` key), §7 (the command's row), a new §7.6 describing the file and the rules, §7.4 (the driver's paths). |
 | `README.md` | One line in the command list. |
 | `CHANGELOG.md` | One bullet under `## Unreleased`. |
@@ -160,6 +174,33 @@ Each is a test in `tests/test_archive.py` unless noted, written before the imple
    in this artifact, and open a follow-up chore to run `taskrail archive` on `TODO.md` once the
    run's branches are merged. Alternative: archive for real here, which gives the feature a real
    first use in the same pull request but rewrites the backlog every open branch shares.
+
+## One decision changed while building it
+
+Decision 2a was answered "refuse two backlogs resolving to the same archive path, in the config's
+existing checks". **Built as a refusal by the command instead**, for a reason that only showed up
+once the check existed: the default archive is `{artifacts}/archive.md`, so *any* two backlogs
+sharing an artifacts root resolve to the same path — including the two in DESIGN.md §4's own
+example and four of this repository's test fixtures. A config-load refusal therefore exits 2 on
+every command of a repository that has two backlogs and never archives anything:
+
+```
+$ uv run pytest -q          # with the check at config load
+taskrail: .taskrail/config.toml: archive `docs/archive.md` is used by more than one backlog
+5 failed, 1238 passed
+```
+
+Writing is the only operation that would mix two backlogs into one file — `ids.used_ids` filters
+by prefix and the driver lists a path once — so the refusal sits where the damage would be done.
+`taskrail archive` exits 2 naming both backlogs and the key, and `validate` stays 0. The same check
+covers an archive that is another backlog's file. The decision's intent (never mix two backlogs
+silently) is kept; only its position moved.
+
+## Follow-up opened
+
+- **T114** (chore, E06): *Archive this repository's closed tasks and epics* — run `taskrail
+  archive` on `TODO.md` once run 20260918-1's branches are merged. Decision 6 keeps this branch's
+  `TODO.md` untouched, and T114 carries the real run.
 
 ## Open questions and risks
 

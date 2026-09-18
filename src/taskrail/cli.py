@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 
-from taskrail import __version__, branches, checks, claims, gitutil, history, ids, install, mergedriver, prior, review, stack, writer
+from taskrail import __version__, archive, branches, checks, claims, gitutil, history, ids, install, mergedriver, prior, review, stack, writer
 from taskrail.autopilot import runs as autopilot_runs
 from taskrail.config import CORE_TASK_COLUMNS, find_root, load_config
 from taskrail.issues import ConfigError, Issue
@@ -847,7 +847,10 @@ def cmd_reopen(args) -> int:
         return EXIT_INVALID
     task = project.task(args.id)
     if task is None:
-        print(f"taskrail: no task `{args.id}`", file=sys.stderr)
+        # Archived is archived: say where the row went, but never bring it back (DESIGN.md §7.6).
+        where = archive.holding(project.config, args.id)
+        hint = f"; it is archived in {where}, and an archived task is not reopened" if where else ""
+        print(f"taskrail: no task `{args.id}`{hint}", file=sys.stderr)
         return EXIT_NOT_FOUND
     if task.status is Status.PENDING:
         print(f"taskrail: {task.id} is already pending", file=sys.stderr)
@@ -1315,6 +1318,59 @@ def cmd_checks(args) -> int:
     return EXIT_OK if result["passed"] else EXIT_CHECK_FAILED
 
 
+def cmd_archive(args) -> int:
+    """Move closed rows, and epics whose rows are all closed, into each backlog's archive (§7.6)."""
+    project, issues = _load(args)
+    if _refuse_if_invalid(issues, args):
+        return EXIT_INVALID
+    config = project.config
+    if args.backlog is not None and config.backlog(args.backlog) is None:
+        print(f"taskrail: no backlog `{args.backlog}`", file=sys.stderr)
+        return EXIT_USAGE
+    # Checked here rather than at load: the default archive of two backlogs sharing an artifacts
+    # root is the same path, and only writing to it would mix them. A config that never archives
+    # keeps working.
+    for backlog in config.backlogs:
+        clash = next((b.name for b in config.backlogs if b.name != backlog.name and b.archive_path == backlog.archive_path), None)
+        if clash:
+            print(
+                f"taskrail: backlogs `{backlog.name}` and `{clash}` both archive into {backlog.archive_path}; "
+                "give each one an [[backlog]].archive of its own",
+                file=sys.stderr,
+            )
+            return EXIT_USAGE
+        owner = next((b.name for b in config.backlogs if b.file == backlog.archive_path), None)
+        if owner:
+            print(f"taskrail: backlog `{backlog.name}` archives into {backlog.archive_path}, which is backlog `{owner}`'s file", file=sys.stderr)
+            return EXIT_USAGE
+    plans = [archive.plan(project, backlog) for backlog in project.backlogs if args.backlog in (None, backlog.config.name)]
+
+    edits = writer.Edits(config)
+    if not args.dry_run:
+        try:
+            for plan in plans:
+                if not plan.empty:
+                    archive.apply_plan(edits, plan)
+        except writer.WriteError as exc:
+            print(f"taskrail: {exc}", file=sys.stderr)
+            return EXIT_USAGE
+
+    text: list[str] = []
+    for plan in plans:
+        name = plan.backlog.config.name
+        if plan.empty:
+            text.append(f"{name}: nothing to archive")
+        else:
+            verb = "would archive" if args.dry_run else "archived"
+            text.append(f"{name}: {verb} {len(plan.tasks)} task(s) and {len(plan.epics)} epic(s) into {plan.archive}")
+        text += [f"held back {held.id}: {held.reason}" for held in plan.held_back]
+    result = {"dry_run": args.dry_run, "backlogs": [plan.as_dict() for plan in plans], "removed": sorted(edits.removed)}
+    if args.dry_run:
+        _emit({**result, "files": []}, args.json, "\n".join(text))
+        return EXIT_OK
+    return _write(edits, args.json, result, "\n".join(text), on_written=lambda _: mergedriver.refresh_attributes(config))
+
+
 def cmd_epic_add(args) -> int:
     project, issues = _load(args)
     if _refuse_if_invalid(issues, args):
@@ -1608,6 +1664,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--resource", action="append", metavar="NAME=VALUE", help="pass this pool value as TASKRAIL_RESOURCE_<NAME>, replacing the lane's; refused when another lane holds it; repeatable"
     )
     checks_cmd.add_argument("--allow-invalid", action="store_true")
+
+    archive_cmd = add("archive", cmd_archive, "Move closed tasks, and epics whose tasks are all closed, into the backlog's archive.")
+    archive_cmd.add_argument("--backlog", help="only this backlog (default: every configured backlog)")
+    archive_cmd.add_argument("--dry-run", action="store_true", help="report what would move and write nothing")
 
     epic = commands.add_parser("epic", help="Manage epics.")
     epic_commands = epic.add_subparsers(dest="epic_command", required=True)

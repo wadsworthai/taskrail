@@ -33,6 +33,7 @@ class Edits:
     def __init__(self, config: Config):
         self.config = config
         self.files: dict[str, str] = {}
+        self.removed: set[str] = set()  # files to delete: an epic file archived with its epic (T107)
 
     def read(self, relative: str) -> str:
         if relative in self.files:
@@ -40,7 +41,13 @@ class Edits:
         return (self.config.root / relative).read_text(encoding="utf-8")
 
     def exists(self, relative: str) -> bool:
-        return relative in self.files or (self.config.root / relative).exists()
+        if relative in self.files:
+            return True
+        return relative not in self.removed and (self.config.root / relative).exists()
+
+    def delete(self, relative: str) -> None:
+        self.files.pop(relative, None)
+        self.removed.add(relative)
 
     def lines(self, relative: str) -> list[str]:
         return self.read(relative).splitlines(keepends=True)
@@ -299,11 +306,39 @@ def split_epic(edits: Edits, backlog: BacklogConfig, epic: Epic, file: str) -> N
     edits.files[file] = text if text.endswith("\n") else text + "\n"
 
 
+def remove_epic(edits: Edits, backlog: BacklogConfig, epic: Epic) -> None:
+    """Delete an epic: its section — its own file, when it has one — and its row in `## Epics` (T107)."""
+    main = backlog.file
+    if epic.file is not None:
+        edits.delete(epic.file)
+    else:
+        lines = edits.lines(main)
+        sections, index = _find_epic_section("".join(lines), epic.id)
+        start, end = _section_bounds(sections, index, len(lines))
+        remaining = lines[:start] + lines[end:]
+        while start > 0 and start < len(remaining) and not remaining[start - 1].strip() and not remaining[start].strip():
+            del remaining[start]
+        while remaining and not remaining[-1].strip():
+            remaining.pop()
+        edits.set_lines(main, remaining)
+
+    lines = edits.lines(main)
+    table = _epics_table("".join(lines))
+    columns = _index(table.header)
+    for number, cells in table.rows:
+        if cells[columns["ID"]] == epic.id:
+            del lines[number - 1]
+            edits.set_lines(main, lines)
+            return
+    raise WriteError(f"epic {epic.id} is not in the Epics table")
+
+
 def apply(edits: Edits) -> list[Issue]:
     """Validate the edited project; write every file atomically only if it has no errors."""
     from taskrail.project import load_project
 
-    _, issues = load_project(edits.config, overlay=edits.files)
+    # A deleted file is overlaid empty, so anything that still references it is reported here.
+    _, issues = load_project(edits.config, overlay={**{r: "" for r in edits.removed}, **edits.files})
     errors = [issue for issue in issues if issue.severity == "error"]
     if errors:
         return errors
@@ -314,4 +349,6 @@ def apply(edits: Edits) -> list[Issue]:
         temporary = path.with_name(f".{path.name}.taskrail-tmp")
         temporary.write_text(content, encoding="utf-8")
         os.replace(temporary, path)
+    for relative in sorted(edits.removed):
+        (edits.config.root / relative).unlink(missing_ok=True)
     return []

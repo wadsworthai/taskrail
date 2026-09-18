@@ -94,7 +94,9 @@ Done when: every session has a recomputable cost.
 - An epic lives either inline, as a `## E## — Name` section, or in the file its `File` cell
   names. The file holds exactly the same section. `taskrail epic split E01` moves it.
 - Completed and discarded tasks stay in their epic's table. There are no separate
-  "Completed" or "Discarded" sections, so an epic never appears twice.
+  "Completed" or "Discarded" sections, so an epic never appears twice. They stay until the human
+  runs `taskrail archive`, which moves closed rows — and an epic whose rows are all closed — into
+  the backlog's archive document (§7.6); nothing archives on its own.
 - Epic status (`open`, `done`) is computed from its tasks and never stored.
 
 ### 3.2 Columns
@@ -143,6 +145,7 @@ id_digits = 3                    # digits an allocated ID is padded to: T001; 1 
 file = "TASKRAIL.md"             # optional; this is the default
 mainline = "main"
 artifacts = "docs"
+archive = "{artifacts}/archive.md"   # where `taskrail archive` moves closed rows (§7.6)
 may_depend_on = []               # T tasks may depend only on T tasks
 
 [[backlog]]
@@ -683,6 +686,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1); under `task_branch = "current"` a report only, with `--publish` refused (§7.1, *On the current branch*; T083) |
 | `taskrail checks <ID> [--stage STAGE] [--check NAME]… [--resource NAME=VALUE]…` | Run a task's configured checks in its worktree with its autopilot lane's resources, or chosen ones, from anywhere in the clone (§7.5) |
 | `taskrail import <FILE> [--write] [--column CORE=HEADER]… [--status VALUE=STATUS]… [--kind VALUE=KIND]… [--default-kind KIND] [--epic-level N] [--epic-name NAME]` | Convert a table-based Markdown backlog without epics into this backlog; a dry run unless `--write` (§7.3) |
+| `taskrail archive [--backlog NAME] [--dry-run]` | Move closed tasks, and epics whose tasks are all closed, into the backlog's archive document (§7.6); never automatic |
 | `taskrail epic add [--id E##] [--own-file \| --file PATH]` / `taskrail epic split <E##> [--file PATH]` | Add an epic inline or in a file of its own; move an inline epic to its own file. `add` allocates `epic_prefix` plus two digits, one above the backlog's highest, unless `--id` names one (exit 5 if that epic exists); `--own-file` writes `todo/<id>-<slug>.md` and `--file` the path it names. `split` writes `todo/<id>-<slug>.md` unless `--file` names another |
 | `taskrail kind list` | Inspect resolved kinds, each `--json` entry with its effective `commit` policy, `commit_source` and effective stage `commit` (§5.1). There is no command that installs a kind: copy its descriptor into `.taskrail/types/<kind>/`, or an override into `.taskrail/overrides/<kind>/` (§5.2) |
 | `taskrail autopilot start` / `extend` / `next` / `lane` / `decision` / `status` / `merged` / `notify` | Autopilot runs, count-only or named, dispatch and their lanes, and merge follow-through (§12.1, §12.8) |
@@ -1126,7 +1130,7 @@ the block, which taskrail leaves alone.
 **Installing.** `init --merge-driver` records the extra and:
 
 - writes a marked block in `.gitattributes`, keeping every other line, with `/<path> merge=taskrail`
-  for each backlog file, epic file, artifact index (each kind's `artifact_index` and
+  for each backlog file, its archive (§7.6), epic file, artifact index (each kind's `artifact_index` and
   `[autopilot].decisions_index` rendered per backlog, skipping per-task templates) and changelog,
   quoted or escaped so it matches exactly that path. `upgrade` and `init` refresh it while the extra
   is recorded, and `epic add --own-file` and `epic split` refresh an existing block when they create
@@ -1167,6 +1171,54 @@ ran passed, 6 when one failed, 2 for an unknown stage or a rejected `--resource`
 task, 4 for a value another lane holds, 5 when the task has no worktree. It reads run files and
 never writes them, so one allowlist entry covers a lane's checks without `cd` or variables in the
 command.
+
+### 7.6 Archive
+
+A backlog keeps every row it ever had (§3.1), so a long-lived one grows without bound and a reader
+meets years of closed work before the open rows. `taskrail archive` is the human's answer: it moves
+closed rows out of the backlog and into a document per backlog. **It is never automatic** — `done`
+and `discard` only change a `✓` cell — and nothing ever moves a row back.
+
+`[[backlog]].archive` names that document, a template over `{artifacts}` and `{backlog}`, default
+`{artifacts}/archive.md`. An empty value or an unknown placeholder exits 2 when the config loads.
+Two backlogs resolving to the same path, or an archive that is another backlog's file, is refused
+by the command instead, naming both backlogs: two backlogs sharing an artifacts root have the same
+archive by default, and a repository that never archives must keep working.
+
+**What moves.** Every `✅` and `❌` row of the selected backlogs — the two closed states are
+treated alike — except a row that a row *staying behind* depends on, in any backlog. Those are
+*held back*, to a fixed point: holding one back holds back the closed rows it depends on in turn.
+Held-back rows are named in the output with what keeps them, so a human who expected a row to move
+is told where it is and why. This is the whole of what keeps the backlog valid across the boundary:
+`depends-unknown` is an error and `validate` never opens the archive.
+
+An epic **every** row of which moves is archived whole: its `## Epics` listing row and its section
+go too, its own file with it when it has one, and its objective and `Done when:` line are carried
+into the archived section. An epic that keeps even one row keeps its heading and its table.
+
+**The document** is the same Markdown as a backlog — a `## E## — Name` section per epic, holding
+task tables — and each row keeps its exact line, with the source table's own header, aliases and
+custom columns. So `grep` finds a task wherever it lives, the row's shape never depends on when it
+was archived, and neither the ID scan nor the merge driver needs anything new:
+
+- `ids.used_ids` reads the archive too, on the working tree and on every scanned revision, so an
+  archived ID is still used and is never allocated again (§6.3). Without it, `new` would reissue an
+  archived ID once the branches carrying the row are gone.
+- The archive is one of the merge driver's paths (§7.4), class `backlog`, so two lanes archiving at
+  once merge row by row: both sides' rows, and a row both archived kept once.
+
+Rows are appended, never reordered, and sections are created as they are first needed.
+
+**What does not read it.** `validate` does not, and neither do `show`, `list` or `next`: an
+archived task is gone from the backlog. **An archived task is not reopened** — `taskrail reopen`
+exits 3 for one, naming the archive file the ID sits in, and work that must come back is a new
+task. A branch that reopened a row before it was archived needs no special rule either: merging it
+leaves a modify/delete conflict on that row for the human (§7.4), while a branch carrying the row
+unchanged merges as a clean removal.
+
+`--dry-run` reports exactly what would move, and what is held back, without writing. `--json`
+returns `dry_run`, `removed` (epic files deleted), `files` (files written) and one entry per
+backlog with `backlog`, `archive`, `archived`, `epics` and `held_back`.
 
 ## 8. Skills
 
