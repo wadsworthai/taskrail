@@ -23,3 +23,24 @@ more tasks, and the lane was asked not to repeat them as current. It did the opp
 them — it tabled old against new and explained why the nine held-back rows are now zero: the rule
 holds a closed row only while a row *staying behind* depends on it, and T003, T109 and T110 have
 since closed and archive themselves. The one-line output is correct, not truncated.
+
+## implement gate
+
+Reviewed: commit `9756424` and the diff `073eaea..HEAD` — `TODO.md` down to 15 lines with 148
+deletions and nothing added, the new 157-line `docs/archive.md`, seven lines of `CLAUDE.md` and the
+artifact; the `git diff --stat` showing deletions only, so rows moved rather than being rewritten;
+the exhaustive byte-comparison of all 108 archived rows against `git show HEAD:TODO.md`; the ID
+probes; and `taskrail checks T114 --stage implement` (1,256 passed). The orchestrator re-counted the
+two files and read the `CLAUDE.md` bullet in place.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The implement stage as committed | **approve** | **approve** | Everything the scope gate settled was applied, and the verification is stronger than what was asked for: 108 of 108 rows compared rather than sampled, and a diff that is deletions only. |
+| 2 | The `CLAUDE.md` wording, the one edit a future lane reads as instruction | **keep as written** · reword | **keep** | It answers the question a reader will actually have — *where did the history go* — with the command that finds it, and it closes the door the archive must keep shut: nothing comes back out, and work that must return is a new task. That last sentence is the one that prevents a future lane from inventing an unarchive. |
+| 3 | The `T122` probe result | **not a defect; no follow-up** | **not a defect** | Probing twice in the same scratch repository reserved an ID the first time, and `ids.reserve`'s pending-reservation ledger under `.git/taskrail/reserved/` is not reverted by `git checkout -- TODO.md`. Correct race-free behaviour. Recording the trap in the artifact is worth more than a task would be — it is what the next person to run this probe needs. |
+
+The **negative control** in the ID check is the part worth keeping: with `docs/archive.md` absent
+from both the working tree and history, the next ID is `T115` — a live reissue of an archived, done
+task. With the archive present in either place it is `T121`. That is what turns "the counter looks
+right" into "the archive scan is what keeps it right", on this repository's real data, and it is the
+guarantee T107 built `ids.used_ids`' revision scan for.
