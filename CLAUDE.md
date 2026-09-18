@@ -126,3 +126,11 @@ uv run pytest tests/test_validate.py -k cycle   # a single test
 uv run taskrail --root <repo> validate          # run the CLI against a repository
 .taskrail/bin/taskrail validate                 # validate this repository's own backlog
 ```
+
+- **A test that spawns the wrapper to exercise a `local:` pin must hand the subprocess an
+  environment with no `taskrail` in it** — `TASKRAIL_BIN` and `VIRTUAL_ENV` removed, and a `PATH`
+  holding `uv` but no `taskrail`. The wrapper runs `uv run --project <pin> taskrail`, and `uv`
+  takes any taskrail the environment already offers before the pin has to supply one; `uv run
+  pytest` offers this checkout's own twice over. Leave either route open and the test passes with
+  a pin that holds no taskrail source at all. `tests/test_install_without_path.py` is the worked
+  example, and its `path_with_uv_but_no_taskrail` builds that `PATH`.

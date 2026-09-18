@@ -1,12 +1,14 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 from conftest import git
+from test_install_without_path import path_with_uv_but_no_taskrail
 
 from taskrail import install
 from taskrail.cli import main
@@ -300,16 +302,24 @@ def test_release_tag_drops_development_suffixes():
     assert install.release_tag("0.1.0.dev0") == "v0.1.0"
 
 
-def test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout(empty_repo, capsys, monkeypatch):
-    monkeypatch.delenv("TASKRAIL_BIN", raising=False)
+@pytest.mark.skipif(shutil.which("uv") is None, reason="uv is not on PATH")
+def test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout(empty_repo, tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("TASKRAIL_BIN", raising=False)  # it would bypass the wrapper entirely
     init(empty_repo, capsys=capsys)
     config = empty_repo / ".taskrail/config.toml"
     source = Path(install.__file__).resolve().parents[2]  # the project root
     link = empty_repo / "vendor-taskrail"
     link.symlink_to(source)
     config.write_text(config.read_text().replace(f'"{install.release_tag()}"', '"local:vendor-taskrail"'))
+    # The wrapper's `local:` branch runs `uv run --project <pin> taskrail`, and `uv` takes any
+    # taskrail the environment already offers before the pin has to supply one. `uv run pytest`
+    # offers two: VIRTUAL_ENV, and this checkout's .venv/bin first on PATH. Leave either in place
+    # and the test passes with a pin that holds no taskrail source at all.
+    env = {**os.environ, "PATH": path_with_uv_but_no_taskrail(tmp_path)}
+    env.pop("VIRTUAL_ENV", None)
     result = subprocess.run(
-        [str(empty_repo / ".taskrail/bin/taskrail"), "--version"], cwd=empty_repo, capture_output=True, text=True
+        [str(empty_repo / ".taskrail/bin/taskrail"), "--version"], cwd=empty_repo, capture_output=True,
+        text=True, env=env, timeout=120,
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip().startswith("taskrail ")
