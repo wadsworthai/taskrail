@@ -19,3 +19,17 @@ existing workflow tests; and `DESIGN.md` §9's *Extras* bullet.
 
 Given with the answers: this branch's base already contains T118 (`b865681`), which the lane noticed
 and reported; the primary checkout's `main` was behind at that moment and has since caught up.
+
+## implement gate
+
+Reviewed: commit `30f9159` and the diff `05bcc16..HEAD` — three template lines, one test, the
+regenerated workflow and its manifest digest, and the artifact, with `ci.yml`, the wrapper template,
+`.taskrail/bin/taskrail`, `cli.py` and `DESIGN.md` §7 untouched; the test's recorded failure; the
+real `init` into a scratch repository and its YAML parse; and, recomputed by the orchestrator, the
+`sha256sum` of the regenerated workflow matching the digest `upgrade` recorded (`eb05606e…`).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Anything to decide at this gate? | **no** | **no** | The stage did what the scope gate approved and nothing surprising came up. |
+| 2 | The `upgrade` guard the lane offered at the scope gate | **held; accept** | **accept** | The run's report shows the wrapper, the config with its `local:.` pin, `TODO.md` and all eight skill files coming back `unchanged` — so regenerating the workflow touched the workflow and the manifest and nothing else. The guard was worth asking for and worth reading afterwards. |
+| 3 | The YAML parse confirming no job-level `permissions` | **accept** | **accept** | It is the check that makes the workflow-level choice mean what decision 1 said it means: the workflow grant *is* the job's grant, so every unnamed scope is `none`. Asserting the literal block in the suite and parsing once by hand here is the right division — the suite stays dependency-free. |
