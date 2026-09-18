@@ -23,3 +23,4 @@
 | T086 | Bump main to 0.4.0.dev0 after the v0.3.0 tag | [T086-bump-main-to-0-4-0-dev0-after-the-v0-3-0.md](T086-bump-main-to-0-4-0-dev0-after-the-v0-3-0.md) |
 | T090 | Record the scope, reach and refusal rules for the design principles in CLAUDE.md | [T090-record-the-scope-reach-and-refusal-rules.md](T090-record-the-scope-reach-and-refusal-rules.md) |
 | T091 | Tell every executor to read the repository's agent instruction files before it plans | [T091-tell-every-executor-to-read-the-reposito.md](T091-tell-every-executor-to-read-the-reposito.md) |
+| T092 | Correct T088's row with the measured CLI and configuration surface | [T092-correct-t088-s-row-with-the-measured-cli.md](T092-correct-t088-s-row-with-the-measured-cli.md) |
