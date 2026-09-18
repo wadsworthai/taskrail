@@ -81,6 +81,11 @@ Every test below was written before the implementation and observed failing
 Criterion 2 is the one that passed before the change as well as after: it is a regression guard on
 behaviour that must *not* move, which is exactly what the proof above requires of it.
 
+**The tests left unchanged are a second proof of it.** `tests/conftest.py`'s `BASE_CONFIG` writes
+`file = "TODO.md"` itself, and most of the suite is built on that fixture. Those hundreds of tests
+pass untouched before and after this change, which is the same statement as criterion 2 made at the
+scale of the whole suite: a repository that names its file is not affected by what the default is.
+
 ## Affected areas
 
 | Area | Change |
@@ -105,6 +110,59 @@ behaviour that must *not* move, which is exactly what the proof above requires o
   naming its own file.
 - **README's *Adopting an existing backlog*** names `TODO.md` as the *source* of an import, which
   stays correct.
+
+## Verification in the real CLI
+
+Run against this branch's source (`uv run taskrail --root <repo> …` from the worktree), in scratch
+repositories outside this one. No gap against the plan.
+
+**V1 — a fresh `init`.** Created `TASKRAIL.md`, no `TODO.md` anywhere in the repository. The seeded
+config holds `file = "TASKRAIL.md"          # the default; taskrail never takes a name the
+repository already uses`, and the seeded file is headed `# Backlog`. `validate` → `0 task(s) in 1
+backlog(s): 0 error(s), 0 warning(s)`, exit 0. `epic add` then `new --epic E01 --kind bug` returned
+`"files": ["TASKRAIL.md"]` and the row is in that file, so the writer follows the default end to
+end.
+
+**V2 — `init` over a repository keeping its own `TODO.md`.** This is the defect the task is about.
+
+```
+$ uv run taskrail --root <scratch>/v/v2 init
+created   .taskrail/config.toml
+created   TASKRAIL.md
+created   .taskrail/bin/taskrail
+created   .gitignore
+$ uv run taskrail --root <scratch>/v/v2 validate
+0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)          exit=0
+$ md5sum <scratch>/v/v2/TODO.md
+c041203a6424e99e709071baa19682cc                             # unchanged, byte for byte
+```
+
+Before this change the same repository got no `TASKRAIL.md`, had its own `TODO.md` adopted as the
+backlog, and `validate` exited 1 with `TODO.md: error: no \`## Epics\` section [epics-missing]`.
+
+**V3 — a config that omits `file`.** With a `TASKRAIL.md` present, `validate` exits 0 and
+`show T001 --json` reads the task out of it. With none:
+
+```
+TASKRAIL.md: error: backlog `main` file does not exist [backlog-missing]     exit=1
+```
+
+And the misspelling, which used to exit 2 on a missing required key and swallow T094's warning:
+
+```
+.taskrail/config.toml: warning: unknown key `fille` in [[backlog]] `main`; did you mean `file`? taskrail ignores it [config-unknown-key]
+TASKRAIL.md: error: backlog `main` file does not exist [backlog-missing]
+0 task(s) in 1 backlog(s): 1 error(s), 1 warning(s)                          exit=1
+```
+
+**V4 — `upgrade` against a `TODO.md` repository.** A repository created by the *pre-change* CLI,
+with `file = "TODO.md"` and real content, upgraded by this branch's CLI: exit 0, the backlog file
+byte-identical (`e9f5f382fec676d26af447a73f206274` before and after), the `file = "TODO.md"` line
+untouched, and no `TASKRAIL.md` created. The `.taskrail/` directory listing afterwards holds
+`TODO.md` and nothing else.
+
+**Also checked** — `init --merge-driver` in a fresh repository writes `/TASKRAIL.md merge=taskrail`
+in the `.gitattributes` block, so the driver follows the default too.
 
 ## Out of scope
 
