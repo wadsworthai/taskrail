@@ -811,11 +811,14 @@ def _change_status(args, status: Status) -> int:
         print(f"taskrail: {task.id} is claimed by {claim.owner}; pass --force", file=sys.stderr)
         return EXIT_CONFLICT
 
+    warning = _closed_elsewhere(task, project, status)
     edits = writer.Edits(config)
     writer.set_status(edits, task, status)
     policy, _ = commit_policy(project.kinds.get(task.kind), config)
     text = f"{task.id} {status.label}" + (f"\ncommit everything {task.id} changed now, the status change included" if policy == "on-done" else "")
-    code = _write(edits, args.json, {"id": task.id, "status": status.label, "commit": policy}, text)
+    code = _write(edits, args.json, {"id": task.id, "status": status.label, "commit": policy, "warning": warning}, text)
+    if code == EXIT_OK and warning:  # after the write: the warning says the row has already been written here
+        print(f"taskrail: warning: {warning}", file=sys.stderr)
     if code == EXIT_OK and claim is not None:
         try:
             claims.release(config, task.id, owner, force=True)
@@ -827,6 +830,26 @@ def _change_status(args, status: Status) -> int:
             )
             return EXIT_USAGE
     return code
+
+
+def _closed_elsewhere(task, project: Project, status: Status) -> str | None:
+    """Why the checkout a status was just written in is not the task's branch, or None (T119).
+
+    `claim` warns before the work (`_freeze_branch`); this warns after the write, because the row
+    of the checkout it ran in has already changed while the task's branch still holds the old one.
+    Silent with no branch to compare — outside git, and on a detached `HEAD`, which `claim` covers.
+    """
+    resolved, source = branches.resolve(task, project)
+    if source == branches.CURRENT:  # the checked-out branch is the task's (DESIGN.md §6.4)
+        return None
+    current = gitutil.current_branch(project.config.root)
+    if not current or not resolved or current == resolved:
+        return None
+    return (
+        f"{task.id} was marked {status.label} in {project.config.root} on branch {current}, but its branch is "
+        f"{resolved}; the row on that branch is unchanged — undo this change and run the command there, "
+        f"or run `taskrail branch {task.id} <NAME>` to name the branch the task is worked on"
+    )
 
 
 def cmd_done(args) -> int:

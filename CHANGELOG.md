@@ -12,6 +12,20 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **`done` and `discard` now warn when the checkout they wrote to is not on the task's branch.**
+  Run against another checkout — the mainline, say — they ticked that checkout's row, released the
+  claim, printed `<ID> done` and exited 0, while the branch that carries the pull request kept its
+  `⬜`; nothing was printed and `--json` had no field to read. `claim` has warned about the same
+  mistake since it started recording a task's branch, and the two commands never asked. They now
+  print the same kind of warning on stderr and return it in `--json` as `warning` (`null` when
+  there is none), with the exit code unchanged at 0. The wording is retrospective, since the row is
+  already written when it prints: it names the checkout, the branch it is on and the task's branch,
+  and says the row on that branch is unchanged. It is silent where there is no branch to compare:
+  under `[git].task_branch = "current"`, outside git, and on a detached `HEAD`, which `claim`
+  already covers. This is the only cover for the case no rule about resolving the repository root
+  can catch, where the path a command was invoked by and the directory it ran in agree and are both
+  the wrong checkout (T119).
+
 - **The wrapper now acts on the checkout it lives in, whatever the current directory is.**
   `.taskrail/bin/taskrail` already computed its own checkout's root and used it to read the version
   pin and to find a `local:` source, and then did not pass it on, so the wrapper decided which
