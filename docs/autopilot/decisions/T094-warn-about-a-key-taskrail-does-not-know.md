@@ -25,6 +25,30 @@ failing first; keep both drift guards as tests (`install.py`'s seeded config and
 must each produce zero warnings); `[checks]` and `[columns].aliases` never warn; and change no
 existing key — every question about retiring one belongs to T095 and T096, running beside this lane.
 
+## implement gate
+
+Reviewed: the diff read by commit range in the lane's worktree — `config.py`'s declaration and
+walker, the one-line merge in `project.py`, the ten new tests, `DESIGN.md` §4's paragraph placed
+after the example block as required, and `CHANGELOG.md`'s entry; the red-first evidence, which names
+each failing assertion rather than an import error; and `taskrail checks T094 --stage implement`
+re-run by the orchestrator, which passed.
+
+**The orchestrator broke the code on purpose**, as the gate checklist requires when a guard's
+coverage is the thing in doubt: removing `"file"` from the `backlog` entry of `TABLE_KEYS` in the
+lane's worktree made all ten tests of `tests/test_config_unknown_keys.py` fail, and the file was
+restored with `git checkout --` leaving the worktree clean. The drift guard the whole design rests
+on does fail when the declaration drifts from the parser.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the implementation what was approved? | accept · amend | **accepted** | It is the plan as approved: the check lives in `load_config`, warnings ride on `Config.warnings`, `load_project` merges them in one line, no call site and no exit code changed, and nothing was removed, renamed or defaulted. |
+| 2 | Q2's condition — does the suggestion actually fire? | met · loosen the cutoff · drop the suggestion | **met, at the default cutoff** | `clam_remote` against `claim_remote` rates 0.96 against the 0.8 threshold, with a test asserting the message, and the live probe fired it twice more (`escalat_gates`, `[reviw]`). Nothing ships that never appears. |
+| 3 | Q5's placement constraint | met · move it | **met** | The §4 paragraph is after the example block and nothing inside the block was touched; in `config.py` the nearest hunk is 34 lines from `HANDOFF_MODES`, so T096's comment merged clean — as the mainline now shows. |
+| 4 | The two risks the lane raised | accept as recorded · act now | **accept as recorded** | The declaration can drift from the parser: criterion 6 guards it, and the orchestrator verified that guard by breaking it. Warnings surface only for a config that loads: that is the existing precedence between a `ConfigError` and a warning, and this task was right not to change it. |
+
+Instructions given with the answers: run `verify` as planned — exercise the feature in a fresh
+scratch repository rather than this one's config — and close.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, three lanes: T094, T095, T096.
