@@ -7,3 +7,4 @@
 | T033 | Trial the autopilot on a real backlog with each supported agent | [T033-trial-the-autopilot-on-a-real-backlog-wi.md](T033-trial-the-autopilot-on-a-real-backlog-wi.md) |
 | T087 | Decide whether the design principles govern new work only or also what exists | [T087-decide-whether-the-design-principles-gov.md](T087-decide-whether-the-design-principles-gov.md) |
 | T089 | Decide whether to split DESIGN.md by topic for what the orchestrator reads first | [T089-decide-whether-to-split-design-md-by-top.md](T089-decide-whether-to-split-design-md-by-top.md) |
+| T088 | Measure the CLI and configuration surface against YAGNI and report what has no consumer | [T088-measure-the-cli-and-configuration-surfac.md](T088-measure-the-cli-and-configuration-surfac.md) |
