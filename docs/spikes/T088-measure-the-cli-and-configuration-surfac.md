@@ -17,6 +17,20 @@ own merits when someone proposes it.
 
 This spike changed no code, no configuration, no skill, no `DESIGN.md` and no task row.
 
+### How to read this report
+
+**A tool built by one repository for many will always look over-supplied from inside that one
+repository, and the only measurement that repository can make is of its own use.** Every count
+below is a fact about this checkout, not about taskrail's users. That is why the tables classify
+options by *where a consumer is visible* rather than by whether one exists, why the strongest
+phrase in the document is "no consumer visible in this repository", and why every recommendation
+is a question for someone who can see further.
+
+The second thing to carry through the tables is the **asymmetry of E2**: a configuration key must
+be written in a file to act, so its absence from every config file here is evidence; a command or
+a flag is typed by a human who leaves no file behind, so absence there is not. **This inventory is
+not a removal list**, and the two facts above are what stop it becoming one.
+
 ## Question
 
 taskrail's command-line and configuration surface is large for a tool with one visible consumer.
@@ -508,12 +522,19 @@ unused. If they are to be reconsidered, the question belongs to whoever can see 
 installations, and it should be asked before any work is planned, not after.
 
 **A note on the shape of the result.** The honest headline is not "taskrail has 46 options and uses
-9". It is that a tool built by one repository for many will always look over-supplied from inside
-that one repository, and the only measurement that repository can make is of its own use. What
-YAGNI can say from here is narrow and worth saying: **four options exist that nobody here can even
-discover, one has a single legal value, and no configuration key can be withdrawn safely until an
-unknown key is reported.** Everything else is a question for the human, and this document's job is
-to have asked it precisely.
+9". It is, as *How to read this report* puts it, that a tool built by one repository for many will
+always look over-supplied from inside that one repository, and the only measurement that
+repository can make is of its own use. What YAGNI can say from here is narrow and worth saying:
+**four options exist that nobody here can even discover, one has a single legal value, and no
+configuration key can be withdrawn safely until an unknown key is reported.** Everything else is a
+question for the human, and this document's job is to have asked it precisely.
+
+Each recommendation above rests on the asymmetry of E2, and is weaker or stronger accordingly.
+Recommendation 1 rests on it directly and is the strongest thing here. Recommendations 2 and 4
+concern configuration keys *and* flags, and the flag half of each is the weaker half, because a
+human typing `next --limit` leaves nothing for a grep to find. Recommendation 3 rests on a value
+list in the source, not on a search, so the asymmetry does not touch it. None of them is an
+instruction to remove an option; all of them are instructions to ask.
 
 ## What would change the decision
 
@@ -656,10 +677,47 @@ example from `sed -n '109,205p' DESIGN.md` and the seed from `default_config`; i
 undercount keys written after `\n` inside a Python string, so the tables above use unanchored
 counts.
 
+## Outcome
+
+The `decide` gate of this spike is escalated to the human by
+`[autopilot].escalate_gates = ["spike:decide"]`. On 2026-09-18 the human **accepted the report and
+all five follow-up tasks**, taking none of the alternatives offered (task 1 alone, none at all, or
+rejecting the report). The orchestrator answered the other three decisions as recommended: T092's
+row is left alone, `--owner` is folded into T095's question list rather than given a task, and the
+core skill's `--fetch` step is not touched here but carried in T097's description. The orchestrator
+also re-ran the load-bearing evidence independently — the unknown-key probe of E2, the empty
+`git grep` for `--file`, `--id` and `--limit`, `kind add` exiting 2 while §7 documents it, and
+`HANDOFF_MODES = ("sequential",)` — rather than taking this document's word for them.
+
+Two things were made more prominent at that gate, on the orchestrator's note: *How to read this
+report*, which states up front that the measurement is of one repository's use and not of
+taskrail's users, and the closing paragraph of *Recommendation*, which says for each
+recommendation how strongly the E2/E3 asymmetry supports it. Both exist to keep a future reader
+from turning this inventory into a removal list.
+
 ## Follow-ups
 
 Opened on this task's branch after the `decide` gate, so the measurement and its routing are
-reviewed together. Each is a prospective change, to be judged on its own merits when it is worked;
-none of them is a decision to remove anything.
+reviewed together. The human accepted all five on 2026-09-18; the answers are recorded in
+[`docs/autopilot/decisions/T088-measure-the-cli-and-configuration-surfac.md`](../autopilot/decisions/T088-measure-the-cli-and-configuration-surfac.md).
+Each is a prospective change, to be judged on its own merits when it is worked; **none of them is
+a decision to remove anything**, and each carries the evidence class it rests on, so its executor
+can see how strong that evidence is.
 
-*(filled in at the close)*
+| ID | Kind | Pts | Title | Evidence it rests on |
+|---|---|---|---|---|
+| T094 | `feature` | 2 | Warn about a key taskrail does not know in `.taskrail/config.toml` | **E2**, the strongest in the report: a configuration removal, and equally a typo, is silent today |
+| T095 | `spike` | 2 | Ask whether the options no visible repository sets or documents are still wanted | **E6** (`epic_prefix`, `id_digits`: config keys, strong evidence) and **E8** (`epic add --id`, `epic add --file` / `epic split --file`, `next --limit`, `--owner`: flags, weaker evidence — see E3) |
+| T096 | `chore` | 1 | Settle whether `autopilot.handoff` is a placeholder or a setting with no settings | **E6**: `HANDOFF_MODES = ("sequential",)` in the source; no search involved, so E3's caveat does not apply |
+| T097 | `spike` | 2 | Record whether any repository enables the remote half of claims and branch records | **E6**: two configuration keys with no setter here, and the `show --json --fetch` step the core skill prescribes, which is a no-op in the only installation visible |
+| T098 | `chore` | 1 | Fix the configuration and CLI documentation defects `DESIGN.md` carries | **E6** and **E7**: `epic_prefix` and `id_digits` missing from §4; `kind add` and `list --eligible` documented and absent |
+
+T098 depends on T089, which decided not to split `DESIGN.md`, so it edits the file as it stands,
+touching §4's example and §7's command table only — not the top of the file, where T089's own
+follow-up T093 adds a reading map.
+
+T088's own row was deliberately **not** edited from this task: its figures are corrected by T092,
+which belongs to another lane. T092's description plans "about 70 distinct long flags" and "42
+documented keys" where this measurement gives 71 flags (72 counting `--help`) and 46 settable
+names, 40 of them outside the two repeatable tables. The difference is counting method, not fact,
+and this document states its method in E1 and E5; T092's row is left alone.
