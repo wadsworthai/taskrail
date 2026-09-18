@@ -1,6 +1,6 @@
 # T113 — Fix the vacuous local-pin wrapper test in test_install.py
 
-Kind: bug · Epic: E05 · Status: diagnosed
+Kind: bug · Epic: E05 · Status: fixed
 
 ## Symptom
 
@@ -119,10 +119,13 @@ which is also the version the pin would have produced — so the assertion
 closed does the pin become the sole supplier, and a broken one then fails with
 `error: Failed to spawn: taskrail` (exit 2).
 
-The backlog row named `VIRTUAL_ENV` and a global `taskrail 0.3.0` on `PATH` as the two
-mechanisms. Measured here, the second is not the global 0.3.0 but `.venv/bin` on `PATH`: probe B
-dropped `VIRTUAL_ENV` and still printed `0.4.0.dev0`, not `0.3.0`. That makes the hole worse than
-the row describes, because the fallback prints exactly the version a correct pin would.
+The backlog row names `VIRTUAL_ENV` and a global `taskrail 0.3.0` on `PATH` as the two
+mechanisms. In the suite's own environment the second one is not the global 0.3.0: probe B dropped
+`VIRTUAL_ENV` and still printed `0.4.0.dev0`, because `uv run` puts `<checkout>/.venv/bin` first
+on `PATH`. Both are "a `taskrail` on `PATH`", so the row is incomplete rather than wrong — but the
+consequence it leaves out is the important one. **No version assertion could ever have caught
+this**, since the fallback prints exactly the version a correct pin would, **and dropping
+`VIRTUAL_ENV` alone is not a sufficient fix**: `PATH` has to be constrained too.
 
 ## Ruled out
 
@@ -173,3 +176,82 @@ explicit environment that leaves the pin as the only possible supplier of `taskr
 
 Verification will re-run probes C and D against the **edited** test: with the pin pointed at an
 empty directory it must fail with `Failed to spawn: taskrail`, and with the real pin it must pass.
+
+## Fix
+
+`tests/test_install.py`, that one test and the two import lines it needs:
+
+```python
+@pytest.mark.skipif(shutil.which("uv") is None, reason="uv is not on PATH")
+def test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout(empty_repo, tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("TASKRAIL_BIN", raising=False)  # it would bypass the wrapper entirely
+    ...
+    # The wrapper's `local:` branch runs `uv run --project <pin> taskrail`, and `uv` takes any
+    # taskrail the environment already offers before the pin has to supply one. `uv run pytest`
+    # offers two: VIRTUAL_ENV, and this checkout's .venv/bin first on PATH. Leave either in place
+    # and the test passes with a pin that holds no taskrail source at all.
+    env = {**os.environ, "PATH": path_with_uv_but_no_taskrail(tmp_path)}
+    env.pop("VIRTUAL_ENV", None)
+    result = subprocess.run(
+        [str(empty_repo / ".taskrail/bin/taskrail"), "--version"], cwd=empty_repo, capture_output=True,
+        text=True, env=env, timeout=120,
+    )
+```
+
+`path_with_uv_but_no_taskrail` is imported from `tests/test_install_without_path.py` rather than
+copied or extracted into `conftest.py`: it exists, it is the worked example's own helper, and this
+suite already imports across test modules in eight places. Its `skipif` guard does not travel with
+an imported function, so the test carries its own. The assertion is unchanged — with no `taskrail`
+reachable except through the pin, `taskrail <version>` on stdout can only have come from the pin.
+
+The rule went into `CLAUDE.md`'s *Commands* section as one bullet, naming
+`tests/test_install_without_path.py` as the worked example. A comment inside a test only reaches
+someone already reading that file, which is how this hole came to be written.
+
+No product code changed, and no `CHANGELOG.md` bullet: nothing user-facing moves. T106, T108 and
+T110 landed the same way.
+
+## Verification
+
+The fixed test, with its pin sabotaged in place (`link.symlink_to(source)` → `link.mkdir()`), fails
+exactly as the root cause says it must:
+
+```
+$ uv run pytest tests/test_install.py -k local_pin -v
+        link.mkdir()  # TEMPORARY T113 SABOTAGE: the pin holds no taskrail source
+...
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: error: Failed to spawn: `taskrail`
+E           Caused by: No such file or directory (os error 2)
+E         
+E       assert 2 == 0
+E        +  where 2 = CompletedProcess(args=['/tmp/pytest-of-abigail/pytest-190/test_wrapper_with_a_local_pin_0/.taskrail/bin/taskrail', '--version'], returncode=2, stdout='', stderr='error: Failed to spawn: `taskrail`\n  Caused by: No such file or directory (os error 2)\n').returncode
+
+tests/test_install.py:311: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_install.py::test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout
+================== 1 failed, 1 passed, 55 deselected in 1.30s ==================
+```
+
+With the sabotage reverted:
+
+```
+$ uv run pytest tests/test_install.py -k local_pin -v
+collecting ... collected 57 items / 55 deselected / 2 selected
+
+tests/test_install.py::test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout PASSED [ 50%]
+tests/test_install.py::test_upgrade_keeps_a_local_pin PASSED             [100%]
+
+======================= 2 passed, 55 deselected in 0.36s =======================
+```
+
+The stage's checks, on the whole suite:
+
+```
+$ .taskrail/bin/taskrail checks T113 --stage fix
+1247 passed in 164.93s (0:02:44)
+== lint: not configured
+passed test
+not configured lint
+T113 in /thezone/.../T113-fix-the-vacuous-local-pin-wrapper-test-i: passed
+```
