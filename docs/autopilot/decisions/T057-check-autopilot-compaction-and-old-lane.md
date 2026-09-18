@@ -25,3 +25,19 @@ exercise is about to happen to this run by itself.
 Instructions given with the answers: re-derive every number from the harvest script so the tables are
 reproducible rather than transcribed; state each of the three unscriptable items as a limit with the
 reason it is out of reach.
+
+## escalated to the human
+
+`spike:decide` is in `[autopilot].escalate_gates`. Answered on 2026-09-18.
+
+| # | Question | Answer | Consequence |
+|---|---|---|---|
+| 1 | Accept the verdict — no scripted probe, T057 closes on the harvest plus the fixture? | **accepted** | The two unscriptable targets stay limits with their reasons; the run's own record answered more than the probe would have. |
+| 2 | Which follow-ups? | **A and B; not C** | A records the context budget where a run's count is chosen; B replaces §12.3's unverified sentence with the measured structural reason. C — harvesting a run that has actually compacted — is not opened. |
+| 3 | Keep the harvest script? | **no** | It reads one agent's transcript layout, and shipping it would put agent-specific code in an agent-agnostic CLI. The artifact's *How to reproduce* carries the method. |
+
+Answered by the human (the repository's maintainer), through the orchestrator.
+
+The finding this spike exists for, in one line: **an autopilot orchestrator session holds about
+21-26 tasks at roughly 37k-44k of context each, and that — not compaction, which has never once
+happened here in 38 lanes — is what bounds a run.**
