@@ -20,3 +20,17 @@ the T116 precondition on `main`; and `CLAUDE.md`'s *Layout* block.
 
 Given with the answers: nothing in this task is a `CHANGELOG.md` entry — it is a repository-only
 change, and T058, T069, T090 and T108 all landed without one.
+
+## implement gate
+
+Reviewed: commit `80a104f` and the diff `190b9c4..HEAD` — the generated workflow, the
+`installed.json` extras and hash, and the artifact, with nothing else touched; the sha256 of the
+committed file re-computed by the orchestrator and matched against the hash in `installed.json`; the
+idempotence re-run, the YAML parse, the `yamllint` comparison against `ci.yml`, the real
+`.taskrail/bin/taskrail validate`, and `taskrail checks T117 --stage implement` (1,248 passed).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Anything to decide at this gate? | **no** | **no** | Everything the scope gate settled was applied, and `init` wrote what the trial predicted, down to the hash. |
+| 2 | The lane's disclosure that it wrote an unmeasured test count into the artifact and replaced it before committing | **accept, and record it** | **accept** | Nothing unmeasured reached the commit, and saying so unprompted is what makes the rest of the evidence worth trusting. It is recorded here rather than quietly dropped. |
+| 3 | The `yamllint` discrepancy with T108's merged write-up | **note it, open nothing** | **note it** | T108's artifact says `yamllint` reports nothing for `ci.yml`; with this lane's rule set both files emit one `document-start` warning and exit 0. The difference is the rule set, not a regression, and both files behave identically — which is the fact this task needed. A merged artifact's minor imprecision is not worth a task. |
