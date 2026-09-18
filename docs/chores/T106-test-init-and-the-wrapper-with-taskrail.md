@@ -1,6 +1,6 @@
 # T106 — Test init and the wrapper with taskrail absent from PATH
 
-Kind: chore · Epic: E05 · Status: scope proposed
+Kind: chore · Epic: E05 · Status: implemented
 
 ## Goal
 
@@ -55,7 +55,7 @@ Base `origin/main`, `5dfcd8e`. Commands run in this worktree.
 
 | File | Change |
 |---|---|
-| `tests/test_install_without_path.py` | New file, one test: `test_init_and_the_wrapper_run_with_taskrail_absent_from_path`. It builds a `PATH` whose only taskrail-related tool is `uv` (a `tmp_path` directory holding a symlink to the real `uv`, followed by `/usr/bin:/bin`), asserts `shutil.which("taskrail", path=…)` is `None` — `pytest.skip` if some other `taskrail` is there — then (1) runs `uv run --directory <project> taskrail --root <repo> init` in a subprocess with that `PATH` and asserts it exits 0 and wrote an executable `.taskrail/bin/taskrail`, (2) points the repository's pin at the checkout's source (`version = "local:vendor-taskrail"`, a symlink, as `test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout` already does), and (3) runs the wrapper itself under the same `PATH` and asserts it exits 0 and prints `0 error(s)`. Module-level `pytest.mark.skipif(shutil.which("uv") is None)`, as `tests/test_json_through_uv_run.py` has. |
+| `tests/test_install_without_path.py` | New file, one test: `test_init_and_the_wrapper_run_with_taskrail_absent_from_path`. It builds a `PATH` whose only taskrail-related tool is `uv` (a `tmp_path` directory holding a symlink to the real `uv`, followed by `/usr/bin:/bin`), asserts `shutil.which("taskrail", path=…)` is `None` — `pytest.skip` if some other `taskrail` is there — then (1) runs `uv run --directory <project> taskrail --root <repo> init` in a subprocess with that `PATH` and asserts it exits 0 and wrote an executable `.taskrail/bin/taskrail`, (2) points the repository's pin at the checkout's source (`version = "local:vendor-taskrail"`, a symlink, as `test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout` already does), and (3) runs the wrapper itself under the same `PATH` and asserts it exits 0 and prints `0 error(s)`. Module-level `pytest.mark.skipif(shutil.which("uv") is None)`, as `tests/test_json_through_uv_run.py` has. Both subprocesses run without `TASKRAIL_BIN` and without `VIRTUAL_ENV` — the two other ways taskrail could reach them; see *Verification* for why `VIRTUAL_ENV` had to go. |
 | `docs/chores/T106-test-init-and-the-wrapper-with-taskrail.md` | This artifact. |
 | `docs/chores/README.md` | Index row for T106. |
 | `TODO.md` | Only the row's `✅` at close, through `taskrail done`. |
@@ -64,7 +64,13 @@ No change to `src/` is planned: the probe above shows the route works. If the fi
 a real defect, the fix is the minimum in `src/taskrail/install.py` or the wrapper template, and I
 stop and report it before writing it.
 
-## Decisions needed
+## Decisions — answered at the `scope` gate
+
+All three were answered as recommended: **1** cover the `local:` pin only and name the fallback's
+transport in the docstring as what is not covered, with neither alternative and no network of any
+kind; **2** run `init` as a subprocess through `uv run`; **3** `pytest.skip` with a message when a
+`taskrail` turns up in `/usr/bin` or `/bin`, and do not seal the PATH with a symlink per tool. The
+tabled change set is the contract: one new test file, no `src/` change.
 
 **1. The `uvx` fallback needs the network, so the test covers the `local:` pin only. Agreed?** —
 **Recommendation: yes, cover the `local:` pin and say so in the test's docstring.**
@@ -115,9 +121,53 @@ this test needs.
 
 ## Verification
 
-- The new test observed **passing** on this branch, and observed **failing** for the right reason
-  when the route is broken on purpose (for example by pointing the repository's pin at a path that
-  holds no taskrail source), so it is known to be able to fail.
-- `taskrail checks T106 --stage implement` (`test: uv run pytest -q`; `lint` is not configured in
-  this repository), with its real output recorded here.
-- `taskrail validate` at close.
+Run in this worktree, on the branch.
+
+**The test passes** (`uv run pytest tests/test_install_without_path.py -v`):
+
+```
+tests/test_install_without_path.py::test_init_and_the_wrapper_run_with_taskrail_absent_from_path PASSED [100%]
+
+============================== 1 passed in 0.32s ===============================
+```
+
+**And it was observed failing for the right reason**, with the pin pointed at a directory that
+holds no taskrail source (`(repo / "vendor-taskrail").mkdir()` in place of the symlink), so the
+route it protects is really what it asserts:
+
+```
+>       assert result.returncode == 0, result.stderr
+E       AssertionError: error: Failed to spawn: `taskrail`
+E           Caused by: No such file or directory (os error 2)
+E
+E       assert 2 == 0
+FAILED tests/test_install_without_path.py::test_init_and_the_wrapper_run_with_taskrail_absent_from_path
+1 failed in 1.00s
+```
+
+**The suite passes** — `taskrail checks T106 --stage implement`, 1222 tests where `origin/main`
+has 1221:
+
+```
+1222 passed in 186.06s (0:03:06)
+== lint: not configured
+passed test
+not configured lint
+T106 in …/.worktrees/T106-test-init-and-the-wrapper-with-taskrail: passed
+```
+
+`lint` is not configured in this repository — the task's `checks` map defines `test` only.
+
+`taskrail validate` — at close.
+
+### What the first run of the test found: the suite's own virtual environment
+
+The first version of the test passed *even with the pin broken on purpose*. The cause was not
+taskrail: pytest itself runs under `uv run`, which exports
+`VIRTUAL_ENV=<checkout>/.venv` — an environment that has a `taskrail` entry point — and `uv run`
+in the subprocess honours that variable whatever the pin resolves to, so `taskrail` was reachable
+without the pin and the assertion proved nothing. The test now drops `VIRTUAL_ENV` from the
+subprocess environment, beside the `TASKRAIL_BIN` it already drops, with the reason in a comment.
+Both are the same rule: nothing but the built PATH and the pin may supply taskrail. This is a
+property of how the suite is run, not a defect in `src/`, so nothing under `src/` was changed and
+no follow-up task is opened.
