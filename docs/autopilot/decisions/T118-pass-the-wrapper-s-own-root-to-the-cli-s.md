@@ -51,3 +51,18 @@ regenerated wrapper and its digest, the artifact and its index row; the `impact`
 | 1 | The `impact` stage opened nothing | **accept** | **accept** | It was a real sweep of the places the injected root reaches, not an assertion that there are none: the generated workflow's `validate`, the pre-commit hook and the merge driver all invoke the wrapper by a relative path from the checkout's own root, so the injected root is the one they were resolving anyway. The lane also checked the skills for wording the fix would falsify and found none — the cwd discipline still matters for the case no root rule can catch, which is T119's. |
 | 2 | Pull request type and scope | **`fix` / `install`** | **`fix` / `install`** | The change is in `src/taskrail/install.py`'s wrapper template. |
 | 3 | The lane's note on resolving a `.taskrail/installed.json` digest conflict | **adopt it** | **adopt it** | A digest conflict is not a textual merge: take either side and re-run the rebased worktree's own wrapper with `upgrade`, which rewrites the wrapper and its recorded digest consistently. That is the known conflict class 3 procedure, stated precisely for this case. |
+
+## rebase after T003 and T117 merged
+
+`main` advanced to `6f4037e` (T117). This branch was rebased onto `origin/main`, with two conflicts.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2. |
+| 2 | Conflict in `.taskrail/installed.json` — T117 added the generated workflow's hash on the mainline while this branch changed the wrapper's | **take either side, then regenerate with the worktree's own wrapper** · merge the JSON by hand | **regenerate**, as the lane's own note prescribed | A digest conflict is not a textual merge: a hand-merged hash would be a number nobody computed. Known conflict class 3. Taken with `--ours`, then `<worktree>/.taskrail/bin/taskrail --root <worktree> upgrade` from inside the rebased worktree, which rewrites the manifest consistently. |
+
+Verified after the regeneration: the manifest now carries **both** T117's
+`.github/workflows/taskrail.yml` hash and this branch's new `.taskrail/bin/taskrail` hash
+(`f2af3ecc…`), and that hash equals the `sha256sum` of the wrapper on disk. The wrapper in this
+worktree has all three `--root "$root"` lines; the primary checkout's still has none, so nothing
+leaked across checkouts.
