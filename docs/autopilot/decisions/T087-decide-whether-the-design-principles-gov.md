@@ -23,6 +23,32 @@ as the executor skill requires. The `decide` gate is escalated to the human by t
 `escalate_gates = ["spike:decide"]`, so the report must let a human accept or reject without
 reading the diff.
 
+## escalated to the human
+
+`spike:decide` is in this repository's `[autopilot].escalate_gates`, so the verdict went to the
+human. Reviewed before escalating: the artifact at commit 653aa4d, the range `origin/main..HEAD`
+(4 files, 412 insertions), `taskrail checks T087 --stage decide` (`no checks` … `passed`), the full
+suite the lane reported (`uv run pytest -q`: 1183 passed), and an independent re-measurement of the
+CLI surface from the live argparse tree (27 top-level commands, 42 at all levels, ~70 distinct long
+flags, 9 first-level configuration names) which confirmed E9 and contradicted the figures in T088's
+row. The orchestrator also told the human that E1 — the message of commit 5476c00 — was written by
+an agent in the session that produced the section, not by the human, so it evidences the drafter's
+intent rather than the human's.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Scope: do the principles judge only the change a task makes, or also the code that exists? | prospective · also retroactive · leave unstated | **prospective** | As recommended. They judge what a task adds or changes; what already exists is reopened only by a task that asks for it. A retroactive default contradicts the scope rule the skills already state, defeats the touch map, and on a public tool would let options private consumers depend on be removed as a side effect of unrelated work. |
+| 2 | Reach: where does an executor read them? | CLAUDE.md plus one generic pointer in the core skill · CLAUDE.md only, core untouched · name the principles in the executor skills | **CLAUDE.md plus one generic pointer in the core skill** | As recommended. The pointer is agent-agnostic and repository-agnostic — read the repository's agent instruction files before planning — generalising what `taskrail-chore` already does. Naming the principles in the shipped skills was refused: it would ship one repository's taste to every consumer with the authority of the procedure, against *Agent portability* and DESIGN.md §8. |
+| 3 | Refusal: may an executor refuse a described design on a principle? | object, not refuse · a true veto · leave the text as it is | **object, not refuse** | As recommended. At the task's first gate the executor names the principle and proposes the alternative as a decision, then builds what the answer says; §5.6 supplies the stop and §12.6 reason 6 the escalation, so no new mechanism is added. With it: replace "the plan gate" with the task's first gate (`plan`, `scope`, `diagnose` or `frame`), since `plan` is a stage of `feature` only, and forbid substituting a simpler design silently. |
+| 4 | Follow-ups: when are the three chores opened? | all three on this branch · only the two adoption chores · none until after the merge | **all three on this branch** | As recommended, so the verdict and its adoption are reviewed in one pull request. The third corrects T088's row rather than the lane editing another task's row, which the touch map forbids. |
+
+Answered by the human (the repository's maintainer), through the orchestrator, at the `decide`
+gate of run 20260918-1.
+
+Consequence for dispatch, decided by the orchestrator: T088's row keeps its wrong figures until
+that chore is worked, so when T088 is dispatched its lane brief carries the measured figures from
+E9 as verified context and names the chore that corrects the row.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1 works E08: T087 now, then T088 and T089 together once T087 is `done-branch`.
