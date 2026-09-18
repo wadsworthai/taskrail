@@ -28,6 +28,28 @@ rather than imported, so the repository most likely to need them is exactly the 
 cannot see; and `backlog.py:240` refuses a bad epic ID by quoting the prefix's *value* without ever
 naming the key, which is a discoverability defect T098 owns.
 
+## escalated to the human
+
+`spike:decide` is in this repository's `[autopilot].escalate_gates`, so the questionnaire went to
+the human, in the numbered form the lane designed. Answered on 2026-09-18.
+
+| # | Question | Answer | Consequence |
+|---|---|---|---|
+| 1 | `[[backlog]].epic_prefix` | **A — document it** | No new task: T098 adds it to §4's example, and its prose sentence explains what the key is for. |
+| 2 | `[[backlog]].id_digits` | **A — document it** | No new task: T098 adds it to §4's example with the clause that it also governs `taskrail new`. |
+| 3 | `epic add --id` | **A — document it** | One line in §7's command table, which T098 already edits. |
+| 4-5 | `epic add --file`, `epic split --file` | **A — document them** | One line in §7's command table, via T098. |
+| 6 | `next --limit` | **A — document it** | §7's row via T098, **plus** a one-line chore giving the flag a `help=` string, which is code. |
+| 7 | `--owner` | **A — document it** | A small chore adding one sentence to §6.2, naming `$TASKRAIL_OWNER` as the ordinary way to set an owner. |
+| extra | Should the error that refuses a foreign epic ID name `epic_prefix` instead of only its value? | **yes, open a task** | A small chore on `backlog.py:240`. It fixes the cause of the key being undiscoverable rather than only documenting it. |
+
+Answered by the human (the repository's maintainer), through the orchestrator. **No option is
+retired**: every answer is route A, so nothing is proposed for removal and the surface is unchanged.
+
+Three tasks to open, and no more: the `help=` string for `next --limit`, the §6.2 sentence for
+`--owner`, and the error-message fix for `epic_prefix`. Questions 1-5 need none, because T098 covers
+them.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, three lanes: T094, T095, T096.
