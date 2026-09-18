@@ -42,8 +42,8 @@ The backlog is 161 lines and holds 109 rows: 108 closed, and T114 open.
 | File | What changes |
 |---|---|
 | `TODO.md` | 108 closed rows leave their epic tables; the `## Epics` listing loses E01, E02, E05, E07 and E08 and their sections go with them. 161 lines → **15**: the `## Epics` table with E06 alone, E06's heading and `Done when:` line, and T114's row. Written by `taskrail archive`, never by hand. |
-| `docs/archive.md` | New, ~157 lines / 46 KB. Six `## E## — Name` sections (E01, E02, E05, E06, E07, E08) in file order, each with the source table's own header and each row byte-for-byte as it stood in `TODO.md`. The five fully-closed epics carry their `Objective:` and `Done when:` lines across; E06 keeps its heading only, because it keeps T114. Written by `taskrail archive`. |
-| `CLAUDE.md` | One line in *Backlog* pointing at `docs/archive.md`, and `docs/archive.md` in the *Layout* block. Decision 4. |
+| `docs/archive.md` | New, 157 lines / 46,645 bytes. Six `## E## — Name` sections (E01, E02, E05, E06, E07, E08) in file order, each with the source table's own header and each row byte-for-byte as it stood in `TODO.md`. The five fully-closed epics carry their `Objective:` and `Done when:` lines across; E06 keeps its heading only, because it keeps T114. Written by `taskrail archive`. |
+| `CLAUDE.md` | `docs/archive.md` added to the *Layout* block, and a *Backlog* bullet saying `TODO.md` holds the open work only, how to grep both files for a task, and that nothing comes back out of the archive. Decision 4. |
 | `docs/chores/T114-…md` | This artifact. |
 | `docs/chores/README.md` | Its index row. |
 | `TODO.md` (row) | T114's own description corrected to the real figures through `taskrail edit`, and its status through `taskrail done`. Decisions 1 and 3. |
@@ -51,7 +51,10 @@ The backlog is 161 lines and holds 109 rows: 108 closed, and T114 open.
 Nothing under `src/`, `tests/`, `DESIGN.md`, `README.md` or `CHANGELOG.md`. No `.gitattributes`
 question arises: this repository has none — the merge driver is not installed here.
 
-## Decisions needed
+## Decisions
+
+All five were approved at the scope gate as recommended, and are recorded in
+`docs/autopilot/decisions/T114-archive-this-repository-s-closed-tasks-a.md`.
 
 ### 1. Correct T114's own description to the real figures?
 
@@ -91,8 +94,13 @@ empty `## Epics` table and no sections at all. That is valid but hostile — the
 `taskrail new --epic E06` exits "epic not found" and a human has to re-add an epic that was never
 finished — and it also puts a row into the archive claiming it is done in the same commit that is
 still doing it. The recommended order leaves E06, an epic whose `Done when:` is not met, where it
-belongs, and leaves the next task a home. Deliberately **not** doing: a second `archive` run after
-`done`.
+belongs, and leaves the next task a home.
+
+**Not running `taskrail archive` a second time after `done` is part of this decision, not an
+omission.** A later reader who notices that `TODO.md` still holds one `✅` row and "fixes" it by
+archiving again would take E06 with it and leave the backlog with an empty `## Epics` table, which
+is the outcome this decision exists to avoid. T114's row leaves the backlog on the *next* archive
+run, by which time another epic and another open row will be keeping the file company.
 
 ### 4. Does anything need documenting?
 
@@ -116,20 +124,91 @@ the command and are already correct.
 
 ## Verification
 
-1. `taskrail archive` in the worktree, and its output compared line for line with the dry run.
-2. `taskrail validate` on the rewritten backlog.
-3. `git diff --stat` and a read of the whole 15-line `TODO.md`, to show that only rows moved.
-4. `grep -c '^| ' docs/archive.md` against the 108 archived IDs, and a spot check that a row in the
-   archive is identical to the line `git show HEAD:TODO.md` has for it — the archive must preserve
-   rows, not reformat them.
-5. `taskrail archive --dry-run` again, expecting `nothing to archive`.
-6. An ID check, which is the one way this change could do lasting damage: with 108 IDs now outside
-   `TODO.md`, the next ID must still be T121 and never a reissue. Verified for real in a scratch
-   copy rather than by trusting T107's unit tests.
-7. `taskrail checks T114 --stage implement` (`uv run pytest -q`; `lint` is not configured).
+Every command below was run in this task's worktree unless it names a scratch root. A full preview
+had already been run against a scratch copy of `TODO.md`, `.taskrail/` and `docs/` outside the
+worktree before anything here was written; the real run reproduced it exactly.
 
-A full preview has already been run against a scratch copy of `TODO.md`, `.taskrail/` and `docs/`
-outside this worktree; its output is quoted above and under *The result* below.
+**V1 — the archive itself, and it matches the dry run word for word.**
+
+```
+$ .taskrail/bin/taskrail archive
+main: archived 108 task(s) and 5 epic(s) into docs/archive.md          exit=0
+```
+
+**V2 — the backlog is still valid.**
+
+```
+$ .taskrail/bin/taskrail validate
+1 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)                    exit=0
+```
+
+**V3 — only rows moved; nothing was rewritten.** The diff against the pre-archive backlog is
+deletions and nothing else, and `docs/archive.md` is the one new file:
+
+```
+$ git status --porcelain
+ M TODO.md
+?? docs/archive.md
+
+$ git diff --stat
+ TODO.md | 146 ----------------------------------------------------------------
+ 1 file changed, 146 deletions(-)
+```
+
+161 − 146 = the 15 lines quoted under *The result* below.
+
+**V4 — every archived row is byte-identical to the row it replaced, and every closed row is
+accounted for.** Checked for all 108, not sampled, against `git show HEAD:TODO.md`:
+
+```
+archived rows: 108
+byte-identical to the pre-archive TODO.md: 108
+differing: 0
+closed rows in old TODO.md: 108
+all present in the archive: True
+```
+
+**V5 — idempotent.**
+
+```
+$ .taskrail/bin/taskrail archive --dry-run
+main: nothing to archive                                               exit=0
+```
+
+**V6 — the ID check: no archived ID is ever handed out again.** This is the one way the change
+could do lasting damage — 108 IDs now live outside `TODO.md`, and an allocator that cannot see them
+would reissue `T115`. Run for real in git-initialised scratch copies of this worktree's post-archive
+state, with `uv run taskrail --root <scratch> new --epic E06 --kind chore --title "ID allocation probe"`:
+
+| Scratch repository | Next ID |
+|---|---|
+| archive present in the working tree | **T121** |
+| archive deleted from the working tree, present only in `HEAD` — the case T107's §6.3 scan exists for | **T121** |
+| *negative control:* no `docs/archive.md` anywhere, working tree or history | **T115** — a live reissue of an archived, done task |
+
+The negative control is what makes the first two mean something: the archive scan, not luck, is
+what keeps the counter at T121.
+
+One thing the first attempt at this check got wrong, recorded because it would mislead the next
+person to try it: probing twice in the same scratch repository returns T121 then **T122**, which
+looks like a scan failure and is not. `ids.reserve` keeps a pending-reservation ledger in
+`.git/taskrail/reserved/<backlog>.json` that `git checkout -- TODO.md` does not revert, so the
+second probe is one above the first probe's own reservation. Each probe needs a fresh repository.
+
+**V7 — the suite.**
+
+```
+$ .taskrail/bin/taskrail checks T114 --stage implement
+…
+1256 passed in 179.92s (0:02:59)
+== lint: not configured
+passed test
+not configured lint
+T114 in <worktree>: passed                                             exit=0
+```
+
+No test changed, and none needed to: the change is data, not code. The suite is the guard that the
+archive did not disturb the parser, the ID scan or the writer it runs through.
 
 ## The result, judged as a document
 
@@ -153,8 +232,11 @@ Done when: this repository's own backlog runs through the taskrail autopilot
 
 | ✓  | ID   | Kind    | Pts | Depends On | Title                          | Description                    |
 |----|------|---------|-----|------------|--------------------------------|--------------------------------|
-| ⬜ | T114 | chore   | 1   | —          | Archive this repository's closed tasks and epics | … |
+| ⬜ | T114 | chore   | 1   | —          | Archive this repository's closed tasks and epics | Run taskrail archive on TODO.md now that run 20260918-1's branches are merged: it moved 108 closed rows and epics E01, E02, E05, E07 and E08 into docs/archive.md, holding nothing back. |
 ```
+
+(the description as decision 1 rewrote it, through `taskrail edit`; `taskrail done` turns the `⬜`
+into a `✅` at the close and changes nothing else)
 
 `docs/archive.md` opens with a header that names where the rows came from and what taskrail does
 and does not do with the file, then six epic sections:
@@ -190,7 +272,10 @@ Three observations, offered as findings rather than objections:
   Fifteen lines of `TODO.md` give no sign that 108 tasks and five epics of history exist, and
   `docs/archive.md` is not named in `CLAUDE.md`, `README.md` or any index. One line in `CLAUDE.md`
   fixes it; without it, the most likely failure is a future lane re-opening a question this
-  repository already answered.
+  repository already answered. **Fixed here** (decision 4): `docs/archive.md` is now in
+  `CLAUDE.md`'s *Layout* block, and *Backlog* gained a bullet saying that `TODO.md` holds the open
+  work only, that `grep -n '<ID>' TODO.md docs/archive.md` answers "did we already do this", and
+  that nothing comes back out of the archive.
 
 ## Evidence for this stage
 

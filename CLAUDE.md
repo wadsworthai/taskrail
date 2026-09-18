@@ -42,6 +42,7 @@ examples/              # example repository-local kinds
 DESIGN.md              # the full model; the autopilot is §12, the current-branch workflow §13
 CHANGELOG.md           # user-facing changes, under Unreleased until a release
 TODO.md, docs/         # this repository's own backlog and its task artifacts
+docs/archive.md        # the closed rows and epics `taskrail archive` has moved out of TODO.md
 .taskrail/, .claude/   # taskrail installed into this repository, running from source
 .github/workflows/     # this repository's own CI
 ├── ci.yml             # the test suite on 3.11 and 3.14
@@ -98,6 +99,12 @@ tasks.
   `src/taskrail/skills/`, then run `.taskrail/bin/taskrail upgrade`.
 - `TODO.md` and the artifacts under `docs/` are public like everything else here; the
   publishing constraint above applies to task titles, descriptions and write-ups.
+- **`TODO.md` holds the open work only.** Closed rows and closed epics are moved to
+  `docs/archive.md` by `taskrail archive` (DESIGN.md §7.6), so a question about what this
+  repository already decided or already did is answered by
+  `grep -n '<ID>' TODO.md docs/archive.md` and by the task's artifact under `docs/`. Nothing
+  comes back out of the archive: an archived task is not reopened, and work that must return is
+  a new task.
 - Claims stay local (`claim_remote` is off), so no refs are pushed for them.
 - The autopilot is enabled here (`[autopilot]` in `.taskrail/config.toml`). Its orchestrator
   answers lane gates from this file and `DESIGN.md` first, which the config lists in
