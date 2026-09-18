@@ -31,6 +31,19 @@ so `DESIGN.md:<line>` references in the historical artifacts T076, T077, T078 an
 map-height lower. Those artifacts are never rewritten and had already drifted; no code, test or
 configuration file cites a line number in `DESIGN.md`.
 
+## implement gate
+
+Reviewed: the `DESIGN.md` diff read by commit range in the lane's worktree — one hunk at
+`@@ -6,6 +6,27 @@`, 21 insertions and **0 removed lines**, the map sitting after the summary and
+before `## 1.`; the file still carries its 13 numbered headings; and `taskrail checks T093 --stage
+implement` re-run by the orchestrator in that worktree (`test` passed, `lint` not configured).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the inserted table what was approved? | accept · amend | **accepted; inserted character for character** | The diff adds only the approved block, and the lane's heading-to-row check (13 rows against 13 headings, and each named sub-section present exactly once) was reproduced by the orchestrator's own count. |
+| 2 | The `docs` stage | run it as a no-op · stop at its gate | **run it as a no-op, do not stop** | The change is documentation, `CLAUDE.md`'s Layout line for `DESIGN.md` stays accurate, no skill or README mentions the map, and `CHANGELOG.md` is ruled out for the reason recorded at the `scope` gate. |
+| 3 | The flaky test the lane reported | open a task from this lane · leave it to the orchestrator | **leave it to the orchestrator; the lane opens nothing** | `tests/test_autopilot_notify.py::test_a_notify_command_past_the_timeout_is_killed_with_its_children` failed once under load — three lanes of this run were executing full suites on one machine — and passed three times afterwards. It is a wall-clock test and cannot be affected by adding Markdown to a document no code reads (T089 E3). It is outside this task's touch map, and reporting it rather than acting on it was the right call. The orchestrator carries it to the human. |
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, extended by the human to T093-T098.
