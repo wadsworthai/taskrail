@@ -43,3 +43,17 @@ why the documentation-only option was declined: "run the wrapper from inside you
 command an agent copies, and is invisible in a transcript. The three lanes were not missing a
 sentence; the thing they controlled, the wrapper path they typed, was already correct. Q1 is the
 change that makes that path the thing the rule is about.
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — the spike write-up and its index row, `DESIGN.md`
+§9's last paragraph, T115's `✅` and the T118 and T119 rows, with no code, test, configuration or
+skill touched; `taskrail validate` (108 tasks, 0 errors); the sandbox deleted and
+`git worktree list` unpolluted.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | §9's added sentences stated planned behaviour in the present tense, unmarked | **send it back for the marker** · accept as written | **sent back; `(*planned, T118*)` added** | The wrapper does not pass its own root yet. A reader debugging a cross-checkout symptom would have read §9 as a description of the code and concluded the symptom was impossible — the same failure as the sentence this spike replaced, pointed the other way. `DESIGN.md` already marks the distinction (`(*implemented, T081*)`, and §12 at line 48), so this follows the file rather than inventing a convention. |
+| 2 | Where the marker sits | **closing the pair of added sentences** · inside the first | **closing the pair** | The second sentence describes overriding the default the first introduces, so marking only the first would leave it reading as current behaviour. It also matches the house placement at lines 247, 1101 and 1435. |
+| 3 | The artifact's *Outcome* still said §9 describes unimplemented behaviour without saying §9 marks it | **one clause, committed separately** | **as decided** | The lane raised it itself. A record of a decision about accuracy that is itself inaccurate would send the next reader looking for an unmarked paragraph. |
+| 4 | Pull request type and scope | **`docs` / `repo`** | **`docs` / `repo`** | Every change on the branch is documentation: the write-up, §9's wording and two backlog rows. |
