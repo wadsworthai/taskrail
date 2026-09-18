@@ -28,6 +28,27 @@ following `tests/test_import.py:462-463`, which is the house pattern the lane fo
 Noted: `epic-id` has **no** test anywhere in the repository, which the lane established rather than
 assumed after the brief claimed one existed. Two new tests, not an extension.
 
+## implement gate
+
+Reviewed: the two message strings and the two tests read by commit range, the red-first evidence
+(both tests fail on the exact assertion they exist for when only the two source files are stashed),
+and `taskrail checks T103` re-run by the orchestrator, which passed.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the change what was approved? | accept · amend | **accepted** | One word added to each message, two tests asserting the key is named rather than pinning the sentence, and no error code, exit code, regex or `--json` shape touched. |
+| 2 | `DESIGN.md` §4's sentence, which this change makes stale | open a follow-up · fix it here · ask T099 to fix it | **open a follow-up task** | The sentence T098 added reads "`validate` refuses an ID that does not match, quoting the prefix it expected rather than the key" — true when written, false once this lands, and its *reason for existing* disappears with it. It sits in §4, which T099 is editing right now, so touching it would risk a conflict in a file that is not a known conflict class; and T099 has already passed its own code review, so adding to its scope now would mean re-reviewing it. A one-point chore is the cheap, honest route. |
+
+The lane's own framing of the evidence is worth keeping: a message test that has never been seen red
+is worth little, so it stashed only the two source files, watched both tests fail on their own
+assertions, and restored. It also ran the task end to end — hit the failure, did what the new message
+tells a reader to do, and got a clean `validate`. That is the task's whole purpose demonstrated
+rather than argued.
+
+Noted, no action: the worktree's `CLAUDE.md` carries the *Design principles* section that the
+primary checkout lacked when this run began, because T090 merged mid-run. Every lane briefed from
+here on reads the current file; the observation is correct and cost nothing.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T099 holds `config.py` and `install.py`; T102 holds `DESIGN.md` §6.1.
