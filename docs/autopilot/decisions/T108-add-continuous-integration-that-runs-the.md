@@ -24,3 +24,18 @@ taking from the lane — `astral-sh/setup-uv` has `v10.0.0`, `v10.0.1` and `v10.
 Given with the answers: keep the sibling repository's name and path out of everything committed, as
 you already did — cite the tag API, not the clone. The `v10` bug's row must name the consumer
 impact, since it is the only one of the two that affects anybody's repository but this one.
+
+## implement gate
+
+Reviewed: commit `ef418a8` and the diff `4e9dd46..HEAD` — `.github/workflows/ci.yml` read in full by
+the orchestrator, one `CLAUDE.md` *Layout* line, and the artifact; no `setup-python`, no cache
+tuning, no `fetch-depth`, no `concurrency`, no lint, type, coverage or build step, and
+`src/taskrail/install.py` and `cli.py` untouched. The lane ran the workflow's own command on both
+matrix legs for real (`uv run --locked --python 3.11 pytest -q` and `--python 3.14`, 1221 passed
+each), checked the lock with `uv lock --check`, and ran `taskrail checks T108 --stage implement`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Anything to decide at this gate? | **no** | **no** | The seven scope answers were applied as given and the scope did not widen. |
+| 2 | Is "the workflow cannot be proven locally" enough? | **accept, with the limit stated in the artifact** · ask for `act` or a trial push | **accept** | A workflow only really runs on GitHub, and the branch's own pull request is where `test (3.11)` and `test (3.14)` first appear. What could be verified locally was: the file's parsed structure, the lock, and the exact command on both interpreters. Saying so rather than claiming more is the right shape for this evidence. |
+| 3 | Pull request type and scope | **`ci` / `repo`** · `chore` / `repo` | **`ci` / `repo`** | The change is continuous integration for this repository only. `ci` is a Conventional Commits type, and CLAUDE.md asks for the affected area as the scope; `repo` is the area its own Merging section names for repository-level work. |
