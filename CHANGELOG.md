@@ -48,6 +48,14 @@ instead of `upgrade`. To install the CLI on your machine as well:
   does what `taskrail-chore` alone did, whatever agent runs it. Run `taskrail upgrade` to install
   it (T091).
 
+- **A refused ID now names the configuration key that would accept it.** `validate` refused an
+  epic or task ID by quoting the prefix it expected — ``epic ID `EP01` does not match `E` plus two
+  or more digits`` — so a repository whose epics are numbered `EP01` was told what taskrail wanted
+  but not which key would let it keep its own numbering, and the fix was discoverable only by
+  reading the source. Both messages now name the key: `epic_prefix` for an epic ID and `prefix` for
+  a task ID. Nothing else changes — the `epic-id` and `task-id` codes, the exit codes and the
+  `--json` shape are as they were (T103).
+
 ## 0.3.0
 
 Adds the current-branch workflow (DESIGN.md §13) for a repository worked by a single maintainer:

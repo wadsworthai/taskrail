@@ -237,7 +237,7 @@ def load_backlog(
                     issues.append(
                         error(
                             "epic-id",
-                            f"epic ID `{epic_id}` does not match `{backlog_config.epic_prefix}` plus two or more digits",
+                            f"epic ID `{epic_id}` does not match epic_prefix `{backlog_config.epic_prefix}` plus two or more digits",
                             main_file,
                             line,
                         )

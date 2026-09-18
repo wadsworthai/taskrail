@@ -40,7 +40,7 @@ def _check_tasks(project: Project) -> list[Issue]:
                 issues.append(
                     error(
                         "task-id",
-                        f"task ID `{task.id}` does not match `{backlog.config.prefix}` plus {backlog.config.id_digits} or more digits",
+                        f"task ID `{task.id}` does not match prefix `{backlog.config.prefix}` plus {backlog.config.id_digits} or more digits",
                         *where,
                     )
                 )
