@@ -57,3 +57,20 @@ skill touched; `taskrail validate` (108 tasks, 0 errors); the sandbox deleted an
 | 2 | Where the marker sits | **closing the pair of added sentences** · inside the first | **closing the pair** | The second sentence describes overriding the default the first introduces, so marking only the first would leave it reading as current behaviour. It also matches the house placement at lines 247, 1101 and 1435. |
 | 3 | The artifact's *Outcome* still said §9 describes unimplemented behaviour without saying §9 marks it | **one clause, committed separately** | **as decided** | The lane raised it itself. A record of a decision about accuracy that is itself inaccurate would send the next reader looking for an unmarked paragraph. |
 | 4 | Pull request type and scope | **`docs` / `repo`** | **`docs` / `repo`** | Every change on the branch is documentation: the write-up, §9's wording and two backlog rows. |
+
+## rebase after nine branches merged
+
+`main` advanced to `e1953f1` (T113). This branch was rebased onto `origin/main`, with three
+conflicts, all known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, no duplicate. |
+| 2 | `TODO.md`, twice — status cells the mainline now has `✅`, alongside this branch's new T118 and T119 rows | **unite by ID, `✅` wins, keep both new rows** · stop | **as decided** | Known conflict class 1; the branch was cut before the nine merges and no side has a `Reopens:` commit. |
+
+After the rebase: `(*planned, T118*)` is in place at `DESIGN.md:1355`, T118 and T119 are in
+`TODO.md`, and `taskrail validate` reports 108 tasks, 0 errors.
+
+The `spike` kind configures no checks, so `taskrail checks T115` reports `passed` without running
+anything. That is not enough for a branch that edits `DESIGN.md`, which two tests read, so the
+orchestrator ran the suite directly instead: `uv run pytest -q` → **1,248 passed in 176.70s**.
