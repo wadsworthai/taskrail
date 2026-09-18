@@ -63,9 +63,15 @@ particular agent:
 
 ## Design principles
 
-These govern the CLI, the skills and the work planned in the backlog. When two of them pull in
-different directions, the simpler outcome wins; when one argues against what a task's description
-asks for, say so at the plan gate rather than building around it.
+These govern the CLI, the skills and the work planned in the backlog. They judge the change a task
+makes, not the code that is already there: apply them to what you add or change, and when what
+exists offends one, open a task rather than widening yours. When two of them pull in different
+directions, the simpler outcome wins.
+
+When one argues against what a task's description asks for, object rather than refuse: at the
+task's first gate — `plan`, `scope`, `diagnose` or `frame` — name the principle and propose the
+simpler alternative as a decision, then build what the answer says. Never build around the
+objection, and never substitute a simpler design for the described one without an answer.
 
 - **KISS.** Prefer the plain solution: a flag over a subsystem, a function over a class hierarchy,
   a documented convention over a mechanism that enforces it.
