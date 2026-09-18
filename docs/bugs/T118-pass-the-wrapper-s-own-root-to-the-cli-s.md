@@ -179,3 +179,115 @@ exec uv run --quiet --project "$root/${pin#local:}" taskrail --root "$root" "$@"
 exec taskrail --root "$root" "$@"
 exec uvx --quiet --from "git+${TASKRAIL_SOURCE:-<url>}@$pin" taskrail --root "$root" "$@"
 ```
+
+## Fix
+
+`src/taskrail/install.py`, `wrapper_script()`: `--root "$root"` on each of the three `exec` lines
+that run the CLI, the `TASKRAIL_BIN` line untouched, and the generated file's own header comment
+extended to say what it now does — that file is the one a consuming repository reads:
+
+```
+-# source at that path inside this checkout instead. TASKRAIL_BIN overrides everything.
++# source at that path inside this checkout instead. It acts on the checkout it lives in, whatever
++# the current directory is, since it passes that root to the CLI; --root overrides that, and
++# TASKRAIL_BIN overrides the wrapper entirely.
+...
+-    exec uv run --quiet --project "$root/${pin#local:}" taskrail "$@"
++    exec uv run --quiet --project "$root/${pin#local:}" taskrail --root "$root" "$@"
+...
+-    exec taskrail "$@"
++    exec taskrail --root "$root" "$@"
+...
+-exec uvx --quiet --from "git+${TASKRAIL_SOURCE:-<url>}@$pin" taskrail "$@"
++exec uvx --quiet --from "git+${TASKRAIL_SOURCE:-<url>}@$pin" taskrail --root "$root" "$@"
+```
+
+Nothing in the CLI changed: `--root` already did exactly this, and nothing in `wrapper_script()`
+changed but those four lines.
+
+### The regression test
+
+`tests/test_install.py`, two tests. The first carries the meaning, the second holds the two paths
+the first cannot reach.
+
+`test_the_wrapper_acts_on_its_own_checkout_whatever_the_current_directory_is` builds the two-checkout
+situation itself: two repositories under `tmp_path`, each `git init`-ed and `taskrail init`-ed, each
+with one task — `home` and `elsewhere` — and neither a worktree of the other or of this repository.
+It drives the wrapper over its **installed-CLI** `exec` path, with a `taskrail` shim on a purpose-built
+`PATH` and the pin set to `f"v{__version__}"` so the wrapper's `v$have = $pin` comparison matches, so
+the test needs neither `uv` nor the network and cannot flake on either. Two assertions:
+
+- `home`'s wrapper, run with the current directory in `elsewhere`, lists `["home"]` — the defect;
+- `home`'s wrapper, run from `home` with an explicit `--root <elsewhere>`, lists `["elsewhere"]` —
+  the escape hatch, as a caller experiences it. `--root` is a global flag with argparse's plain
+  `store`, so the caller's occurrence lands after the injected one and the last is kept; that
+  mechanism is named in a comment and deliberately not asserted on, since an assertion about the
+  parser would still pass on the day the flag stopped being last-wins for a caller.
+
+`test_the_wrapper_passes_its_root_on_every_path_that_runs_the_cli` asserts that
+`wrapper_script()` has four `exec` lines, that exactly one of them is the `TASKRAIL_BIN` one, and
+that it is exactly that one which carries no `--root "$root"`. An assertion on generated text is the
+weaker kind, and it is the only kind available for the `uvx` path, which fetches over the network on
+every call. It also records the `TASKRAIL_BIN` exclusion as deliberate rather than forgotten.
+
+## Verification
+
+**Both tests were run against the unfixed wrapper first, and failed for the root cause's reason:**
+
+```
+$ uv run pytest tests/test_install.py -k "acts_on_its_own_checkout or passes_its_root_on_every_path" -q
+E       AssertionError: assert ['elsewhere'] == ['home']
+E         At index 0 diff: 'elsewhere' != 'home'
+tests/test_install.py:369: AssertionError
+
+>       assert [line for line in execs if '--root "$root"' not in line] == delegated
+E       assert ['exec "$TASK...askrail "$@"'] == ['exec "$TASKRAIL_BIN" "$@"']
+E         Left contains 3 more items, first extra item: 'exec uv run --quiet --project "$root/${pin#local:}" taskrail "$@"'
+tests/test_install.py:387: AssertionError
+
+FAILED tests/test_install.py::test_the_wrapper_acts_on_its_own_checkout_whatever_the_current_directory_is
+FAILED tests/test_install.py::test_the_wrapper_passes_its_root_on_every_path_that_runs_the_cli
+2 failed, 58 deselected in 1.32s
+```
+
+`['elsewhere'] == ['home']` is the defect exactly: the wrapper in `home` reported the backlog of the
+directory the shell happened to be in.
+
+**After the fix:**
+
+```
+$ uv run pytest tests/test_install.py -k "acts_on_its_own_checkout or passes_its_root_on_every_path" -q
+..                                                                       [100%]
+2 passed, 58 deselected in 1.56s
+```
+
+**The stage's checks:**
+
+```
+$ taskrail checks T118 --stage fix
+1250 passed in 159.28s (0:02:39)
+== lint: not configured
+passed test
+not configured lint
+T118 in <worktree>: passed
+```
+
+The suite passes whole; `lint` is named by the `bug` kind's `fix` stage and this repository defines
+no such check, so `checks` reports it as not configured.
+
+**This repository's own wrapper, regenerated with this branch's wrapper from inside this worktree:**
+
+```
+$ <worktree>/.taskrail/bin/taskrail --root <worktree> upgrade
+updated   .taskrail/bin/taskrail
+11 file(s) already up to date
+
+$ grep -n 'root "$root"' <worktree>/.taskrail/bin/taskrail
+16:    exec uv run --quiet --project "$root/${pin#local:}" taskrail --root "$root" "$@"
+23:    exec taskrail --root "$root" "$@"
+34:exec uvx --quiet --from "git+${TASKRAIL_SOURCE:-<url>}@$pin" taskrail --root "$root" "$@"
+```
+
+The three lines landed in *this* worktree. The primary checkout's wrapper holds none of them and
+both other checkouts report an empty `git status`, so nothing was written outside this branch.
+`.taskrail/installed.json` moved with the wrapper, since it records that managed file's digest.

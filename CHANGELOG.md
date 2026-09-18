@@ -12,6 +12,25 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **The wrapper now acts on the checkout it lives in, whatever the current directory is.**
+  `.taskrail/bin/taskrail` already computed its own checkout's root and used it to read the version
+  pin and to find a `local:` source, and then did not pass it on, so the wrapper decided which
+  taskrail *ran* while the current directory decided which repository it *acted on*. Running one
+  checkout's wrapper from a shell sitting in another wrote there instead: a claim recorded against
+  the wrong checkout, and `upgrade` installing one checkout's skill sources into another — the
+  second with no `--force`, since the digest guard only skips a file a human edited, and leaving
+  `git status` clean in the damaged checkout, so it read as "forgot to run `upgrade`" rather than
+  as an overwrite. The wrapper now passes `--root "$root"` on all three paths that run the CLI.
+  `--root` still points it at another repository and overrides that default, because it is a global
+  flag whose last occurrence wins; `TASKRAIL_BIN` is unchanged, since it delegates to a binary of
+  the caller's choosing. **An installed repository picks the fix up with `taskrail upgrade`**: the
+  wrapper is a managed file, so an untouched one is rewritten and one edited locally is left alone
+  and reported as `edited locally; --force replaces it`. **One caller changes behaviour**: a
+  repository that deliberately ran one checkout's wrapper against another repository without
+  `--root` now acts on the wrapper's own checkout, and must pass `--root` to keep aiming elsewhere
+  — such a caller was already running the wrong pinned version for its target, since the pin comes
+  from the wrapper's own config (T115 decided this, T118 applied it).
+
 - **The workflow `--github-workflow` generates now names action tags that exist.** It pinned
   `astral-sh/setup-uv@v10`, and that project publishes bare major tags only through `v7` — its
   tenth line exists only as `v10.0.0`, `v10.0.1` and `v10.1.0` — so GitHub could not resolve the

@@ -11,7 +11,7 @@ import pytest
 from conftest import git
 from test_install_without_path import path_with_uv_but_no_taskrail
 
-from taskrail import install
+from taskrail import __version__, install
 from taskrail.cli import main
 
 SKILLS = ["taskrail", "taskrail-autopilot", "taskrail-bug", "taskrail-chore", "taskrail-feature", "taskrail-spike"]
@@ -342,6 +342,68 @@ def test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout(empty_repo, t
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip().startswith("taskrail ")
+
+
+# T118: the wrapper computed its own checkout's root, used it for the pin and the `local:` source,
+# and then never passed it to the CLI, which fell back to the current directory. So the wrapper's
+# location chose the taskrail that ran while the cwd chose the repository it acted on: a claim
+# landed in another checkout, and `upgrade` wrote one checkout's skill sources into another.
+
+
+def _taskrail_on_path(bin_dir: Path) -> str:
+    """A PATH whose `taskrail` is this checkout's, so the wrapper takes its installed-CLI branch."""
+    bin_dir.mkdir()
+    shim = bin_dir / "taskrail"
+    shim.write_text(f'#!/bin/sh\nexec "{sys.executable}" -m taskrail "$@"\n')
+    shim.chmod(0o755)
+    return os.pathsep.join([str(bin_dir), "/usr/bin", "/bin"])
+
+
+def _checkout(root: Path, title: str, capsys) -> Path:
+    """A repository of its own, holding one task, pinned to the taskrail the PATH above offers."""
+    root.mkdir(exist_ok=True)
+    git(root, "init", "-q", "-b", "main")
+    init(root, capsys=capsys)
+    run(root, "epic", "add", "--name", title, "--objective", title, capsys=capsys)
+    run(root, "new", "--epic", "E01", "--kind", "chore", "--title", title, capsys=capsys)
+    config = root / ".taskrail/config.toml"
+    config.write_text(config.read_text().replace(f'"{install.release_tag()}"', f'"v{__version__}"'))
+    return root
+
+
+def test_the_wrapper_acts_on_its_own_checkout_whatever_the_current_directory_is(empty_repo, capsys, monkeypatch):
+    monkeypatch.delenv("TASKRAIL_BIN", raising=False)  # it would bypass the wrapper entirely
+    home = _checkout(empty_repo, "home", capsys)
+    elsewhere = _checkout(empty_repo / "elsewhere", "elsewhere", capsys)  # its own .git and .taskrail
+    env = {**os.environ, "PATH": _taskrail_on_path(empty_repo / "path-bin")}
+
+    def titles(cwd: Path, *argv: str) -> list[str]:
+        result = subprocess.run(
+            [str(home / install.WRAPPER), *argv, "list", "--json"],
+            cwd=cwd, capture_output=True, text=True, env=env, timeout=120,
+        )
+        assert result.returncode == 0, result.stderr
+        return [task["title"] for task in json.loads(result.stdout)]
+
+    assert titles(elsewhere) == ["home"]
+    # The caller's own --root still wins, which is the escape hatch for aiming a wrapper elsewhere:
+    # --root is a global flag with argparse's plain `store`, so the caller's lands after the one the
+    # wrapper injects and the last one is kept. That is the mechanism; the behaviour is the promise.
+    assert titles(home, "--root", str(elsewhere)) == ["elsewhere"]
+
+
+def test_the_wrapper_passes_its_root_on_every_path_that_runs_the_cli():
+    """The `uvx` path fetches over the network, so only the generated text can hold all three.
+
+    The test above carries the meaning, on the one path that runs offline; this one keeps the
+    other two lines from drifting away from it, and records that `TASKRAIL_BIN` is left out on
+    purpose, since it delegates to a binary of the caller's choosing.
+    """
+    execs = [line.strip() for line in install.wrapper_script().splitlines() if line.strip().startswith("exec ")]
+    delegated = [line for line in execs if "$TASKRAIL_BIN" in line]
+    assert len(execs) == 4, execs  # a local: pin, the installed CLI, uvx — and TASKRAIL_BIN
+    assert len(delegated) == 1, execs
+    assert [line for line in execs if '--root "$root"' not in line] == delegated
 
 
 def test_upgrade_keeps_a_local_pin(empty_repo, capsys):
