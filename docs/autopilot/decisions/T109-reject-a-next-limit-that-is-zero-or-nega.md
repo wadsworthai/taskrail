@@ -21,3 +21,21 @@ every other `type=int` argument, each run against the real CLI rather than read 
 Given with the answers: T108 does not touch `src/taskrail/cli.py` — only T107's finished branch does,
 in `cmd_archive` and the `archive` subparser, far from `cmd_next`. Keep the edit to the `--limit`
 line as planned.
+
+## fix gate
+
+Reviewed: commit `2cde32d` and the diff `02990a4..HEAD` — one character of behaviour in
+`src/taskrail/cli.py` (`type=int` → `type=_positive_int`), 20 lines of test, an 11-line changelog
+bullet and the artifact, with nothing else in `cli.py` reformatted; the regression test's recorded
+failure against the unfixed code, which fails as `DID NOT RAISE SystemExit` with the wrong answer
+captured on stdout — the root cause itself, not a proxy for it; the lane's
+`taskrail checks T109 --stage fix` (1224 passed).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Anything to decide at this gate? | **no** · reopen a diagnose answer | **no** | Every answer from the diagnose gate was applied as given, and nothing surfaced that the task, the artifact or the repository's own instructions do not already settle. |
+
+Noted from the lane, and not a side effect of the change: `next --limit 2` now lists fewer tasks
+than the diagnose baseline did, because other lanes of this run claimed T003 and T110 in between and
+`eligible()` excludes claimed tasks. The lane recorded that in the artifact so a later reader does
+not read it as a consequence of the fix.
