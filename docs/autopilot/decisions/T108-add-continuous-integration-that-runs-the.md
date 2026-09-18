@@ -52,3 +52,17 @@ command; `taskrail validate` (103 tasks, 0 errors).
 | 1 | The two follow-up rows | **accept as written** · reword | **accept** | T116 carries the tag evidence and the consumer impact, which is what makes it actionable by someone who does not already know setup-uv stopped publishing floating major tags. T117 depending on T116 is the right order: this repository should not install a workflow whose `setup-uv` step cannot resolve. |
 | 2 | Pull request type and scope | **`ci` / `repo`** · the generated `chore:` | **`ci` / `repo`** | The change is this repository's own continuous integration, and the generated title says nothing about what it runs or where. |
 | 3 | Required checks | **record them, do not configure them** | **record them** | `test (3.11)` and `test (3.14)` cannot be marked required until the workflow has run once on `main`, which is after this merges. Configuring branch protection is the human's, not a lane's, and not this run's. |
+
+## rebase after T106, T107, T109 and T110 merged
+
+Four branches were merged into `main` (`33cf1a5`, `38bf4f9`, `9bbfd73`, `dece2b2`). This branch was
+rebased onto `origin/main`, with four conflicts, all known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `docs/chores/README.md` and `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, no duplicate. |
+| 2 | `TODO.md`, twice: rows this branch carries `⬜` that the mainline now has `✅`, alongside T116 and T117 | **unite by ID, `✅` wins, keep every row** · stop | **as decided** | Known conflict class 1. The branch was cut before the four merges, so its copies of those rows are older; no side has a `Reopens:` commit. T116 and T117 are this branch's own new rows and survive. |
+
+After the rebase: `.github/workflows/ci.yml` unchanged at 23 lines (a new file no other branch
+touches), T116 and T117 present in `TODO.md`, `taskrail checks T108` passed with 1,247 tests, and
+`taskrail validate` reports 106 tasks, 0 errors.
