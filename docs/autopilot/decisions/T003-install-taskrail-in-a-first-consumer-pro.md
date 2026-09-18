@@ -77,3 +77,16 @@ that have not run `init` yet; the README paragraph is the only thing that reache
 have, because `installer.seed` writes the config only when it is missing and `upgrade` rewrites only
 the version pin. Drop the prose and the change serves nobody who already installed taskrail; drop
 the comment and it fixes nothing where the friction happens.
+
+## rebase after ten branches merged
+
+`main` advanced to `276ccf4` (T115). This branch was rebased onto `origin/main`, with two conflicts,
+both known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `docs/chores/README.md` and `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, no duplicate. |
+
+After the rebase: the commented `[autopilot]` block is in `default_config()`, the README paragraph is
+at `README.md:68`, `taskrail checks T003` passed with 1,249 tests, and `taskrail validate` reports
+108 tasks, 0 errors.
