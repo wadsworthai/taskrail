@@ -91,6 +91,24 @@ it.** It is the closed record of what was planned, this artifact records what wa
 and editing it would rewrite history rather than correct a live premise. Say so if you want it
 edited too; it is one more `edit`, in the same worktree.
 
+## Decisions taken
+
+All three were approved at the `scope` gate on 2026-09-18; the record is in
+`docs/autopilot/decisions/T092-correct-t088-s-row-with-the-measured-cli.md` (`1911e1c`).
+
+- **D1 — correct the row, do not discard**, with the closing method clause kept: two honest counts
+  of the same parser tree gave 70 and 72, so a figure without its method is not re-checkable, and
+  that clause is the only thing that makes these figures better than the ones they replace. The
+  task's stated purpose (starting T088 from correct numbers) is spent, but its work is not: T088's
+  merged artifact names T092 by ID as the place its row is corrected, and discarding would strand
+  that forward reference on the mainline.
+- **D2 — `--force`, on T088's description cell only.** It lifts the guard against editing a row
+  that is not pending and changes no status, which the verification below shows.
+- **D3 — leave T092's own row alone.** The distinction that decides it: **T088's row stated facts
+  that were false and that a reader would act on; T092's row states an intention that expired.**
+  An expired intention is not false, it is overtaken, and the row is the record of what was
+  planned. What was done instead belongs here, in the artifact, and that is where it is.
+
 ## Out of scope
 
 - `DESIGN.md` — T093's subject in this run; nothing here needs it.
@@ -103,11 +121,77 @@ edited too; it is one more `edit`, in the same worktree.
 
 ## Verification
 
-1. `.taskrail/bin/taskrail show T088 --json` — the `description` field is the new text, and
-   `status` is still `done`.
-2. `git diff` on `TODO.md` — exactly one row changed, exactly one cell in it.
-3. `.taskrail/bin/taskrail validate` — the backlog is valid.
-4. `.taskrail/bin/taskrail checks T092` — the `implement` stage's checks: `test`
-   (`uv run pytest -q`); `lint` is not configured in this repository and will be reported as such.
+All commands were run in this task's worktree, on branch
+`T092-correct-t088-s-row-with-the-measured-cli`, base `origin/main` = `b61bd41`.
 
-Results are recorded here at the `implement` stage.
+**1. The edit went through the CLI, and refuses without `--force`.** Before the change, a probe at
+the `scope` stage showed the guard, and wrote nothing:
+
+```
+$ .taskrail/bin/taskrail edit T088 --description "probe: does edit refuse a done task" --json
+taskrail: T088 is done, not pending; pass --force to edit it anyway
+exit=5
+```
+
+The approved edit, with `--force`, reported exactly one changed field and one changed file:
+
+```
+$ .taskrail/bin/taskrail edit T088 --description "…" --force --json
+{ "id": "T088",
+  "changes": { "description": { "from": "18 subcommands, about 66 distinct flags and 19 first-level config keys exist, …",
+                                "to":   "27 top-level commands, 42 commands at all levels, 71 long flags of taskrail's own (72 counting argparse's --help) and 9 first-level configuration names holding 46 settable names exist, …" } },
+  "branch": { "name": "T088-measure-the-cli-and-configuration-surfac", "recorded": false },
+  "files": [ "TODO.md" ] }
+exit=0
+```
+
+**2. One row, one cell, and the status untouched.**
+
+```
+$ git diff --stat
+ TODO.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+```
+
+The changed line is T088's row at `TODO.md:129`; its `✅`, ID, kind, points, dependency and title
+cells are byte-identical on both sides of the diff, and only the description cell differs.
+
+**3. The row and the status read back as intended.**
+
+```
+$ .taskrail/bin/taskrail show T088 --json
+  "status": "done", "state": "done",
+  "description": "27 top-level commands, 42 commands at all levels, 71 long flags of taskrail's own
+  (72 counting argparse's --help) and 9 first-level configuration names holding 46 settable names
+  exist, … Figures re-measured from the live argparse tree and the configuration parser; the
+  counting method is in docs/spikes/T088-measure-the-cli-and-configuration-surfac.md, E1 and E5."
+```
+
+`--force` changed no status: T088 is still `done`.
+
+**4. The backlog is valid.**
+
+```
+$ .taskrail/bin/taskrail validate
+87 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
+exit=0
+```
+
+**5. The stage's checks pass.**
+
+```
+$ .taskrail/bin/taskrail checks T092 --stage implement
+== test: uv run pytest -q
+1183 passed in 151.17s (0:02:31)
+== lint: not configured
+passed test
+not configured lint
+T092 …: passed
+exit=0
+```
+
+`lint` is not configured in this repository, and the CLI reports it as such rather than as a pass.
+
+**The figures now in the row agree with the merged artifact**, E1 (`commands (all levels): 42`,
+`top-level commands: 27`, `distinct long flags (excl --help): 71`) and E5 (`46 settable names`
+under 9 first-level names).
