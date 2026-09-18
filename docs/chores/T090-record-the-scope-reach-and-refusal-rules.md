@@ -1,6 +1,6 @@
 # T090 — Record the scope, reach and refusal rules for the design principles in CLAUDE.md
 
-Kind: chore · Epic: E08 · Status: scope proposed
+Kind: chore · Epic: E08 · Status: implemented
 
 ## Goal
 
@@ -73,7 +73,19 @@ The section grows by six lines and loses none of what it says today. The voice i
 plain prose in the paragraph, imperative addressed to the executor, as the surrounding sections
 and the bullets below are.
 
+**"At the task's first gate" holds under every gate value.** Under a stage whose gate is
+`decisions` (`DESIGN.md` §5.6) an executor does not stop at the stage's end, but an objection on a
+principle *is* a decision in that section's sense — a choice the task, the artifact, the
+repository's instructions and the executor skill do not settle — so it stops as soon as it appears,
+mid-stage. The sentence therefore needs no clause about gate values, and `CLAUDE.md` gets none.
+
 ## Decisions needed
+
+All three were answered at the `scope` gate, and the replacement text was accepted exactly as
+drafted above; the answers are recorded in
+[`docs/autopilot/decisions/T090-record-the-scope-reach-and-refusal-rules.md`](../autopilot/decisions/T090-record-the-scope-reach-and-refusal-rules.md)
+(commit `bb34282`). 1 — keep the imperative. 2 — two paragraphs. 3 — say nothing about reach here,
+since T091 adds the pointer to the core skill in the same run.
 
 1. **Second person, not "an executor".** The task context phrases point 3 as "an executor names the
    principle and proposes the alternative"; the draft says "name the principle and propose", in the
@@ -107,11 +119,68 @@ and the bullets below are.
 
 ## Verification
 
-- `sed -n '64,80p' CLAUDE.md` shows the section with the three points present and the five bullets
-  unchanged.
-- `git diff --stat origin/main..HEAD` shows `CLAUDE.md` as the only non-artifact, non-backlog file
-  changed, and `git diff origin/main..HEAD -- CLAUDE.md` shows no edit outside lines 66-68.
-- `taskrail checks T090 --stage implement` (`test`: `uv run pytest -q`) passes. No test reads
-  `CLAUDE.md`, so it proves only that a documentation edit broke nothing.
-- `.taskrail/bin/taskrail validate` passes.
-- `grep -n "plan gate" CLAUDE.md` returns nothing.
+Run in this task's worktree after the edit, on branch
+`T090-record-the-scope-reach-and-refusal-rules` at base `origin/main` = 15823fc.
+
+**The diff touches the section's opening paragraph and nothing else.** Nine lines added, three
+removed, in one hunk that begins at the paragraph and ends before the `KISS` bullet:
+
+```
+$ git diff --stat
+ CLAUDE.md | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
+
+$ git diff -- CLAUDE.md
+@@ -63,9 +63,15 @@ particular agent:
+
+ ## Design principles
+
+-These govern the CLI, the skills and the work planned in the backlog. When two of them pull in
+-different directions, the simpler outcome wins; when one argues against what a task's description
+-asks for, say so at the plan gate rather than building around it.
++These govern the CLI, the skills and the work planned in the backlog. They judge the change a task
++makes, not the code that is already there: apply them to what you add or change, and when what
++exists offends one, open a task rather than widening yours. When two of them pull in different
++directions, the simpler outcome wins.
++
++When one argues against what a task's description asks for, object rather than refuse: at the
++task's first gate — `plan`, `scope`, `diagnose` or `frame` — name the principle and propose the
++simpler alternative as a decision, then build what the answer says. Never build around the
++objection, and never substitute a simpler design for the described one without an answer.
+
+ - **KISS.** Prefer the plain solution: a flag over a subsystem, a function over a class hierarchy,
+   a documented convention over a mechanism that enforces it.
+```
+
+**"The plan gate" is gone from the file**, so no kind-specific stage name survives outside the list
+of four:
+
+```
+$ grep -n "plan gate" CLAUDE.md
+$ echo $?
+1
+```
+
+**The five bullets are unchanged** — `sed -n '64,86p' CLAUDE.md` shows the new paragraphs followed
+by KISS, YAGNI, rule of three, Occam's razor and premature optimization exactly as before, and the
+diff above is the whole of the change.
+
+**The checks pass.** `test` is the repository's suite; `lint` is not configured in `[checks]` and
+reports as such. The suite proves only that a documentation edit broke nothing — no test reads
+`CLAUDE.md`:
+
+```
+$ .taskrail/bin/taskrail checks T090 --stage implement
+== test: uv run pytest -q
+........................................................................ [  6%]
+…
+...............................                                          [100%]
+1183 passed in 165.49s (0:02:45)
+== lint: not configured
+passed test
+not configured lint
+T090 in …/.worktrees/T090-record-the-scope-reach-and-refusal-rules: passed
+exit=0
+```
+
+`.taskrail/bin/taskrail validate` is run at the close, after `taskrail done` marks the row.
