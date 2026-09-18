@@ -81,3 +81,15 @@ verification stage's six cases; `taskrail checks T107` re-run by the orchestrato
 | 1 | Is the verification enough to close, given the command rewrites a backlog? | accept · ask for more cases | **accept** | The six cases cover the fixed point, the missing parent directory, idempotence, a second run appending into an existing epic section, the merge-driver attribute and the reopen refusal — and V4 is the one that matters most, because it exercises the archive growing a second time rather than only being created. |
 | 2 | Pull request type and scope | **`feat` / `cli`**, as the lane recommends · the generated bare `feat:` | **`feat` / `cli`** | CLAUDE.md asks for the affected area as the scope, and the squash commit is what semantic versioning reads. |
 | 3 | Publish now or wait? | **wait for T106 to merge** · publish both at once | **wait** | Hand-off is sequential: `handoff.in_review` is T106 and T107 is its queue. Publishing both would put two branches in review at once, which is exactly what the run's hand-off mode forbids. |
+
+## rebase after T106 merged
+
+T106 was merged into `main` (`33cf1a5`). The branch was rebased onto `origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows are known conflict class 2: T106's row and T107's are separate entries and neither rewrites the other. United by ID, 88 rows, no duplicate. |
+
+After the rebase: no conflict markers anywhere on the branch, `taskrail checks T107` passed on the
+1,244 tests the branch now collects (T106's new test file is in the base), and `taskrail validate`
+reports 103 tasks, 0 errors.
