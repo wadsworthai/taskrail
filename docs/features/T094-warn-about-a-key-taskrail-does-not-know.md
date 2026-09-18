@@ -1,6 +1,6 @@
 # T094 — Warn about a key taskrail does not know in `.taskrail/config.toml`
 
-Kind: feature · Epic: E08 · Status: implemented
+Kind: feature · Epic: E08 · Status: verified
 
 Contract: DESIGN.md §4 (the configuration surface) and §7's `validate` row. Evidence:
 [T088](../spikes/T088-measure-the-cli-and-configuration-surfac.md) **E2** and its cost table **E9**.
@@ -207,3 +207,45 @@ None in behaviour. Two details the plan left open were settled while building:
 - `AUTOPILOT_ENTRY_KEYS` declares the keys of `[[autopilot.group]]` and `[[autopilot.resource]]`
   separately from `TABLE_KEYS`, because they are nested one level deeper than the other repeatable
   table, `[[backlog]]`.
+
+## Verified in the real CLI
+
+In a fresh scratch repository outside this one — `git init`, then `taskrail init` — rather than
+against this repository's own config, so the seeded config is exercised as a consumer gets it.
+
+**A repository `init` seeds warns about nothing**, the first thing to check:
+
+```
+$ uv run taskrail --root $S init
+created   .taskrail/config.toml …
+$ uv run taskrail --root $S validate
+history: not checked (no commits)
+0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)      exit=0
+```
+
+Then one epic, one task, and three realistic mistakes in that config: `worktree_dr` for
+`worktree_dir` under `[git]`, `handof` for `handoff` under an `[autopilot]` table added by hand, and
+a whole `[telemetry]` table with two keys, standing in for a table a newer version might add.
+
+```
+$ uv run taskrail --root $S validate
+.taskrail/config.toml: warning: unknown key `worktree_dr` in [git]; did you mean `worktree_dir`? taskrail ignores it [config-unknown-key]
+.taskrail/config.toml: warning: unknown key `handof` in [autopilot]; did you mean `handoff`? taskrail ignores it [config-unknown-key]
+.taskrail/config.toml: warning: unknown table [telemetry]; taskrail ignores it [config-unknown-table]
+history: not checked (no commits)
+1 task(s) in 1 backlog(s): 0 error(s), 3 warning(s)      exit=0
+```
+
+Both typos are named with the key they missed; the stray table is one line, not two. Exit 0.
+
+**The warning is a warning, and nothing else moved.** `taskrail list` prints the task and exits 0,
+printing nothing about the config; `show T001 --json` reports
+`"worktree": ".worktrees/T001-add-a-price-table"` — `worktree_dr` really is ignored, and the default
+really is what the repository gets, which is the silent behaviour change T088 E2 described, now
+audible. `validate --json` gives `"valid": true` with the three issues in `issues`.
+
+**An error still decides the exit code.** With a task kind of `storyy` added on top of the three
+typos, `validate` lists all four issues and exits **1** on the error, counting
+`1 error(s), 3 warning(s)`.
+
+No behaviour differs from the plan, so the `verify` gate did not stop.
