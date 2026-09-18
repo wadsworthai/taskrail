@@ -90,9 +90,13 @@ feature existed (see *Evidence*). Tests are in `tests/test_archive.py` unless na
 | 21 | `init --merge-driver` and `upgrade` write `/docs/archive.md merge=taskrail` in the block | `tests/test_merge_driver.py::test_init_merge_driver_writes_attributes_config_and_the_extra` |
 | 22 | Two branches archiving at once merge row by row, and a row both archived appears once | `tests/test_merge_driver.py::test_two_branches_archiving_at_once_merge_row_by_row` |
 
-Criterion 22 is the one that **passed before the implementation as well as after**, and that is the
-result, not an accident: the archive was shaped as an ordinary backlog table precisely so the
-driver needs no new code. All the archive needed was its path in the block (criterion 21).
+Criterion 22 is the one that **passed before the implementation as well as after**. It ran both
+times — it is in the 80 that passed in the run above and in the 1243 that pass now — and it was
+green from the start because of a design choice, not because it tests nothing: the archive is an
+ordinary backlog table in an ordinary `## E## — Name` section, which is exactly what §7.4's row
+merge already keys on, so the driver needed no new code. What the archive did need was its path in
+the `.gitattributes` block, and that is criterion 21, which did fail first. Read together, the two
+say the driver work was one line.
 
 ## Affected areas
 
@@ -110,6 +114,110 @@ driver needs no new code. All the archive needed was its path in the block (crit
 | `README.md` | One line in the command list. |
 | `CHANGELOG.md` | One bullet under `## Unreleased`. |
 | `TODO.md` | This task's own row, through the CLI only. |
+
+## Verification in the real CLI
+
+Run against this branch's source (`uv run taskrail --root <scratch> …` from the worktree), in
+scratch repositories outside this one. **No gap against the plan.** This repository's own `TODO.md`
+is untouched, per decision 6; V1-V4 work on a git-initialised copy of it (`TODO.md`, `.taskrail/`
+and `docs/`).
+
+**V1 — the whole backlog of this repository, dry run then write.** 93 closed rows against 8 open
+ones, one epic (E07) closed end to end:
+
+```
+$ uv run taskrail --root <scratch>/v1 archive --dry-run
+main: would archive 84 task(s) and 1 epic(s) into docs/closed/2026/main.md
+held back T001: T002, T013 depend on it
+held back T002: T003 depends on it
+held back T013: T002 depends on it
+held back T015: T002 depends on it
+held back T087: T088 depends on it
+held back T088: T095 depends on it
+held back T095: T101, T103 depend on it
+held back T101: T109 depends on it
+held back T103: T110 depends on it
+
+$ git -C <scratch>/v1 status --porcelain        # after two dry runs
+ M .taskrail/config.toml                        # ← the archive path set for V2; nothing else
+
+$ uv run taskrail --root <scratch>/v1 archive   # the same lines, this time writing
+$ uv run taskrail --root <scratch>/v1 validate
+17 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)          exit=0
+```
+
+`TODO.md` goes from 153 lines to 61, E07 is gone from the `## Epics` table and from the sections,
+and the archive carries it whole:
+
+```markdown
+## E07 — Current-branch workflow
+
+Objective: Let a single maintainer work tasks on the checked-out branch, commit when a task is done…
+Done when: a repository configured for the current branch works a task from claim to close…
+
+| ✓  | ID   | Kind    | Pts | Depends On | Title                          | Description                    |
+|----|------|---------|-----|------------|--------------------------------|--------------------------------|
+| ✅ | T079 | chore   | —   | —          | Write the current-branch workflow into DESIGN.md | …
+```
+
+**V2 — an archive whose directory does not exist yet.** `archive = "{artifacts}/closed/2026/{backlog}.md"`
+in that same copy, where `docs/` holds only the artifact directories:
+
+```
+$ ls <scratch>/v1/docs
+autopilot  bugs  chores  features  research  spikes
+$ uv run taskrail --root <scratch>/v1 archive
+main: archived 84 task(s) and 1 epic(s) into docs/closed/2026/main.md
+$ ls -l <scratch>/v1/docs/closed/2026/main.md
+31644 … docs/closed/2026/main.md
+```
+
+`writer.apply` already creates a written file's parents, so both new directories appear with the
+file and nothing else had to change. The template's `{backlog}` renders too.
+
+**V3 — a second run with nothing new.** Idempotent, and it still explains the residue:
+
+```
+$ uv run taskrail --root <scratch>/v1 archive
+main: nothing to archive
+held back T001: T002, T013 depend on it
+…
+```
+
+**V4 — a run that appends, and a chain released.** Closing one open row (`done T003 --force`)
+frees the whole T001/T002/T013/T015 chain behind it:
+
+```
+$ uv run taskrail --root <scratch>/v1 archive
+main: archived 5 task(s) and 1 epic(s) into docs/closed/2026/main.md
+held back T087: T088 depends on it
+…
+```
+
+The archive keeps **one** `## E01 — taskrail release` section: the five rows are appended to the
+table it already had, in file order after the seven from V1 —
+`T016 T069 T076 T077 T078 T085 T086 T001 T002 T003 T013 T015` — and, because E01 archived whole
+this time, its objective and `Done when:` were inserted under the heading that already existed.
+
+**V5 — `init --merge-driver` in a fresh repository.** The archive is one of the driver's paths
+from the first install, before any archive file exists:
+
+```
+# >>> taskrail >>>
+/TASKRAIL.md merge=taskrail
+/docs/archive.md merge=taskrail
+/docs/autopilot/decisions/README.md merge=taskrail
+…
+```
+
+**V6 — reopening an archived task.** The refusal names the file the row sits in, and `show` keeps
+its bare message for a task that is simply unknown:
+
+```
+$ uv run taskrail --root <scratch>/v1 reopen T079 --reason "needs another look"
+taskrail: no task `T079`; it is archived in docs/closed/2026/main.md, and an archived task is not reopened
+exit=3
+```
 
 ## Out of scope
 
@@ -165,8 +273,8 @@ driver needs no new code. All the archive needed was its path in the block (crit
    as text, which conflicts on every concurrent append — the very problem §7.4 exists to solve.
 
 6. **This repository's own backlog.** Should this branch's commits actually archive `TODO.md`
-   (84 rows and epic E07 would move: 93 closed rows less T002, T101 and T103, which open rows
-   depend on), or leave `TODO.md` untouched and demonstrate the command on a copy?
+   (84 rows and epic E07 would move; 9 closed rows stay — see *A number this plan got wrong*
+   below), or leave `TODO.md` untouched and demonstrate the command on a copy?
    *Recommendation: leave `TODO.md` untouched in this branch.* Every other lane and the
    orchestrator read that file, and rewriting 84 rows mid-run would collide with rows their
    branches also carry — the driver would resolve most of it, but the noise lands on branches that
@@ -174,6 +282,27 @@ driver needs no new code. All the archive needed was its path in the block (crit
    in this artifact, and open a follow-up chore to run `taskrail archive` on `TODO.md` once the
    run's branches are merged. Alternative: archive for real here, which gives the feature a real
    first use in the same pull request but rewrites the backlog every open branch shares.
+
+## A number this plan got wrong
+
+**The plan said three rows would be held back on this repository. The real answer is nine**, and
+the code is right. The estimate looked one level deep — the three closed rows an open row names
+directly (T002, T101, T103) — but a held-back row is itself a closed row that names dependencies,
+and those must stay too, or its `Depends On` cell would point at a row the backlog no longer holds.
+Running the fixed point the plan actually specifies gives the chain:
+
+```
+held back T001: T002, T013 depend on it      held back T087: T088 depends on it
+held back T002: T003 depends on it           held back T088: T095 depends on it
+held back T013: T002 depends on it           held back T095: T101, T103 depend on it
+held back T015: T002 depends on it           held back T101: T109 depends on it
+                                             held back T103: T110 depends on it
+```
+
+84 archived plus 9 held back is 93, every closed row accounted for. **This transitive closure is
+the whole of what makes decision 4 safe**: because a dependency named by a row that stays is itself
+held back, no remaining row can ever name a row that has left, and `validate` never has to look
+inside the archive to know it.
 
 ## One decision changed while building it
 
@@ -204,9 +333,9 @@ silently) is kept; only its position moved.
 
 ## Open questions and risks
 
-- **Held-back rows keep some closed work visible.** A closed task an open task depends on cannot
-  leave the table. On this repository that is 3 rows out of 87 — an acceptable residue, and it
-  shrinks as those tasks close.
+- **Held-back rows keep some closed work visible.** A closed task a remaining row depends on
+  cannot leave the table. On this repository that is 9 rows out of 93 — an acceptable residue, and
+  it shrinks as those tasks close: closing one open row freed five at once in V4 below.
 - **An epic archived while a new task wants it.** The epic is gone from the `## Epics` table, so
   `new --epic E07` exits with the epic not found. The human adds an epic. Recorded rather than
   worked around.
