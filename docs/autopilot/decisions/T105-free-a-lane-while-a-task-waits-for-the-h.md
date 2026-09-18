@@ -32,3 +32,17 @@ number of parked workspaces. That is what the row asks for. No `max_parked` limi
 Instructions given with the answers: tests first, one per criterion, each observed failing; name every
 `DESIGN.md` section touched at the implement gate; and keep the skill's *Escalate* step the single
 place that tells an orchestrator what to do, so the procedure has one home.
+
+## implement gate
+
+Reviewed: the change by commit range and `taskrail checks T105` re-run by the orchestrator, which
+passed (1218 tests).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the implementation what was approved? | accept · amend | **accepted** | `parked` is the state, the flag value and the report key, with `queued` nowhere; the seven plan decisions are built as ruled; twelve of the thirteen tests were observed failing with `src/` stashed. |
+| 2 | The guard the lane added beyond the plan | accept · question it | **accepted** | Its own review of its own parked pass found that a parked task whose claim had been released could be dispatched twice in one call. It added the guard, a thirteenth test, and said plainly that the test came after the code for that one — which is the honest way to report a defect found in new code rather than presenting thirteen red-first tests. |
+| 3 | The renamed test | accept · keep the old name | **accepted** | `test_gate_and_escalated_occupy_a_lane_and_failed_does_not` asserted the very premise this task reverses; renaming it to `test_a_gate_occupies_a_lane_while_escalated_and_failed_do_not` and rewriting its assertions is the change, not a weakening of it. |
+
+Noted: the skill keeps `--state parked` in exactly one place, pinned by a test — so the procedure has
+one home and cannot drift into three.
