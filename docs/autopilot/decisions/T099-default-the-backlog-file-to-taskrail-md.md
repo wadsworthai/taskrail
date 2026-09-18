@@ -46,6 +46,27 @@ before and after; and `taskrail checks T099` re-run by the orchestrator, which p
 | 3 | The test the lane corrected rather than the code | accept · investigate | **accepted** | Its first version asserted the whole repository was byte-identical after `upgrade`, which is false: `upgrade` legitimately rewrites the version pin. Narrowing it to the backlog file and the `file = "TODO.md"` line pins the property that matters. Correcting a test that was wrong, and saying so, is better than loosening one that was right. |
 | 4 | The README swaps, deferred at the `plan` gate | accept · re-check | **accepted** | The lane read T100's merged text before editing, found both sentences survived word for word, left the two occurrences that name the *source* of an import, and recorded the intended final text in the artifact in case the rebase conflicts on the neighbouring line. That is the deferral doing exactly what it was for. |
 
+## rebase at hand-off
+
+Rebased onto `origin/main` while the lane was stopped at the `close` gate, over T100, T101 and T102.
+Five conflicts. Three were the known classes — the two artifact indexes and `TODO.md`'s rows — and
+two were prose the orchestrator resolved by hand:
+
+| # | File | Decision | Reason |
+|---|---|---|---|
+| 1 | `CHANGELOG.md` | **keep both bullets, the mainline's first** | Known class 2. T100's entry came from the mainline, T099's from the branch; nothing was reflowed. |
+| 2 | `README.md`, the *Install* paragraph | **T100's merged wording, with T099's one word** | The conflict the lane predicted at the `implement` gate, and it resolved itself because the lane had written the answer down: T100's sentence, `TODO.md` → `TASKRAIL.md`, keeping "Three optional flags" — T100's own correction — rather than reinstating the older sentence the branch carried. The two occurrences at the end of the file, which name the *source* of an import, were left alone as the lane instructed. |
+
+After the rebase: no markers, `taskrail checks T099` passed, `taskrail validate` reports 97 tasks
+and 0 errors, and `README.md` names `TASKRAIL.md` twice — the seeded file in both places, the import
+source in neither.
+
+**Worth recording for the run:** this is the first conflict in `README.md`, a file that is not a
+known conflict class, and it did not escalate — because the lane anticipated it at a gate, wrote the
+intended final text into its artifact, and left it where the hand-off would find it. Deferring the
+edit at the `plan` gate and recording the resolution at the `implement` gate is what turned an
+escalation into a lookup.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T101 edits one line of `cli.py`; T102 edits `DESIGN.md` §6.2; T100 is handed off and
