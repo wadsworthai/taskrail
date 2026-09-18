@@ -34,3 +34,17 @@ idempotence re-run, the YAML parse, the `yamllint` comparison against `ci.yml`, 
 | 1 | Anything to decide at this gate? | **no** | **no** | Everything the scope gate settled was applied, and `init` wrote what the trial predicted, down to the hash. |
 | 2 | The lane's disclosure that it wrote an unmeasured test count into the artifact and replaced it before committing | **accept, and record it** | **accept** | Nothing unmeasured reached the commit, and saying so unprompted is what makes the rest of the evidence worth trusting. It is recorded here rather than quietly dropped. |
 | 3 | The `yamllint` discrepancy with T108's merged write-up | **note it, open nothing** | **note it** | T108's artifact says `yamllint` reports nothing for `ci.yml`; with this lane's rule set both files emit one `document-start` warning and exit 0. The difference is the rule set, not a regression, and both files behave identically — which is the fact this task needed. A merged artifact's minor imprecision is not worth a task. |
+
+## close
+
+Reviewed: the whole diff against the merge base — the generated workflow, `installed.json`, the
+`CLAUDE.md` tree form, T120's row, T117's `✅`, the artifact and its index row, with
+`src/taskrail/install.py`, `.taskrail/bin/taskrail`, `src/taskrail/cli.py` and `ci.yml` untouched;
+`taskrail checks T117 --stage implement` (1,248 passed) and `taskrail validate` (109 tasks,
+0 errors).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Folding the `docs` gate's report into the hand-off | **accept** | **accept** | The instruction said to stop at that gate to report the follow-up's ID; the lane read it as authorising the close once nothing was left to decide, and reported the ID here. That is the outcome the instruction wanted and it saved a round trip. The lane asked whether a separate stop was meant, which is the right way to raise an ambiguity rather than assume it away. |
+| 2 | T120's epic | **E05, as opened** · E06 | **E05** | It is the shipped template every consumer installs, not this repository's own tooling — the same epic as T116, the previous fix to that template. |
+| 3 | Pull request type and scope | **`chore` / `install`** · `ci` / `repo` | **`chore` / `install`** | Nothing here is new behaviour: it installs, in this repository, the workflow the installer already generates. `install` is the area; `ci` belonged to T108, which wrote a workflow by hand. |
