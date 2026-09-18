@@ -50,6 +50,14 @@ Three tasks to open, and no more: the `help=` string for `next --limit`, the §6
 `--owner`, and the error-message fix for `epic_prefix`. Questions 1-5 need none, because T098 covers
 them.
 
+## rebase at hand-off
+
+`review T095 --json` reported `rebase.needed: true`. Rebased onto `origin/main` while the lane was
+stopped at the `close` gate. Two conflicts, both known classes: `docs/autopilot/decisions/README.md`
+(appended index rows, both kept) and `TODO.md` (rows united by ID, a closed cell winning, so T095's
+`✅` and the rows T101-T103 it opened all survive beside what the mainline took meanwhile). After the
+rebase: no conflict markers, `taskrail validate` reports 92 tasks and 0 errors.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, three lanes: T094, T095, T096.
