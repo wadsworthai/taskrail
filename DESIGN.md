@@ -135,6 +135,8 @@ version = "v0.3.0"          # CLI version the repository is pinned to
 [[backlog]]
 name = "template"
 prefix = "T"
+epic_prefix = "E"                # epic IDs: 1-4 uppercase letters, different from `prefix`
+id_digits = 3                    # digits an allocated ID is padded to: T001; 1 to 6
 file = "TODO.md"
 mainline = "main"
 artifacts = "docs"
@@ -205,6 +207,12 @@ match = ["ui"]
 name = "PORT"
 values = ["5433", "5434"]
 ```
+
+An entry's `epic_prefix` (default `E`) and `id_digits` (default 3) shape that backlog's IDs: an
+epic ID is `epic_prefix` plus two or more digits, a task ID is `prefix` plus `id_digits` or more
+digits, and `taskrail new` pads the number it allocates to `id_digits`. `validate` refuses an ID
+that does not match, quoting the prefix it expected rather than the key, so a repository whose
+epics are numbered `EP01` sets `epic_prefix = "EP"` here instead of renumbering them.
 
 `[autopilot]` is checked when the config loads: a value of the wrong type, `max_lanes` below 1, a
 negative `silent_minutes`, a `kinds` entry that is not a kind name, an `escalate_gates` entry not
@@ -641,9 +649,9 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail init [--integration NAME]… [--github-workflow] [--pre-commit] [--merge-driver] [--force]` | Install into a repository; idempotent (§9) |
 | `taskrail integration list` | Available agent integrations |
 | `taskrail validate [--no-history] [--history-limit N]` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks. Also warns about reopens committed without a trailer (*Reopens in history* below), and about every name `.taskrail/config.toml` holds that taskrail does not define (§4) |
-| `taskrail list [--epic E01] [--eligible] [--fetch]` | Tasks, with computed blocked and eligible state; each `--json` entry carries `show`'s task fields, `worktree` and `worktree_base` included, without `kind_descriptor` and `prior_work` |
+| `taskrail list [--epic E01] [--state STATE] [--fetch]` | Tasks, with computed blocked and eligible state; `--state` keeps only tasks in that state (`pending`, `claimed`, `blocked`, `done-branch`, `discarded-branch`, `done`, `discarded`); each `--json` entry carries `show`'s task fields, `worktree` and `worktree_base` included, without `kind_descriptor` and `prior_work` |
 | `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches; its `row` says whether the base has the task's row, and the text names `taskrail workspace` when only this checkout has it), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; relative to `worktree_base`, with `..` segments for a worktree outside it, and the same from every checkout of the clone (T072); `null` unless `worktree = "required"`), `worktree_base` (the absolute directory `worktree` is relative to and task worktrees are created under: the repository's main checkout — the first entry of `git worktree list` — or, when that entry is a bare repository, the directory holding it; the same from every checkout (T075); `null` when `worktree` is), artifact and index paths, `never_edit`, check commands, `prior_work` (§7.2), `task_branch` (`"task"` or `"current"`; what `"current"` changes is in §6.4), and `close` with `commit`, the task's effective commit policy (§5.1; T081), and `review`, `"publish"` under `task_branch = "task"` and `"report"` under `"current"` (§7.1; T083) |
-| `taskrail next [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` or `discarded-branch` task; a task whose `base.row` is `missing` stays listed, its text line ending `(row not on <onto>)`; `--json` entries as for `list` |
+| `taskrail next [--limit N] [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` or `discarded-branch` task; a task whose `base.row` is `missing` stays listed, its text line ending `(row not on <onto>)`; `--limit` keeps the first N of them; `--json` entries as for `list` |
 | `taskrail claim <ID> [--run R]` / `taskrail release <ID>` | §6.1, §6.2; `--run` ties the claim to an autopilot run (§12.4) |
 | `taskrail branch <ID> <NAME> [--force]` | Name or rename a task's branch (§6.4); exit 5 under `task_branch = "current"` (§6.4) |
 | `taskrail claims [--remote]` | Claims, each marked live or stale |
@@ -656,8 +664,8 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1); under `task_branch = "current"` a report only, with `--publish` refused (§7.1, *On the current branch*; T083) |
 | `taskrail checks <ID> [--stage STAGE] [--check NAME]… [--resource NAME=VALUE]…` | Run a task's configured checks in its worktree with its autopilot lane's resources, or chosen ones, from anywhere in the clone (§7.5) |
 | `taskrail import <FILE> [--write] [--column CORE=HEADER]… [--status VALUE=STATUS]… [--kind VALUE=KIND]… [--default-kind KIND] [--epic-level N] [--epic-name NAME]` | Convert a table-based Markdown backlog without epics into this backlog; a dry run unless `--write` (§7.3) |
-| `taskrail epic add [--own-file]` / `taskrail epic split <E##>` | Add an epic inline or in `todo/<id>-<slug>.md`; move an inline epic to its own file |
-| `taskrail kind list` / `taskrail kind add <dir>` | Inspect resolved kinds, each `--json` entry with its effective `commit` policy, `commit_source` and effective stage `commit` (§5.1); install a local kind |
+| `taskrail epic add [--id E##] [--own-file \| --file PATH]` / `taskrail epic split <E##> [--file PATH]` | Add an epic inline or in a file of its own; move an inline epic to its own file. `add` allocates `epic_prefix` plus two digits, one above the backlog's highest, unless `--id` names one (exit 5 if that epic exists); `--own-file` writes `todo/<id>-<slug>.md` and `--file` the path it names. `split` writes `todo/<id>-<slug>.md` unless `--file` names another |
+| `taskrail kind list` | Inspect resolved kinds, each `--json` entry with its effective `commit` policy, `commit_source` and effective stage `commit` (§5.1). There is no command that installs a kind: copy its descriptor into `.taskrail/types/<kind>/`, or an override into `.taskrail/overrides/<kind>/` (§5.2) |
 | `taskrail autopilot start` / `extend` / `next` / `lane` / `decision` / `status` / `merged` / `notify` | Autopilot runs, count-only or named, dispatch and their lanes, and merge follow-through (§12.1, §12.8) |
 | `taskrail merge-driver <base> <current> <other> […]` | The git merge driver for backlog tables (§7.4); run by git, not by hand |
 | `taskrail upgrade` / `taskrail self upgrade` | Re-sync installed skills without touching overrides; update the CLI |

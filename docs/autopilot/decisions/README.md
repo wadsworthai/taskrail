@@ -79,3 +79,4 @@
 | T094 | Warn about a key taskrail does not know in .taskrail/config.toml | [T094-warn-about-a-key-taskrail-does-not-know.md](T094-warn-about-a-key-taskrail-does-not-know.md) |
 | T095 | Ask whether the options no visible repository sets or documents are still wanted | [T095-ask-whether-the-options-no-visible-repos.md](T095-ask-whether-the-options-no-visible-repos.md) |
 | T097 | Record whether any repository enables the remote half of claims and branch records | [T097-record-whether-any-repository-enables-th.md](T097-record-whether-any-repository-enables-th.md) |
+| T098 | Fix the configuration and CLI documentation defects DESIGN.md carries | [T098-fix-the-configuration-and-cli-documentat.md](T098-fix-the-configuration-and-cli-documentat.md) |
