@@ -45,6 +45,14 @@ pure insertion.
 | 1 | Is the applied paragraph what was approved? | accept · amend | **accepted** | Verbatim, in §6.1, with nothing modified or deleted. §6.1 now runs 481-526 and every line below 512 shifted by a clean offset, which is why it will rebase past T099 without a textual overlap. |
 | 2 | The evidence standard | accept · ask for more | **accepted, and worth naming** | Each of the paragraph's three claims was exercised in a throwaway repository rather than asserted: the default owner, `TASKRAIL_OWNER` covering a command with no flag on the call, and `--owner` overriding the variable for one command — with the exit 4 refusals that prove the claim was really held by someone else. The list of ten was re-run against the built parser after the edit, and the exclusions checked too. |
 
+## rebase at hand-off
+
+Rebased onto `origin/main` while the lane was stopped at the `close` gate, over T100 and T101. Two
+conflicts, both known classes: the two artifact indexes. **`DESIGN.md` replayed as a pure offset**,
+as the lane predicted at the `implement` gate — its hunk's context is §6.1's claim prose, and the
+branches that landed meanwhile touched §9 and `cli.py`. Against the new mainline the branch still
+shows `DESIGN.md | 8 ++++++++`, 8 insertions and no deletion.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T099 edits `DESIGN.md` §1, §3.1, §4 and §7.3; T101 one line of `cli.py`.
