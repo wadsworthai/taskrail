@@ -47,3 +47,18 @@ no-op with the grep that justifies it; `taskrail checks T110` (1221 passed) and 
 |---|---|---|---|---|
 | 1 | Pull request type and scope | **`docs` / `repo`**, as the lane recommends · the kind's default `chore` | **`docs` / `repo`** | CLAUDE.md asks for the type of the most significant change, and the only substantive change is one sentence of a design document. It also matches the `docs(repo):` commits on the branch. |
 | 2 | The title | **`docs(repo): reword DESIGN.md §4 where it says an ID refusal names the key (T110)`** · the generated title, which repeats the old false claim | **the lane's** | The generated title ends on "quotes the prefix rather than the key", which is the sentence this task removed; keeping it would put the error into the one commit that lands on `main`. |
+
+## rebase after T106, T107 and T109 merged
+
+T106 (`33cf1a5`), T107 (`38bf4f9`) and T109 (`9bbfd73`) were merged into `main`. The branch was
+rebased onto `origin/main`, with four conflicts, all known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `docs/chores/README.md` and `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, no duplicate. |
+| 2 | `TODO.md`: T106's row `⬜` on this branch and `✅` on the mainline, with T113 on one side and T115 on the other | **unite by ID, `✅` wins, keep both new rows** · stop | **as decided** | Known conflict class 1. This branch was cut before T106 merged, so its copy of that row is simply older; no side has a `Reopens:` commit. T113 came from the mainline and T115 from this branch, and each belongs. |
+| 3 | `TODO.md` again, on the `done` commit: T109's and T110's status cells | **unite by ID, `✅` wins** · stop | **as decided** | Same class, same rule. |
+
+After the rebase: no conflict markers, the reworded sentence at `DESIGN.md:228`, `grep "rather than
+the key"` returning nothing, `taskrail checks T110` passed with 1,247 tests, and `taskrail validate`
+reports 104 tasks, 0 errors.
