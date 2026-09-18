@@ -44,6 +44,31 @@ orchestrator: 1186 passed in 165.55s, `lint` not configured.
 Instructions given with the answers: run the `docs` stage, then close; the branch's rebase onto the
 `main` that now carries T088 is the orchestrator's at hand-off, not the lane's.
 
+## rebase after T088 and T090 merged
+
+`review T091 --json` reported `rebase.needed: true`. The orchestrator rebased at hand-off, while the
+lane was stopped at the `close` gate:
+
+```
+git rebase origin/main
+```
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | `docs/chores/README.md` and `docs/autopilot/decisions/README.md`: a row appended by each side | keep both · stop | **keep both, one entry per task** | Known class 2, appended index rows. |
+| 2 | `TODO.md`: the status cells of T090 and T091 | keep all rows, `✅` wins per ID · stop | **one row per ID, `✅` from whichever side has it** | Known class 1, backlog rows united by ID. T090 arrived `✅` from the mainline, T091 `✅` from this branch, and neither side carries a `Reopens:` commit the other lacks. |
+
+**A mistake the orchestrator made and corrected, recorded because the branch shows it.** The first
+resolution of conflict 2 kept both sides' lines instead of uniting them by ID, which duplicated the
+T090 and T091 rows; `taskrail validate` caught it immediately with two `task-duplicate` errors at
+`TODO.md:133` and `:134`. The rows were united by ID with the `✅` cell winning, and the closing
+commit was amended. Validation after the fix: 87 tasks, 0 errors, 0 warnings; `git diff --check`
+clean; `taskrail checks T091` passed. The lesson is in the class itself: class 1 unites rows **by
+ID**, and a generic keep-both resolution is right for appended index rows (class 2) and wrong here.
+
+After the rebase: six commits ahead of `origin/main`, the branch's diff adding only this task's own
+files and rows.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T090 and T091 adopt T087's verdict in separate areas.
