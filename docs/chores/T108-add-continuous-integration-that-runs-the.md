@@ -55,6 +55,10 @@ build or coverage, and nothing allowed to fail.
 
 ## Decisions needed
 
+All seven were answered at the scope gate as recommended below: no `validate` step, the two legs
+`3.11` and `3.14`, the exact tags, the single `uv run --locked pytest` step, the check names
+recorded here, one `CLAUDE.md` line and nothing else, and both follow-up tasks opened.
+
 1. **Does this workflow also run `taskrail validate`, or is that left to the generated
    workflow?** Recommendation: **leave it out**. `validate`'s reopen check needs full history, so
    running it here would pull `fetch-depth: 0` into both matrix legs and diverge from the shape
@@ -97,4 +101,23 @@ build or coverage, and nothing allowed to fail.
 - `taskrail checks T108` (`test`: `uv run pytest -q`) passes; `lint` is not configured here.
 - `taskrail validate` reports no errors.
 
-Results: recorded at the implement stage.
+Results:
+
+- The file parses as YAML and its keys are the ones GitHub expects: `name`, `on`, `permissions`,
+  `jobs.test` with `runs-on`, `strategy.matrix.python` and three steps. A YAML 1.1 parser reads the
+  `on:` key as the boolean `true`, which is how every GitHub workflow is written and what GitHub
+  itself accepts. `yamllint` (default rules, line length and `truthy` key checks off) reports
+  nothing, exit 0.
+- `uv lock --check`: `Resolved 7 packages in 0.68ms` — the committed `uv.lock` is current, so
+  `uv run --locked` will not fail on a stale lock.
+- The step both legs will run, exercised for real with the interpreters the matrix names:
+  - `uv run --locked --python 3.11 pytest -q` → `1221 passed in 160.92s (0:02:40)`
+  - `uv run --locked --python 3.14 pytest -q` → `1221 passed in 164.73s (0:02:44)`
+
+  The legs run in parallel on GitHub, so the wall clock stays near those three minutes.
+- `taskrail checks T108 --stage implement`: `passed test` (`1221 passed in 161.79s`),
+  `not configured lint` — `lint` is not configured in this repository.
+- `taskrail validate`: `101 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+
+The workflow itself is only proven once it runs on GitHub: the first pull request that carries
+this branch is where `test (3.11)` and `test (3.14)` appear.
