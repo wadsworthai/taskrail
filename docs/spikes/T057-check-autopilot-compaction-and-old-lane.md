@@ -18,6 +18,21 @@ records, and across nine runs all 38 handles belonged to exactly one session eac
 This spike changed no code, no configuration, no skill, `DESIGN.md`, `CLAUDE.md` or `CHANGELOG.md`,
 and no other task's row. Its scripts are throwaway and were kept outside the repository.
 
+## Outcome
+
+The human accepted the verdict at the `decide` gate on 2026-09-18
+([decision record](../autopilot/decisions/T057-check-autopilot-compaction-and-old-lane.md)): no
+scripted probe is built, and T057 closes on the harvest and the fixture, with compaction beyond its
+consequence, messaging a previous session's lane, and OpenCode on a Claude model recorded as limits
+with their reasons.
+
+| Proposal | Decision |
+|---|---|
+| A — record the context budget where a run's count is chosen | opened as **T111** (chore, 2 pts) |
+| B — replace §12.3's "not verified" sentence with the measured structural reason | opened as **T112** (chore, 1 pt) |
+| C — harvest the first run that crosses a compaction boundary | **not opened** |
+| Keep the harvest script in the repository | **no** — it stays throwaway outside the repository, and *How to reproduce* below is the record |
+
 ## Question
 
 [T033](T033-trial-the-autopilot-on-a-real-backlog-wi.md) left three things unverified and proposed
@@ -206,7 +221,7 @@ figure is **38 lanes** over nine runs: 10, 8 and 20 for the three sessions.
 ## Recommendation
 
 **Accept that the scripted probe is not worth building, and spend the finding instead.** Three
-follow-ups, to be opened only if the human approves them at this gate:
+follow-ups were proposed at the `decide` gate; the *Outcome* above records which the human opened:
 
 | Proposal | Kind | Why |
 |---|---|---|
