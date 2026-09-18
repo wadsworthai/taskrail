@@ -6,6 +6,27 @@ An agent-agnostic backlog tool: a deterministic CLI that owns the backlog files,
 skills that execute tasks by kind. Derived from the task systems of two existing projects,
 generalized, and decoupled from GitHub Spec Kit.
 
+**Reading map.** What each numbered section is for, so a reader after one thing finds it without
+reading the rest. It is read when someone needs a section, not on a schedule: the orchestrator
+reads this file once before a run's first dispatch (§12.6), not at every gate. When a numbered
+section is added, add its row here.
+
+| What you need | Section |
+|---|---|
+| What taskrail is for, and what it deliberately is not | §1 Goals and non-goals |
+| The vocabulary: backlog, epic, task, kind, claim, stage, gate | §2 Concepts |
+| How `TODO.md` is written: the epics table, task rows, columns, values | §3 File format |
+| Every key of `.taskrail/config.toml` and its default | §4 Configuration |
+| Kind descriptors, resolution order, the core kinds, conditional stages and routes — and the gates in §5.6 | §5 Kinds |
+| Claims, ID allocation, and how a task gets a branch and a worktree in §6.4 | §6 Claims and IDs |
+| Every command and flag, what it reads and what it writes — and the review hand-off in §7.1 | §7 CLI |
+| The skills shipped with the CLI and the agent integration notes | §8 Skills |
+| How the CLI is installed and what `init` writes into a repository | §9 Distribution |
+| This repository's own directory tree | §10 Layout |
+| The delivery phases and which tasks delivered them | §11 Phases |
+| The autopilot: lanes, state, decision records, resources — and escalation in §12.6, merge follow-through in §12.8 | §12 Autopilot |
+| What changes when tasks are worked on the checked-out branch instead of a branch each | §13 Current-branch workflow |
+
 ## 1. Goals and non-goals
 
 Goals:

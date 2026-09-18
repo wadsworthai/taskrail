@@ -118,6 +118,14 @@ the diff that adds a section shows the omission to its reviewer. The alternative
 - **Nothing at all** — the diff is small and reversible, and a stale row costs a reader one wrong
   jump. Defensible, but a sentence costs nothing.
 
+**Answered at the `scope` gate of run `20260918-1`:** all four as recommended, and the table
+accepted as quoted, to be inserted unchanged. Two points the answer asked to keep: the lead-in's
+sentence that this file is read once before a run's first dispatch and not at every gate — T089's
+most valuable finding, now living where a future reader meets it — and the line-shift note under
+*Verification*, so a reviewer who sees `DESIGN.md:<line>` citations in old artifacts move finds the
+reason without asking. The decision record is
+[`docs/autopilot/decisions/T093-add-a-reading-map-to-the-top-of-design-m.md`](../autopilot/decisions/T093-add-a-reading-map-to-the-top-of-design-m.md).
+
 ## Out of scope
 
 - **Splitting `DESIGN.md`, in whole or in part** — refused by the accepted verdict.
@@ -127,24 +135,93 @@ the diff that adds a section shows the omission to its reviewer. The alternative
   repository's document structure to every installation).
 - **Rewriting the bare-`§N` citation style** — the spike says that would need its own spike.
 - **`CHANGELOG.md`**, which records user-facing changes; `DESIGN.md` is this repository's internal
-  design document and ships to nobody (E3).
+  design document and ships to nobody (E3), so no consumer's behaviour changes. Confirmed at the
+  `scope` gate: the same test excused T090 and required an entry from T091.
 - **Correcting anything else noticed in `DESIGN.md`** while editing its top. If something needs
   changing, it becomes a follow-up task.
 
 ## Verification
 
-To be filled in at `implement` with real output:
+Run in this task's worktree, on branch `T093-add-a-reading-map-to-the-top-of-design-m`, after
+inserting the map.
 
-1. `taskrail checks T093 --stage implement` — the `test` check (`uv run pytest -q`). `lint` is not
-   configured for this repository and will be reported as such.
-2. `git diff --stat` — exactly one file changed in the `implement` commit (`DESIGN.md`), additions
-   only.
-3. `git diff -U0 DESIGN.md` — a single hunk, inserted before the old line 9, with no `-` line.
-4. `grep -c '^## [0-9]\+\.' DESIGN.md` — still 13, and `grep -n '^## \|^### '` shows the same
-   headings in the same order as before the change.
-5. Every one of those 13 headings has exactly one row in the map, and every `§N` in the map's right
-   column names a heading that exists.
-6. `taskrail validate` — the backlog still validates.
+**1. The change is 21 lines of pure addition in one file.**
+
+```
+$ git diff --stat
+ DESIGN.md | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+$ git diff -U0 DESIGN.md | head -6
+diff --git a/DESIGN.md b/DESIGN.md
+index 366b4c3..3698266 100644
+--- a/DESIGN.md
++++ b/DESIGN.md
+@@ -8,0 +9,21 @@ generalized, and decoupled from GitHub Spec Kit.
++**Reading map.** What each numbered section is for, so a reader after one thing finds it without
+
+$ git diff -U0 DESIGN.md | grep -c '^-[^-]'
+0
+```
+
+One hunk, `@@ -8,0 +9,21 @@` — inserted after the summary paragraph and before `## 1.`, with no
+removed line anywhere in the diff.
+
+**2. Nothing was renumbered; every section still has exactly one row, in order.**
+
+```
+$ grep -c '^## [0-9]\+\.' DESIGN.md
+13
+$ wc -l DESIGN.md
+1865 DESIGN.md
+
+$ grep -oE '\| §[0-9]+ [^|]+ \|$' DESIGN.md | sed -E 's/^\| §([0-9]+) (.*) \|$/\1|\2/' > map.txt
+$ grep -E '^## [0-9]+\.' DESIGN.md | sed -E 's/^## ([0-9]+)\. (.*)$/\1|\2/' \
+    | sed 's/ — `.taskrail\/config.toml`//; s/ (implemented)//' > heads.txt
+$ diff map.txt heads.txt && echo MATCH
+MATCH          # 13 rows, 13 headings, same numbers, same names, same order
+```
+
+(The two `sed` substitutions only drop the parts of two headings the map's cells deliberately omit:
+§4's `— .taskrail/config.toml` and the `(implemented)` status tags on §12 and §13. `map.txt` and
+`heads.txt` were written to the scratchpad, not to the repository.)
+
+Each sub-section the map names by number exists exactly once:
+
+```
+$ for s in 5.6 6.4 7.1 12.6 12.8; do grep -c "^### ${s} " DESIGN.md; done
+1 1 1 1 1
+```
+
+**3. The checks pass.**
+
+```
+$ .taskrail/bin/taskrail checks T093 --stage implement
+== test: uv run pytest -q
+[…]
+1183 passed in 140.02s (0:02:20)
+== lint: not configured
+passed test
+not configured lint
+T093 in …/.worktrees/T093-add-a-reading-map-to-the-top-of-design-m: passed
+```
+
+`lint` is not configured in this repository, and `checks` reports it as such rather than failing.
+
+The first run of the suite ended `1 failed, 1182 passed in 150.75s`, on
+`tests/test_autopilot_notify.py::test_a_notify_command_past_the_timeout_is_killed_with_its_children`
+— a timing test that waits up to 5 s for a killed command's `sleep 60 &` child to disappear
+(`AssertionError: child`). It is unrelated to this change, which adds Markdown to a document no
+code reads (E3), and it is a load-sensitive test: three lanes of run `20260918-1` were running full
+suites on this machine at the time. It passed twice on its own and then in the full suite quoted
+above, which is the recorded result.
+
+**4. The backlog still validates.**
+
+```
+$ .taskrail/bin/taskrail validate
+87 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
+```
 
 One known, accepted side effect: the map shifts every line below it, so `DESIGN.md:<line>`
 references in *historical* artifacts (T076, T077, T078, T085 cite line 3, 112, 1179, 1730) point
