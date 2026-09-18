@@ -40,6 +40,14 @@ this kind.
 | 2 | The test's second assertion, on the metavar | keep it · assert the help string only | **keep it** | The metavar is half the point: `DESIGN.md` §7 writes the flag as `[--limit N]`, so pinning it is what stops `--help` drifting back to a third spelling. |
 | 3 | The enumeration of the 65 help-less arguments | keep it in the artifact · drop it | **keep it** | Recorded by command, it is the measurement anyone deciding the wider rule would otherwise have to redo. |
 
+## rebase at hand-off
+
+Rebased onto `origin/main` while the lane was stopped at the `close` gate, over T100 and the backlog
+commit that added T105-T108. Two conflicts, both known classes: the two artifact indexes (appended
+rows, both sides kept). `cli.py` did not conflict — no other lane touched it. After the rebase:
+no markers, `taskrail checks T101` passed, `taskrail validate` reports 98 tasks and 0 errors, and
+T109's row survives beside the rows the mainline took meanwhile.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T099 may change `config.py` and `install.py`; T100 is handed off and waiting to be
