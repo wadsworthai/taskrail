@@ -39,3 +39,16 @@ each), checked the lock with `uv lock --check`, and ran `taskrail checks T108 --
 | 1 | Anything to decide at this gate? | **no** | **no** | The seven scope answers were applied as given and the scope did not widen. |
 | 2 | Is "the workflow cannot be proven locally" enough? | **accept, with the limit stated in the artifact** · ask for `act` or a trial push | **accept** | A workflow only really runs on GitHub, and the branch's own pull request is where `test (3.11)` and `test (3.14)` first appear. What could be verified locally was: the file's parsed structure, the lock, and the exact command on both interpreters. Saying so rather than claiming more is the right shape for this evidence. |
 | 3 | Pull request type and scope | **`ci` / `repo`** · `chore` / `repo` | **`ci` / `repo`** | The change is continuous integration for this repository only. `ci` is a Conventional Commits type, and CLAUDE.md asks for the affected area as the scope; `repo` is the area its own Merging section names for repository-level work. |
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — the new `.github/workflows/ci.yml`, one `CLAUDE.md`
+*Layout* line, the artifact and its index row, T116's and T117's rows and T108's `✅`, with
+`src/taskrail/install.py` and `cli.py` untouched; both matrix legs exercised with the workflow's own
+command; `taskrail validate` (103 tasks, 0 errors).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The two follow-up rows | **accept as written** · reword | **accept** | T116 carries the tag evidence and the consumer impact, which is what makes it actionable by someone who does not already know setup-uv stopped publishing floating major tags. T117 depending on T116 is the right order: this repository should not install a workflow whose `setup-uv` step cannot resolve. |
+| 2 | Pull request type and scope | **`ci` / `repo`** · the generated `chore:` | **`ci` / `repo`** | The change is this repository's own continuous integration, and the generated title says nothing about what it runs or where. |
+| 3 | Required checks | **record them, do not configure them** | **record them** | `test (3.11)` and `test (3.14)` cannot be marked required until the workflow has run once on `main`, which is after this merges. Configuring branch protection is the human's, not a lane's, and not this run's. |
