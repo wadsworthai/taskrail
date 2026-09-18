@@ -24,3 +24,17 @@ Given with the answers: the existing `test_github_workflow_checks_out_full_histo
 literal `actions/checkout@v7` line and must be updated with the pin — it is in this lane's half of
 `tests/test_install.py`, not T113's. Stop before touching any shared helper or import in that file,
 as offered.
+
+## fix gate
+
+Reviewed: commit `f6f97f9` and the diff `5135da9..HEAD` — two refs in `install.py`, the updated
+literal and the new shape test in this lane's half of `tests/test_install.py` with no shared helper
+and no import touched, the `DESIGN.md` §9 clause, the `CHANGELOG.md` entry and the artifact; the
+regression test's recorded failure naming both loose refs; the regenerated workflow with both tags
+resolved against the real remotes; and `taskrail checks T116 --stage fix` (1,248 passed).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Anything to decide at this gate? | **no** | **no** | The three diagnose answers were applied as given and nothing else surfaced. |
+| 2 | The judgement the lane made inside the stage — collecting every offending ref and asserting once, instead of asserting per ref in the loop | **accept** | **accept** | The first form stopped at `actions/checkout@v7` and never reached the ref in the root cause, so its failure message would have pointed at the wrong line. The version that names both is what makes the test readable when it fires years from now. |
+| 3 | The changelog quoting `edited locally; --force replaces it` verbatim from `Installer.managed` | **accept** | **accept** | A consumer reading the entry can match the string against what their own `upgrade` prints, which is the difference between an announcement and an instruction. |
