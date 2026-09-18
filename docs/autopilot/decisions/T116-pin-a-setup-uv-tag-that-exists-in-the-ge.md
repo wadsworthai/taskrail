@@ -50,3 +50,17 @@ working tree clean and the claim released.
 |---|---|---|---|---|
 | 1 | The `impact` sweep opened nothing — accept? | **accept** | **accept** | It was a real sweep, not an assertion: every `uses:` in the repository was listed, leaving two live sites (the template and this repository's `ci.yml`, already pinned by T108) and some frozen quotations in past tasks' write-ups, which are records and not code. |
 | 2 | Pull request type and scope | **`fix` / `install`** · `fix` / `cli` | **`fix` / `install`** | The generated workflow is written by `src/taskrail/install.py`, and CLAUDE.md asks for the affected area as the scope. |
+
+## rebase after seven branches merged
+
+`main` advanced to `f23dac5` (T112). This branch was rebased onto `origin/main`, with two conflicts,
+both known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, no duplicate. |
+| 2 | Conflict in `CHANGELOG.md` | **keep both bullets**, this branch's above the mainline's | **keep both** | Appended changelog bullets, known conflict class 2; *Unreleased* is newest-first and this branch lands after the ones already there. |
+
+After the rebase: both pins in place (`actions/checkout@v7.0.1` and `astral-sh/setup-uv@v10.1.0` at
+`src/taskrail/install.py:270` and `:273`), `taskrail checks T116` passed with 1,248 tests, and
+`taskrail validate` reports 106 tasks, 0 errors.
