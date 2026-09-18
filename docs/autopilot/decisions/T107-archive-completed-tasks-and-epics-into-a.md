@@ -65,3 +65,19 @@ itself a dependency further up the chain. Correct the number in the artifact whe
 it, so the record does not carry a figure the implementation disproved. At `verify`, also exercise
 the archive whose parent directory does not exist yet, and the second run that appends to an archive
 already holding an epic section.
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — the new module and its tests, the `cli.py`,
+`config.py`, `ids.py`, `mergedriver.py` and `writer.py` wiring, `DESIGN.md` §§3.1/4/7/7.4 and the
+new §7.6, two `README.md` lines, one `CHANGELOG.md` bullet, T114's row and T107's `✅`, with
+`src/taskrail/install.py` and `tests/test_install.py` untouched as the touch map required; the
+verification stage's six cases; `taskrail checks T107` re-run by the orchestrator
+(`1243 passed in 175.55s`, against `origin/main`'s 1221 and T106's 1222); `taskrail validate`
+(102 tasks, 0 errors).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the verification enough to close, given the command rewrites a backlog? | accept · ask for more cases | **accept** | The six cases cover the fixed point, the missing parent directory, idempotence, a second run appending into an existing epic section, the merge-driver attribute and the reopen refusal — and V4 is the one that matters most, because it exercises the archive growing a second time rather than only being created. |
+| 2 | Pull request type and scope | **`feat` / `cli`**, as the lane recommends · the generated bare `feat:` | **`feat` / `cli`** | CLAUDE.md asks for the affected area as the scope, and the squash commit is what semantic versioning reads. |
+| 3 | Publish now or wait? | **wait for T106 to merge** · publish both at once | **wait** | Hand-off is sequential: `handoff.in_review` is T106 and T107 is its queue. Publishing both would put two branches in review at once, which is exactly what the run's hand-off mode forbids. |
