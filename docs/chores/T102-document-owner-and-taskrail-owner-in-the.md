@@ -122,6 +122,12 @@ The **intent** is unambiguous — "beside the line that already says the owner d
 which is the boundary the row actually asserts ("Section 6 only, so it does not overlap T098").
 Decision 1 below.
 
+**For the next reader:** T102's own row in `TODO.md` and T098's write-up both say this paragraph
+belongs in "§6.2". They are wrong, and they are left as they are — merged records of what was
+believed at the time, not worth widening a chore's touch map to rewrite. The paragraph is in
+**§6.1**, after the sentence it qualifies. Anyone following the "§6.2" pointer should read it
+here first.
+
 **Two more places `TASKRAIL_OWNER` reaches that `--owner` does not** (found while walking the
 resolution sites, and the strongest evidence for the paragraph the human asked for):
 `autopilot start` and `autopilot close` record `claims.default_owner()`
@@ -144,7 +150,8 @@ Three files: one paragraph in `DESIGN.md`, this artifact, and one index row.
 
 Inserted as its own paragraph immediately after the paragraph that ends
 "…The owner defaults to `$TASKRAIL_OWNER`, then `user@host`." and before the paragraph beginning
-"A claim is **stale** when…". Proposed text (the hybrid of decision 2):
+"A claim is **stale** when…". Applied as drafted (the hybrid of decision 2), now at lines
+513–519:
 
 > Every command that records an owner or checks one against a claim takes `--owner` to override
 > that default: `claim`, `release`, `reserve-id`, `new`, `workspace`, `done`, `discard`, `edit`,
@@ -162,6 +169,12 @@ and the division of labour between them. The middle sentence is the one the huma
 This artifact and one appended index row.
 
 ## Decisions needed
+
+**All three were answered at the `scope` gate as recommended** (record:
+`docs/autopilot/decisions/T102-document-owner-and-taskrail-owner-in-the.md`, commit `67b54a4`):
+write in **§6.1** beside line 511 and note the discrepancy for the next reader rather than rewrite
+the merged records that carry it; keep **both** the rule and the ten names; **keep** the
+`autopilot start` / `autopilot close` clause. The paragraph stands exactly as drafted below.
 
 1. **Write in §6.1, where the sentence actually is, or in §6.2, as the row's words say?**
    Recommendation: **§6.1**, beside line 511. The row's own pointer ("beside the line that already
@@ -201,6 +214,9 @@ This artifact and one appended index row.
   arguments carry no argparse `help=` string at all — `release`, `reserve-id`, `new`, `done` and
   `discard` (`cli.py:1498,1507,1545,1559,1564`), against the other five, which do. That is a code
   defect of the same family as T101's `next --limit`; it is reported at the gate, not fixed here.
+  Answered at the gate: report only, open nothing — T101 measured 65 such arguments across the
+  CLI, this is the second lane to hit the same defect, and the orchestrator is putting the whole
+  family to the human rather than letting two lanes patch two instances of it.
 - **§7's command table and §12.1's `autopilot merged` row.** They are T098's ground and the row
   says §6 only.
 - **The shipped skills**, which name `--owner` nowhere. Whether a skill should is a separate
@@ -213,11 +229,116 @@ This artifact and one appended index row.
 
 ## Verification
 
-- `taskrail checks T102` (the `test` check, `uv run pytest -q`) — the change touches no code, so
-  the suite must be unchanged.
-- `taskrail validate` — the backlog stays valid.
-- `git diff --stat` on `DESIGN.md` showing one hunk, inside §6.1, adding lines and removing none.
-- Each of the ten commands re-checked through `--help` after the edit, so the list in the
-  paragraph is a statement about the built parser rather than about the source.
+Every command below was run after the edit, in this worktree. Nothing here is reasoned about.
 
-*(Verification results are recorded here at the `implement` stage.)*
+**The diff is one hunk, a pure insertion, inside §6.1.**
+
+```
+$ git diff --stat
+ DESIGN.md | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+$ git diff DESIGN.md
+@@ -510,6 +510,14 @@
+ `record_remote` (§6.4); the exit code stays 0. `taskrail release <ID>` removes a claim; releasing someone
+ else's needs `--force`. The owner defaults to `$TASKRAIL_OWNER`, then `user@host`.
+
++Every command that records an owner or checks one against a claim takes `--owner` to override
++that default: `claim`, `release`, `reserve-id`, `new`, `workspace`, `done`, `discard`, `edit`,
++`branch` and `autopilot merged`. Setting `TASKRAIL_OWNER` in the environment covers all of them at
++once, and is the ordinary way to give a CI job, a shared machine or a service account an identity
++of its own; it also names the owner for `autopilot start` and `autopilot close`, which record one
++but take no flag. `--owner` is for the exception — acting as someone else for a single command —
++and the test suite, where it is how a second person is simulated.
++
+ A claim is **stale** when its worktree no longer exists, or when its branch does not exist and
+```
+
+No existing line is modified or deleted. The paragraph lands at lines 513–519, and §6.1 now runs
+481–526:
+
+```
+$ grep -n '^### 6' DESIGN.md
+481:### 6.1 Local claim — always on
+527:### 6.2 Remote claim — optional
+540:### 6.3 ID allocation
+554:### 6.4 Task branches
+```
+
+**The list of ten is a statement about the built parser, re-checked after the edit:**
+
+```
+$ for c in claim release reserve-id new workspace done discard edit branch; do \
+      printf '%-16s ' "$c"; .taskrail/bin/taskrail "$c" --help | grep -o -- '--owner OWNER' | head -1; done
+claim            --owner OWNER
+release          --owner OWNER
+reserve-id       --owner OWNER
+new              --owner OWNER
+workspace        --owner OWNER
+done             --owner OWNER
+discard          --owner OWNER
+edit             --owner OWNER
+branch           --owner OWNER
+$ .taskrail/bin/taskrail autopilot merged --help | grep -o -- '--owner OWNER' | head -1
+--owner OWNER
+```
+
+And the exclusions the sentence's rule implies really are excluded — every one of these prints no
+`--owner` at all: `reopen`, `unreserve-id`, `review`, `validate`, `show`, `list`, `next`, `claims`,
+and the two the paragraph names:
+
+```
+$ .taskrail/bin/taskrail autopilot start --help
+usage: taskrail autopilot start [-h] [--json] [--count COUNT] [--kinds KINDS] [--tasks TASKS]
+$ .taskrail/bin/taskrail autopilot close --help
+usage: taskrail autopilot close [-h] [--json] --reason REASON run
+```
+
+**Every clause exercised for real**, in a throwaway repository (`git init`, `taskrail init`, one
+epic, one task):
+
+```
+$ taskrail --root <probe> claim T001 --json | grep owner        # no variable, no flag
+    "owner": "abigail@archlinux",                               # → user@host
+$ taskrail --root <probe> release T001 --json | grep owner
+    "owner": "abigail@archlinux",
+
+$ TASKRAIL_OWNER=ci@build-agent taskrail --root <probe> claim T001 --json | grep owner
+    "owner": "ci@build-agent",                                  # the variable, no flag anywhere
+$ TASKRAIL_OWNER=ci@build-agent taskrail --root <probe> claims
+T001   ci@build-agent           master                         live
+
+$ taskrail --root <probe> release T001                          # back to user@host
+taskrail: T001 is claimed by ci@build-agent; pass --force to release someone else's claim
+exit=4
+
+$ TASKRAIL_OWNER=ci@build-agent taskrail --root <probe> done T001 --owner someone@else
+taskrail: T001 is claimed by ci@build-agent; pass --force
+exit=4                                                          # the flag overrode the variable
+                                                                # for that one command
+$ TASKRAIL_OWNER=ci@build-agent taskrail --root <probe> done T001 --json
+{ "id": "T001", "status": "done", "commit": "stages", … }       # the variable's owner closes it
+```
+
+That is the paragraph's three sentences, each demonstrated: the default, the variable covering
+commands with no flag on them, and `--owner` overriding the variable for a single command.
+
+**The repository is undisturbed.**
+
+```
+$ taskrail --root <worktree> checks T102
+== test: uv run pytest -q
+1196 passed in 135.61s (0:02:15)
+== lint: not configured
+passed test
+not configured lint
+T102 in /thezone/shared/repositories/utils/taskrail/.worktrees/T102-document-owner-and-taskrail-owner-in-the: passed
+exit=0
+
+$ taskrail --root <worktree> validate
+93 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
+exit=0
+```
+
+1196 passed, the same count T098 recorded at `464b958`, which is the point: this task changed no
+code.

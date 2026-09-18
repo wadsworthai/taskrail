@@ -510,6 +510,14 @@ claim's `branch` is `null` and the warning says to check out a branch to work th
 `record_remote` (§6.4); the exit code stays 0. `taskrail release <ID>` removes a claim; releasing someone
 else's needs `--force`. The owner defaults to `$TASKRAIL_OWNER`, then `user@host`.
 
+Every command that records an owner or checks one against a claim takes `--owner` to override
+that default: `claim`, `release`, `reserve-id`, `new`, `workspace`, `done`, `discard`, `edit`,
+`branch` and `autopilot merged`. Setting `TASKRAIL_OWNER` in the environment covers all of them at
+once, and is the ordinary way to give a CI job, a shared machine or a service account an identity
+of its own; it also names the owner for `autopilot start` and `autopilot close`, which record one
+but take no flag. `--owner` is for the exception — acting as someone else for a single command —
+and the test suite, where it is how a second person is simulated.
+
 A claim is **stale** when its worktree no longer exists, or when its branch does not exist and
 the claim is older than `claim_grace_minutes` — the grace lets an agent claim first and create
 the branch right after. The age of the claiming process is deliberately not a criterion: the
