@@ -19,6 +19,20 @@ repository ship the command, and no test asserts on the clause being changed.
 Instructions given with the answers: keep the diff to `SKILL.md` lines 64-68 and `README.md`'s one
 line; fix the fragment before committing.
 
+## implement gate
+
+Reviewed: the diff by commit range — the skill's step 3, `README.md`'s one line, and what `upgrade`
+regenerated; `taskrail checks T104` re-run by the orchestrator, which passed.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the change what was approved, with the fragment fixed? | accept · amend | **accepted** | "Take `show`'s `base.onto` as the ref to branch from" is imperative like the rest of the step, and the lane read the whole step back afterwards rather than only the hunk. |
+| 2 | The hunk ending two lines further down than named at `scope` | accept · force the old wrap point | **accepted** | The text no longer ends where the original line ended, so the next sentence rewraps across the boundary. Forcing a re-sync would have cost either a 45-character line or a rewrap of the rest of the paragraph. Everything past `and report \`base.reason\`.` is byte-identical, and lines 64-71 are still sixty lines from T099's. Reporting the discrepancy against its own `scope` statement is what made it a decision rather than a surprise. |
+| 3 | A `CHANGELOG.md` entry | **yes** · leave it | **yes, add one** | T091 is the exact analogue — shipped skill prose, needing `taskrail upgrade` — and it has an entry. A consumer whose installed `SKILL.md` changes on upgrade should find out why in the changelog. The conflict cost is real but small: appended bullets are known conflict class 2, and this run has resolved several. |
+
+Instructions given with the answers: three or four lines in T091's voice, appended last in
+*Unreleased*, ending with `taskrail upgrade`; the touch map is widened to `CHANGELOG.md` for it.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T099 and T104 both edit `src/taskrail/skills/taskrail/SKILL.md` — the only genuine
