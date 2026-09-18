@@ -36,6 +36,14 @@ skill is installed. This rule lives here, in the text every agent reads, not onl
    is found from any checkout, since that command records its branch.
 4. Any other failure: act on the exit code as the `taskrail` skill says, and stop.
 
+**Plan the count against your own context.** A lane ends with its task; you accumulate every lane's
+report, every gate answer and every hand-off, so your session is the one that fills up — and that,
+not compaction, is what bounds a run. Measure the cost once for yourself: the context you are
+served per dispatched task, over what a session costs before any task starts, against the context
+window you have. That is how many tasks you hold. When the human asks for more than that, say so
+and propose the count you can hold; the rest goes to a fresh session through *Resume a run*, which
+is the planned path for a long backlog and not only a recovery from a lost session.
+
 When the human adds tasks to a run or raises its count, extend that run rather than starting
 another: `taskrail autopilot extend <R> --tasks <IDs> --json` for a run started with `--tasks`, which
 raises its count by the tasks added, or `taskrail autopilot extend <R> --count <N> --json` for a run

@@ -1432,6 +1432,22 @@ a run is extended only on the human's request. The skill states this in its pros
 frontmatter, so the rule holds on agents that ignore invocation-control keys (*implemented, T024;
 named tasks and `extend`, T071*).
 
+**The orchestrator's context bounds a run, not compaction** (*measured, T057; recorded, T111*). A
+lane is short-lived and ends with its task; the orchestrator accumulates every lane's report, every
+gate answer and every hand-off, so it is the session that fills up. Across the nine runs
+[T057](docs/spikes/T057-check-autopilot-compaction-and-old-lane.md) harvested, no orchestrator
+session and none of the 38 lanes measured had ever compacted — the lanes peaked between 78,404 and
+355,752 tokens — while the two long runs cost 36,728 and 44,343 tokens of orchestrator context per
+dispatched task, over a session overhead of 32,000–39,000: **roughly 21 to 26 tasks for a
+1M-context orchestrator**. So a count is chosen against that budget, and a backlog longer than one
+session's worth goes to a fresh session through the resume path (§12.3) rather than being left to
+compaction. Nothing enforces it: `count` (§12.7) caps what a run starts, and judging it against the
+context is the orchestrator's, in the skill's prose. **Those figures are one agent's and one
+model's** — Claude Code on a single 1M-context model, in this repository's own runs — and the band
+scales with the window: the same rate against 200k would be four or five tasks. So the skill states
+the rule without them, and the measured constants live in the Claude Code integration note (§8),
+where they can say whose they are. What carries to another agent is the shape, not the number.
+
 **Rows on their task's branch** (*implemented, T071*). A task created with `new --workspace` has its
 row only on its branch until the branch is merged, so a checkout of the mainline, or another task's
 worktree, lacks it. `autopilot start`, `extend`, `next`, `status`, `lane`, `notify`,
