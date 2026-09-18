@@ -131,7 +131,23 @@ purpose is replaced by a pointer to §5.2's real route:
 > kind: copy its descriptor into `.taskrail/types/<kind>/`, or an override into
 > `.taskrail/overrides/<kind>/` (§5.2)
 
-### 5. `docs/chores/T098-…md` and `docs/chores/README.md`
+### 5. `DESIGN.md` §7 — four flags that exist but the table never mentioned (added at the gate)
+
+Approved as a widening of the scope gate, because **T095's questionnaire came back "route A, keep
+and document" for every option**, with "one line in §7's command table, via T098" as the agreed
+route for exactly these four. They are documented inside the rows of the commands that own them,
+which is the table's form — one row per command, its flags in the command cell — rather than as
+four new rows, which would list the same commands twice.
+
+The `next` row gains `[--limit N]` and "`--limit` keeps the first N of them"; the epic row becomes:
+
+> `taskrail epic add [--id E##] [--own-file \| --file PATH]` / `taskrail epic split <E##> [--file PATH]` |
+> Add an epic inline or in a file of its own; move an inline epic to its own file. `add` allocates
+> `epic_prefix` plus two digits, one above the backlog's highest, unless `--id` names one (exit 5
+> if that epic exists); `--own-file` writes `todo/<id>-<slug>.md` and `--file` the path it names.
+> `split` writes `todo/<id>-<slug>.md` unless `--file` names another
+
+### 6. `docs/chores/T098-…md` and `docs/chores/README.md`
 
 This artifact and one appended index row.
 
@@ -148,34 +164,120 @@ Recorded at the `scope` gate; both were put to the orchestrator with these recom
    §5.2 (item 4), so a reader who came looking for `kind add` is told where the capability lives.
    Alternative: delete the words and add nothing, leaving the reader with silence.
 
+**Answered at the gate** (record: `docs/autopilot/decisions/T098-fix-the-configuration-and-cli-documentat.md`,
+commit `fc91969`): both as recommended — items 1 and 2 together, and the §5.2 pointer — plus the
+widening in change-set item 5, T095's four flags, which this task had deliberately held back.
+
 ## Out of scope
 
 - **Any behaviour.** No code, no tests, no CLI surface, no skills, no `CLAUDE.md`.
 - **The error message at `backlog.py:240`** that quotes the prefix's value and never names
-  `epic_prefix`. It is code. Worth a follow-up only if the human wants it; §4 now carries the
-  answer either way.
-- **Flags that exist but §7 never mentions** — `epic add --id`, `epic add --file`, `next --limit`,
-  `list --backlog/--kind/--allow-invalid`. Verified present in the parser, but they are T088's
-  fifth-and-beyond finding, and **T095** (open, at its own gate) is the task that asks the human
-  whether those options are wanted at all. Documenting them now could document something the human
-  is about to retire, so no follow-up is opened here: T095 owns the question.
+  `epic_prefix`. It is code. The human said yes to fixing it when this finding reached them
+  through T095, and it gets its own task there, so the document will explain the key and the
+  message will name it.
+- ~~Flags that exist but §7 never mentions~~ — held back at the scope gate while **T095** was
+  still asking the human whether those options are wanted at all. T095 came back "keep and
+  document" for all of them, so `epic add --id`, `epic add --file`, `epic split --file` and
+  `next --limit` were brought into this task as change-set item 5. Two of T095's answers stay out
+  because they are **code**, and T095 is opening its own chores for them: `next --limit`'s missing
+  argparse `help=` string, and `--owner`'s sentence, which belongs in §6.2, not §7.
+- **`list --backlog`, `--kind` and `--allow-invalid`**, which the `list` row still does not name.
+  They were not part of T088's defects nor of T095's four, and the §7 rows are summaries, not
+  `--help` output.
 - **Rewording anything in §4 or §7 that is merely terse but true**, including the `list` row's
   "computed blocked and eligible state" and the paragraphs T094 and T096 added to §4 and §12.10.
 - **The reading map** at the top of the file: it stays untouched, as the task's row asks.
 
 ## Verification
 
-This is a documentation change, so verification is that the document now matches the program:
+This is a documentation change, so the verification that matters is that every sentence now
+asserts something the program actually does. Each was run, not reasoned about.
 
-1. `grep -n "epic_prefix\|id_digits" DESIGN.md` shows both keys in §4's example and in the new
-   sentence.
-2. `grep -n "kind add\|--eligible" DESIGN.md` returns nothing.
-3. Each value the new text asserts is checked against the source it describes: defaults and ranges
-   against `src/taskrail/config.py:247-254`, the `--state` values against `taskrail list --help`,
-   the local-kind route against §5.2 and `src/taskrail/kinds.py`.
-4. `taskrail checks T098` (the `test` check, `uv run pytest -q`) passes, and `taskrail validate`
-   reports no errors — neither can see the prose, but both prove nothing else was disturbed.
-5. `git diff --stat` on the branch shows `DESIGN.md` plus this artifact, its index row and the
-   task's own row, and nothing else.
+**The defects are gone.**
 
-Results are recorded below at the `implement` stage.
+```
+$ grep -n "kind add\|--eligible" DESIGN.md
+(no output, exit 1)
+
+$ grep -n "epic_prefix\|id_digits" DESIGN.md
+138:epic_prefix = "E"                # epic IDs: 1-4 uppercase letters, different from `prefix`
+139:id_digits = 3                    # digits an allocated ID is padded to: T001; 1 to 6
+211:An entry's `epic_prefix` (default `E`) and `id_digits` (default 3) shape that backlog's IDs: an
+212:epic ID is `epic_prefix` plus two or more digits, a task ID is `prefix` plus `id_digits` or more
+213:digits, and `taskrail new` pads the number it allocates to `id_digits`. `validate` refuses an ID
+215:epics are numbered `EP01` sets `epic_prefix = "EP"` here instead of renumbering them.
+667:| `taskrail epic add [--id E##] …
+990:  `id_digits` is refused, with the `id_digits` value that would keep it when only padding differs.
+```
+
+**The new §4 sentence, exercised in a throwaway repository** (`taskrail init` in a scratch git
+repo, then `epic_prefix = "EP"` and `id_digits = 4` written into its config):
+
+```
+$ taskrail --root <probe> validate            # after setting epic_prefix = "EP"
+TODO.md:7: error: epic ID `E01` does not match `EP` plus two or more digits [epic-id]
+...
+exit=1
+
+$ taskrail --root <probe2> new --epic E01 --kind chore --title "Probe the pad width" --json
+{ "id": "T0001", ...                          # with id_digits = 4
+```
+
+Both halves of the sentence hold: the ID width follows `id_digits`, and the refusal quotes the
+prefix's **value** (`EP`) and never the key — which is why the sentence exists.
+
+**The §7 rows, exercised against the live CLI:**
+
+```
+$ taskrail list --state claimed
+T098   ⬜ claimed     chore     1pt  E08   Fix the configuration and CLI documentation defects …
+
+$ taskrail next --limit 2
+T003   ⬜ pending     chore     2pt  E01   Install taskrail in a first consumer project  ← T002
+T057   ⬜ pending     spike     2pt  E02   Check autopilot compaction and old-lane messaging …
+
+$ taskrail --root <probe> epic add --id E07 --name Reports --objective … --own-file --json
+{ "id": "E07", "file": "todo/E07-reports.md", … }
+
+$ taskrail --root <probe> epic add --name Later --objective … --json
+{ "id": "E08", …                              # one above the backlog's highest
+
+$ taskrail --root <probe> epic add --id E07 --name Dup --objective x
+taskrail: epic `E07` already exists
+exit=5                                        # the exit 5 the row now states
+
+$ taskrail --root <probe> epic add --name Custom --objective … --file todo/custom.md --json
+{ "id": "E09", "file": "todo/custom.md", … }
+
+$ taskrail --root <probe> epic split E01 --file todo/split-here.md --json
+{ "id": "E01", "file": "todo/split-here.md", … }
+```
+
+The removed `kind add` route was checked against `src/taskrail/kinds.py:15-17`
+(`LOCAL_DIR = .taskrail/types`, `OVERRIDE_DIR = .taskrail/overrides`), and the `--state` values
+against `taskrail list --help`.
+
+**The repository is undisturbed.**
+
+```
+$ .taskrail/bin/taskrail checks T098
+== test: uv run pytest -q
+1196 passed in 164.28s (0:02:44)
+== lint: not configured
+passed test
+not configured lint
+T098 in …/.worktrees/T098-fix-the-configuration-and-cli-documentat: passed
+exit=0
+
+$ .taskrail/bin/taskrail validate
+89 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
+exit=0
+
+$ git diff --stat        # the implement hunks
+ DESIGN.md | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+```
+
+Six hunks in `DESIGN.md`, all inside §4's example, the paragraph after it, and four rows of §7's
+table. The reading map at the top of the file, the paragraphs T094 and T096 added to §4 and §12.10,
+and every other section are untouched.
