@@ -35,3 +35,4 @@
 | T106 | Test init and the wrapper with taskrail absent from PATH | [T106-test-init-and-the-wrapper-with-taskrail.md](T106-test-init-and-the-wrapper-with-taskrail.md) |
 | T110 | Reword DESIGN.md §4 where it says an ID refusal quotes the prefix rather than the key | [T110-reword-design-md-4-where-it-says-an-id-r.md](T110-reword-design-md-4-where-it-says-an-id-r.md) |
 | T108 | Add continuous integration that runs the test suite | [T108-add-continuous-integration-that-runs-the.md](T108-add-continuous-integration-that-runs-the.md) |
+| T111 | Record the orchestrator's context budget where a run's count is chosen | [T111-record-the-orchestrator-s-context-budget.md](T111-record-the-orchestrator-s-context-budget.md) |
