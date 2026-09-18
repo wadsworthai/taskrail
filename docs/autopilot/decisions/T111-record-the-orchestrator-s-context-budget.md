@@ -33,3 +33,18 @@ belongs in a decision record and not in `DESIGN.md`.
 | # | Question | Options | Decision | Reason |
 |---|---|---|---|---|
 | 1 | `DESIGN.md` §12 with two lanes in it | split by subsection · serialize the lanes | **split: T111 takes §12.1 and the count-choosing text; T112 takes §12.3 and nothing else** | The two changes are about different things — choosing a count, and whether an old handle reaches a lane — and they sit in different subsections, so both can be written at once and git rebases them without meeting. Each lane was told to stop at its gate rather than cross into the other's subsection. |
+
+## implement gate
+
+Reviewed: commit `b4d35c4` and the diff `f7a1ef8..HEAD` — seven files, no code, no test, no
+configuration, `DESIGN.md` a single 16-line insertion at §12.1 with §§12.3/4/3.1/7/7.4 untouched;
+the portable paragraph read in full by the orchestrator and grepped for the four figures and for
+`Claude`, which returns nothing, so the split holds in the file the test polices; the installed copy
+grepped for both new texts and diffed against its source; `taskrail checks T111 --stage implement`
+(1221 passed) and `taskrail validate`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The one sentence added beyond what was approved, telling a `DESIGN.md` reader where the figures went and why the skill carries none | **keep it** · remove it | **keep it** | Without it the absence of numbers from the skill reads as an omission a later task would "fix", putting them back in the portable file. Documenting the split is what makes it survive. |
+| 2 | Replacing the four numbers in the skill with the method that produces them, rather than deleting the sentence | **accept** | **accept** | "The context you are served per dispatched task, over what a session costs before any task starts, against the context window you have" is the rule the figures were an instance of. It needs no disclaimer because there is nothing left in it to disclaim — which is the test of whether the split was the right call. |
+| 3 | Stop again at `docs`, whose only content was the changelog bullet already in the change set? | **fold it into the close** · stop twice | **fold it into the close** | Documentation is this change, and the bullet is committed. |
