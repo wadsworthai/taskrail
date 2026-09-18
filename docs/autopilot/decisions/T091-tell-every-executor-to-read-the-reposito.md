@@ -26,6 +26,24 @@ before it passes; run `.taskrail/bin/taskrail upgrade` rather than editing any i
 what it rewrites, and run it a second time to show it is idempotent; run the full suite with a
 generous timeout and record its real output.
 
+## implement gate
+
+Reviewed: the diffs of `src/taskrail/skills/taskrail/SKILL.md` and of the installed copy
+`.claude/skills/taskrail/SKILL.md` read by commit range in the lane's worktree — the same three-line
+hunk in both, inside step 5, naming no agent, principle or file; the six files of commit 368a408
+against the approved change set; and `taskrail checks T091 --stage implement` re-run by the
+orchestrator: 1186 passed in 165.55s, `lint` not configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the applied change what was approved? | accept · amend | **accepted; the sentence is verbatim and the change set is the six approved files** | The source and the installed copy carry the identical hunk, `upgrade` wrote the copy and a second run reported everything up to date, and the test was observed failing on all three parametrisations — source, claude, opencode — before it passed. |
+| 2 | The orchestrator's lower-case correction at the `scope` gate | apply it · drop it | **dropped: the correction was wrong** | The lane checked and the orchestrator confirmed it: `step()` returns `flat()`, which collapses whitespace *and* lower-cases (`tests/test_autopilot_skill.py:50-52`), so the assertion already compares lower-cased text and a capitalised `Claude` cannot slip past. Adding `.lower()` would have been redundant. The docstring half of that correction was applied and stands. |
+| 3 | `.taskrail/installed.json` now records `"version": "v0.4.0"` instead of `v0.3.0` | keep · revert by hand | **keep** | Not an edit of the lane's: `upgrade` writes `release_tag()` of the running CLI, and `main` is at `0.4.0.dev0` since T086. T086's own decision 2 anticipated exactly this — "the next `.taskrail/bin/taskrail upgrade` on `main` rewrites it" — and left it to land in the next upgrade, which is this one. Nothing reads the field back and this repository pins `local:.`, so no behaviour changes; reverting would mean hand-editing a generated file so that it disagreed with its generator. |
+| 4 | The `CHANGELOG.md` bullet as written | accept · amend | **accepted** | It states the behaviour change in the user's terms, names `taskrail upgrade` as what installs it, and carries the task ID, as 0.3.0's entries do. |
+
+Instructions given with the answers: run the `docs` stage, then close; the branch's rebase onto the
+`main` that now carries T088 is the orchestrator's at hand-off, not the lane's.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T090 and T091 adopt T087's verdict in separate areas.
