@@ -2,7 +2,7 @@ import json
 
 from conftest import BASE_TODO
 
-from taskrail.cli import main
+from taskrail.cli import build_parser, main
 
 
 def run(repo, *argv, capsys):
@@ -33,6 +33,13 @@ def test_next_orders_by_points_then_file_order(repo, capsys):
 def test_next_excludes_blocked_tasks(repo, capsys):
     _, out, _ = run(repo, "next", "--json", capsys=capsys)
     assert [t["id"] for t in json.loads(out)] == ["T002"]
+
+
+def test_next_limit_says_what_it_does_in_help():
+    """T101: `--limit` shipped with no `help=`, so `next --help` printed the bare line `--limit LIMIT`."""
+    commands = next(action for action in build_parser()._actions if action.dest == "command").choices
+    assert commands["next"]._option_string_actions["--limit"].help
+    assert "--limit N" in commands["next"].format_help()
 
 
 def test_show_reports_blockers_and_skill(repo, capsys):

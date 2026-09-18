@@ -84,3 +84,4 @@
 | T102 | Document --owner and TASKRAIL_OWNER in the claims section of DESIGN.md | [T102-document-owner-and-taskrail-owner-in-the.md](T102-document-owner-and-taskrail-owner-in-the.md) |
 | T099 | Default the backlog file to TASKRAIL.md | [T099-default-the-backlog-file-to-taskrail-md.md](T099-default-the-backlog-file-to-taskrail-md.md) |
 | T103 | Name epic_prefix in the refusal for an epic ID that does not match it | [T103-name-epic-prefix-in-the-refusal-for-an-e.md](T103-name-epic-prefix-in-the-refusal-for-an-e.md) |
+| T101 | Give next --limit a help string so it is discoverable from --help | [T101-give-next-limit-a-help-string-so-it-is-d.md](T101-give-next-limit-a-help-string-so-it-is-d.md) |
