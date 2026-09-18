@@ -86,3 +86,4 @@
 | T103 | Name epic_prefix in the refusal for an epic ID that does not match it | [T103-name-epic-prefix-in-the-refusal-for-an-e.md](T103-name-epic-prefix-in-the-refusal-for-an-e.md) |
 | T101 | Give next --limit a help string so it is discoverable from --help | [T101-give-next-limit-a-help-string-so-it-is-d.md](T101-give-next-limit-a-help-string-so-it-is-d.md) |
 | T104 | State in the core skill that show --fetch needs branch_record_remote | [T104-state-in-the-core-skill-that-show-fetch.md](T104-state-in-the-core-skill-that-show-fetch.md) |
+| T057 | Check autopilot compaction and old-lane messaging with a scripted probe | [T057-check-autopilot-compaction-and-old-lane.md](T057-check-autopilot-compaction-and-old-lane.md) |
