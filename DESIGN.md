@@ -1495,9 +1495,12 @@ run file, and a lane commits everything it finishes on its branch. A compacted o
 orchestrator session therefore rebuilds the run from `autopilot status` and the decision
 records, resumes each lane by its handle while the agent can still reach it, and otherwise
 restarts the lane from its branch with the lane brief's restart section, once the lane is
-stopped at a gate or `silent` (T033 F2, *implemented, T055*). In the T033 trial a new Claude
-Code session restarted a lane rather than resuming it; whether an earlier session's handle
-still reaches a lane is not verified.
+stopped at a gate or `silent` (T033 F2, *implemented, T055*). On Claude Code a handle reaches a
+lane only from the session that launched it: the lane's conversation is stored under that
+session, keyed by the handle the run file records, and across nine runs all 38 recorded handles
+resolved under exactly one session each, none shared and none stored outside a session (T057 E4).
+A new session there restarts the lane from its branch, as the T033 trial did; another agent may
+store lane conversations differently.
 
 **A lane** is a sub-session, and its contract is the same on every agent. The skill's lane brief
 (`references/lane-brief.md`), filled from `autopilot next --json`, gives it to each lane
