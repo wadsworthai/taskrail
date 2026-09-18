@@ -102,3 +102,4 @@
 | T117 | Install the generated taskrail workflow in this repository | [T117-install-the-generated-taskrail-workflow.md](T117-install-the-generated-taskrail-workflow.md) |
 | T118 | Pass the wrapper own root to the CLI so a wrapper acts on its own checkout | [T118-pass-the-wrapper-s-own-root-to-the-cli-s.md](T118-pass-the-wrapper-s-own-root-to-the-cli-s.md) |
 | T119 | Warn from done, as claim does, when the checked-out branch is not the task branch | [T119-warn-from-done-as-claim-does-when-the-ch.md](T119-warn-from-done-as-claim-does-when-the-ch.md) |
+| T120 | Give the generated GitHub workflow a least-privilege permissions block | [T120-give-the-generated-github-workflow-a-lea.md](T120-give-the-generated-github-workflow-a-lea.md) |
