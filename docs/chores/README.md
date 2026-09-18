@@ -39,3 +39,4 @@
 | T112 | Replace section 12.3's unverified note on old lane handles with the measured reason | [T112-replace-section-12-3-s-unverified-note-o.md](T112-replace-section-12-3-s-unverified-note-o.md) |
 | T003 | Install taskrail in a first consumer project | [T003-install-taskrail-in-a-first-consumer-pro.md](T003-install-taskrail-in-a-first-consumer-pro.md) |
 | T117 | Install the generated taskrail workflow in this repository | [T117-install-the-generated-taskrail-workflow.md](T117-install-the-generated-taskrail-workflow.md) |
+| T120 | Give the generated GitHub workflow a least-privilege permissions block | [T120-give-the-generated-github-workflow-a-lea.md](T120-give-the-generated-github-workflow-a-lea.md) |

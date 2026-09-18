@@ -45,6 +45,26 @@ instead of `upgrade`. To install the CLI on your machine as well:
   — such a caller was already running the wrong pinned version for its target, since the pin comes
   from the wrapper's own config (T115 decided this, T118 applied it).
 
+- **The workflow `--github-workflow` generates now runs with least privilege.** It set no
+  `permissions`, so its `validate` job ran with the repository's default `GITHUB_TOKEN`
+  permissions — read-write on every scope in repositories created before GitHub changed that
+  default, and in any organisation that still sets it so — while the job only checks the
+  repository out and runs `taskrail validate`, which writes nothing back. The template now grants
+  `contents: read` at the workflow level, the shape this repository's own `ci.yml` already uses,
+  and every scope a `permissions` block leaves unnamed is `none`. It is `contents: read` rather
+  than no scopes at all because `actions/checkout` still has to read a private repository.
+  **An installed repository picks this up with `taskrail upgrade`**: the workflow is a managed
+  file, so an untouched one is rewritten. **A repository whose workflow was edited locally is
+  left alone** — `upgrade` reports it as `edited locally; --force replaces it` — and has to add
+  the two lines itself:
+
+  ```yaml
+  permissions:
+    contents: read
+  ```
+
+  (T120.)
+
 - **The workflow `--github-workflow` generates now names action tags that exist.** It pinned
   `astral-sh/setup-uv@v10`, and that project publishes bare major tags only through `v7` — its
   tenth line exists only as `v10.0.0`, `v10.0.1` and `v10.1.0` — so GitHub could not resolve the

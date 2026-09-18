@@ -1338,7 +1338,11 @@ session starts.
   history (`fetch-depth: 0`): `validate`'s reopen check (§7) finds nothing past a shallow clone's
   boundary. Every action it uses is pinned to an exact release tag, because not every action
   publishes a floating major tag — a bare major that the action's repository never had leaves a
-  workflow that cannot even start. `--pre-commit` writes a marked block into this clone's git
+  workflow that cannot even start. It grants `contents: read` at the workflow level and nothing
+  else, since checking the repository out and running `validate` writes nothing back and every
+  scope a `permissions` block leaves unnamed is `none`; without the block the job would run with
+  the repository's default `GITHUB_TOKEN` permissions, which are read-write in older repositories.
+  `--pre-commit` writes a marked block into this clone's git
   hook, keeping an existing shell hook's contents; `--merge-driver` is remembered too, keeps a
   marked block of `.gitattributes` current and defines the driver in this clone's git config
   (§7.4).
