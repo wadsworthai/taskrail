@@ -48,3 +48,18 @@ Reviewed: the whole diff against the merge base — the generated workflow, `ins
 | 1 | Folding the `docs` gate's report into the hand-off | **accept** | **accept** | The instruction said to stop at that gate to report the follow-up's ID; the lane read it as authorising the close once nothing was left to decide, and reported the ID here. That is the outcome the instruction wanted and it saved a round trip. The lane asked whether a separate stop was meant, which is the right way to raise an ambiguity rather than assume it away. |
 | 2 | T120's epic | **E05, as opened** · E06 | **E05** | It is the shipped template every consumer installs, not this repository's own tooling — the same epic as T116, the previous fix to that template. |
 | 3 | Pull request type and scope | **`chore` / `install`** · `ci` / `repo` | **`chore` / `install`** | Nothing here is new behaviour: it installs, in this repository, the workflow the installer already generates. `install` is the area; `ci` belonged to T108, which wrote a workflow by hand. |
+
+## rebase after T003 merged
+
+`main` advanced to `18bb109` (T003). This branch was rebased onto `origin/main`, with two conflicts,
+both known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `docs/chores/README.md` and `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, no duplicate. |
+
+T003 touched `src/taskrail/install.py`'s `default_config()` and `README.md`, neither of which this
+branch touches, and `.taskrail/installed.json` did not move on `main`, so nothing else met.
+
+After the rebase: both workflows present in `.github/workflows/`, T120's row in `TODO.md`,
+`taskrail checks T117` passed with 1,249 tests, and `taskrail validate` reports 109 tasks, 0 errors.
