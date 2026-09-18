@@ -441,9 +441,9 @@ Two follow-up tasks carry the behaviour changes; neither is implemented here.
 - **T119** (`bug`, 1pt, E05) — *Warn from `done`, as `claim` does, when the checked-out branch is
   not the task's.*
 
-§9 now describes the wrapper's behaviour before T118 implements it. That is deliberate and was
-approved at this gate: `DESIGN.md` is the design, and §12 and §13 already mark what is implemented
-where the distinction matters.
+§9 now describes the wrapper's behaviour before T118 implements it, and says so: the added
+sentences carry `(*planned, T118*)`. That is deliberate and was approved at this gate: `DESIGN.md`
+is the design, and §12 and §13 already mark what is implemented where the distinction matters.
 
 ## What would change the decision
 
