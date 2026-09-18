@@ -24,3 +24,16 @@ suite's own environment probe B shows it falls back to `<checkout>/.venv/bin/tas
 `0.4.0.dev0` — the same version a correct pin would print. Both are "a `taskrail` on `PATH`"; what
 matters is the consequence the row does not state: **no version assertion could have caught this,
 and dropping `VIRTUAL_ENV` alone is not a sufficient fix.** `PATH` must be constrained too.
+
+## fix gate
+
+Reviewed: commit `48e0a1d` — the whole diff of `tests/test_install.py` and `CLAUDE.md`, with no
+product code touched and no `CHANGELOG.md` bullet; the sabotage run, which fails with
+`Failed to spawn: taskrail` and exit 2, the failure the task says the test should see; the reverted
+state with `grep SABOTAGE` empty; and `taskrail checks T113 --stage fix` (1,247 passed).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The import block grew by two lines, not the one flagged | **accept** | **accept** | `shutil` is needed for the `skipif`, both lines are at the top of the file and both are in this lane's half. T116 has been told to expect a two-line textual conflict there and nothing in the generated-workflow tests. |
+| 2 | `path_with_uv_but_no_taskrail(tmp_path)` where `empty_repo` is the same directory | **leave it** · pass `empty_repo` and drop the fixture | **leave it** | The two are the same path, so nothing behavioural turns on it; taking `tmp_path` reads the way the helper's signature intends. Not worth a change. |
+| 3 | The assertion left as `stdout.startswith("taskrail ")` | **accept** | **accept** | With no `taskrail` reachable by any other route, a version line can only have come from the pin. A version-equality assertion would have been worthless anyway, since the ambient fallback printed exactly the version a correct pin prints — which is the finding this task added to the row. |
