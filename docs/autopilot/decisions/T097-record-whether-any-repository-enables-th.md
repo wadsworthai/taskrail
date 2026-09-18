@@ -42,6 +42,14 @@ One task to open: the route-C chore on the core skill's step 3. It ships to ever
 edits `src/taskrail/skills/taskrail/SKILL.md` and needs `taskrail upgrade` for the installed copies;
 `README.md:50` teaches the same command and should be checked while there.
 
+## rebase at hand-off
+
+`review T097 --json` reported `rebase.needed: true`. Rebased onto `origin/main` while the lane was
+stopped at the `close` gate. Three conflicts, all known classes: the two artifact indexes (appended
+rows, both sides kept) and `TODO.md` (rows united by ID, a closed cell winning). Verified after the
+rebase that T101-T103, opened by T095 and merged meanwhile, sit beside T104, which this lane opened:
+`taskrail validate` reports 93 tasks and 0 errors, and `git diff --check` is clean.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T094 is live in `config.py`, `project.py`, `tests/`, `DESIGN.md` and `CHANGELOG.md`;
