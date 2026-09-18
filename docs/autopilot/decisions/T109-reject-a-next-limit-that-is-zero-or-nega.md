@@ -52,3 +52,17 @@ one `CHANGELOG.md` bullet, the artifact, two index rows and T109's `✅`, with n
 | 1 | The `impact` stage opened nothing — accept? | **accept** · ask for a follow-up | **accept** | Its only candidate was settled at the diagnose gate by a probe of every other `type=int` argument in the real CLI, and that table is in the artifact's *Affected areas*, so the reasoning survives the task. |
 | 2 | Pull request type and scope | **`fix` / `cli`** · `feat` · `fix!` | **`fix` / `cli`** | It repairs a command that answered a bad value instead of refusing it. Not breaking in the semantic-versioning sense: the accepted range of values is unchanged for every value that was ever meaningful, and the changelog bullet flags in bold that a script passing `0` or a negative now exits 2. |
 | 3 | Publish now? | **wait** · publish out of order | **wait** | Hand-off is sequential and the queue is T107 then T109, behind T106 in review. T107 also lands in `cli.py`, so publishing T109 first would only move the rebase from one branch to the other. |
+
+## rebase after T106 and T107 merged
+
+T106 (`33cf1a5`) and T107 (`38bf4f9`) were merged into `main`. The branch was rebased onto
+`origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, 89 rows, no duplicate. |
+| 2 | Conflict in `CHANGELOG.md` | **keep both bullets** · stop | **keep both**, T109's above T107's | Appended changelog bullets, known conflict class 2. T107's `archive` bullet and this one landed at the same place in *Unreleased*; the section is newest-first and this branch lands after T107, so it goes on top. |
+
+After the rebase: no conflict markers, `type=_positive_int` still on the `next` subparser's
+`--limit` (`src/taskrail/cli.py:1539`), `taskrail checks T109` passed with 1,247 tests, and
+`taskrail validate` reports 103 tasks, 0 errors.
