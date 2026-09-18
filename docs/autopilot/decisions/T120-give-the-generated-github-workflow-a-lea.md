@@ -46,3 +46,20 @@ rows and T120's `✅`, with `ci.yml`, the wrapper, `cli.py` and §7 untouched; `
 | 1 | The `docs` stage continued without stopping | **accept** | **accept** | Its gate is `conditional` and nothing arose to decide: no follow-up opened, and no design principle argued against the row. |
 | 2 | The changelog bullet ending in the two-line block a consumer can paste | **accept** | **accept** | `upgrade` rewrites an untouched workflow and reports an edited one as `edited locally; --force replaces it`. For that one consumer the change can do nothing automatically, so the bullet gives them the exact lines instead of describing them. That is the difference between announcing a hardening and delivering it. |
 | 3 | Pull request type and scope | **`chore` / `install`** · `fix` | **`chore` / `install`** | It hardens a generated file rather than repairing a broken one — unlike T116, which fixed a workflow that could not resolve its action. The template lives in `src/taskrail/install.py`. |
+
+## rebase after T119 merged
+
+`main` advanced to `8c3358f` (T119). This branch was rebased onto `origin/main`, with two conflicts,
+both known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflict in `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2. |
+| 2 | `TODO.md` status cells | **unite by ID, `✅` wins** | **as decided** | Known conflict class 1. |
+
+`.taskrail/installed.json` did not conflict — T119 touched `cli.py` and `DESIGN.md` §7, no managed
+file — and `upgrade` re-run in the rebased worktree reports all 13 files already up to date, so the
+workflow and its recorded digest are still consistent.
+
+After the rebase: `permissions: contents: read` is in the committed workflow,
+`taskrail checks T120` passed with 1,256 tests, and `taskrail validate` reports 109 tasks, 0 errors.
