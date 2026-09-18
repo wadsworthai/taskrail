@@ -1536,7 +1536,7 @@ def build_parser() -> argparse.ArgumentParser:
     nxt = add("next", cmd_next, "Eligible tasks in order: points ascending, then file order.")
     nxt.add_argument("--fetch", action="store_true", help="first fetch branch records mirrored to [git].branch_record_remote")
     nxt.add_argument("--backlog")
-    nxt.add_argument("--limit", type=int, default=5, metavar="N", help="show at most N eligible tasks (default 5)")
+    nxt.add_argument("--limit", type=_positive_int, default=5, metavar="N", help="show at most N eligible tasks (default 5)")
 
     claim = add("claim", cmd_claim, "Claim a pending task so no other agent takes it.")
     claim.add_argument("id")

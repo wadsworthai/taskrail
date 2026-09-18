@@ -1,6 +1,6 @@
 # T109 — Reject a next --limit that is zero or negative
 
-Kind: bug · Epic: E08 · Status: diagnosed
+Kind: bug · Epic: E08 · Status: fixed
 
 ## Symptom
 
@@ -194,3 +194,126 @@ Regression test: `tests/test_cli.py`, beside the existing
 `--limit 0` and `--limit -1`, and that a valid limit still truncates the list.
 
 Plus one `CHANGELOG.md` bullet under *Unreleased*: a value the CLI accepted is now refused.
+
+## Regression test (observed failing first)
+
+Decisions from the diagnose gate: use `_positive_int` unchanged for both call sites, without
+parameterising it, adding a second helper or guarding inside `cmd_next`; open no follow-up task,
+since every other `type=int` argument was probed and refuses correctly; add one `CHANGELOG.md`
+bullet under *Unreleased*; leave `DESIGN.md` alone, because §7 states no minimum for
+`--history-limit` either and adding one only here would make the two rows inconsistent.
+
+Tests added to `tests/test_cli.py` before touching `cli.py`, beside
+`test_next_limit_says_what_it_does_in_help` and mirroring
+`tests/test_history.py::test_history_limit_must_be_positive`:
+
+- `test_next_limit_must_be_positive` — parametrized over `0` and `-1`; asserts `SystemExit` with
+  code 2, empty stdout, and the exact message
+  `argument --limit: expected a whole number of at least 1, got \`<value>\`` in stderr.
+- `test_next_limit_still_truncates` — a guard against over-fixing: with T003 unblocked, `next`
+  lists `[T003, T002]` and `next --limit 1` lists `[T003]`, exit 0.
+
+Run against the unfixed code (`uv run pytest -q --color=no --tb=short -k
+"next_limit_must_be_positive or next_limit_still_truncates"`):
+
+```
+FF.                                                                      [100%]
+=================================== FAILURES ===================================
+_____________________ test_next_limit_must_be_positive[0] ______________________
+tests/test_cli.py:49: in test_next_limit_must_be_positive
+    with pytest.raises(SystemExit) as exit_info:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE SystemExit
+----------------------------- Captured stdout call -----------------------------
+no eligible tasks
+_____________________ test_next_limit_must_be_positive[-1] _____________________
+tests/test_cli.py:49: in test_next_limit_must_be_positive
+    with pytest.raises(SystemExit) as exit_info:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   Failed: DID NOT RAISE SystemExit
+----------------------------- Captured stdout call -----------------------------
+no eligible tasks
+=========================== short test summary info ============================
+FAILED tests/test_cli.py::test_next_limit_must_be_positive[0] - Failed: DID N...
+FAILED tests/test_cli.py::test_next_limit_must_be_positive[-1] - Failed: DID ...
+2 failed, 1 passed, 1221 deselected in 1.73s
+```
+
+Both failures are the root cause exactly: no `SystemExit` was raised because argparse accepted
+the value, and the captured stdout is the answer the slice produced. The fixture has one
+eligible task (T002), so `[:0]` and `[:-1]` both empty it — the `-1` case is the silent drop,
+at the size this fixture can show it. `test_next_limit_still_truncates` passes before the fix as
+well, which is what a guard is for: it proves the change does not alter valid limits.
+
+## Fix
+
+One line in `src/taskrail/cli.py`, the `next` subparser's `--limit`:
+
+```diff
+-    nxt.add_argument("--limit", type=int, default=5, metavar="N", help="show at most N eligible tasks (default 5)")
++    nxt.add_argument("--limit", type=_positive_int, default=5, metavar="N", help="show at most N eligible tasks (default 5)")
+```
+
+`default=5`, `metavar="N"` and T101's `help=` string are unchanged, `_positive_int` is unchanged,
+and `cmd_next` is untouched: once the value is at least 1, `[: args.limit]` is correct.
+
+Also one `CHANGELOG.md` bullet under *Unreleased* stating that a value which exited 0 now exits 2.
+No `DESIGN.md` change, as decided at the gate.
+
+`git diff --stat` for the fix stage:
+
+```
+ CHANGELOG.md        | 11 +++++++++++
+ src/taskrail/cli.py |  2 +-
+ tests/test_cli.py   | 20 ++++++++++++++++++++
+ 3 files changed, 32 insertions(+), 1 deletion(-)
+```
+
+## Verification
+
+- Regression tests after the fix: `uv run pytest -q --color=no -k "next_limit"` →
+  `4 passed, 1220 deselected in 1.16s` (both parametrized refusals, the truncation guard and
+  T101's help-string test).
+- `taskrail checks T109 --stage fix`:
+
+  ```
+  == test: uv run pytest -q
+  1224 passed in 157.52s (0:02:37)
+  == lint: not configured
+  passed test
+  not configured lint
+  T109 in /…/.worktrees/T109-reject-a-next-limit-that-is-zero-or-nega: passed
+  exit=0
+  ```
+
+  `lint` is declared by the `bug` kind's `fix` stage but this repository's `.taskrail/config.toml`
+  defines only `test` under `[checks]`, so it is reported as not configured.
+- The reproduction from *Evidence*, re-run against the fixed CLI — every bad value now exits 2
+  with nothing on stdout, and a valid limit still answers:
+
+  ```
+  $ .taskrail/bin/taskrail next --limit 0
+  usage: taskrail next [-h] [--json] [--fetch] [--backlog BACKLOG] [--limit N]
+  taskrail next: error: argument --limit: expected a whole number of at least 1, got `0`
+  exit=2
+
+  $ .taskrail/bin/taskrail next --limit=-1
+  usage: taskrail next [-h] [--json] [--fetch] [--backlog BACKLOG] [--limit N]
+  taskrail next: error: argument --limit: expected a whole number of at least 1, got `-1`
+  exit=2
+
+  $ .taskrail/bin/taskrail next --limit abc
+  usage: taskrail next [-h] [--json] [--fetch] [--backlog BACKLOG] [--limit N]
+  taskrail next: error: argument --limit: expected a whole number of at least 1, got `abc`
+  exit=2
+
+  $ .taskrail/bin/taskrail next --limit 2
+  T112   ⬜ pending     chore     1pt  E02   Replace section 12.3's unverified note on old lane handles with the measured reason
+  T111   ⬜ pending     chore     2pt  E02   Record the orchestrator's context budget where a run's count is chosen
+  exit=0
+  ```
+
+  `--limit 0 --json` writes 0 bytes to stdout and exits 2. The last run lists two tasks where
+  *Evidence*'s baseline listed T112, T110, T003, T111: T003 and T110 were claimed by other
+  autopilot lanes in between (`taskrail claims` shows both live), so `eligible()` excludes them.
+  That is the live backlog moving, not an effect of this change.

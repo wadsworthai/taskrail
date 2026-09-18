@@ -1,5 +1,6 @@
 import json
 
+import pytest
 from conftest import BASE_TODO
 
 from taskrail.cli import build_parser, main
@@ -40,6 +41,25 @@ def test_next_limit_says_what_it_does_in_help():
     commands = next(action for action in build_parser()._actions if action.dest == "command").choices
     assert commands["next"]._option_string_actions["--limit"].help
     assert "--limit N" in commands["next"].format_help()
+
+
+@pytest.mark.parametrize("value", ["0", "-1"])
+def test_next_limit_must_be_positive(repo, capsys, value):
+    """T109: `type=int` let `[: args.limit]` answer `0` with `no eligible tasks` and `-1` by dropping the last task."""
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--root", str(repo.root), "next", f"--limit={value}"])
+    out, err = capsys.readouterr()
+    assert exit_info.value.code == 2
+    assert out == ""
+    assert f"argument --limit: expected a whole number of at least 1, got `{value}`" in err
+
+
+def test_next_limit_still_truncates(repo, capsys):
+    repo.write("TODO.md", BASE_TODO.replace("| ⬜ | T003 | bug     | 1   | T002 ", "| ⬜ | T003 | bug     | 1   | —    "))
+    assert [t["id"] for t in json.loads(run(repo, "next", "--json", capsys=capsys)[1])] == ["T003", "T002"]
+    code, out, _ = run(repo, "next", "--limit", "1", "--json", capsys=capsys)
+    assert code == 0
+    assert [t["id"] for t in json.loads(out)] == ["T003"]
 
 
 def test_show_reports_blockers_and_skill(repo, capsys):
