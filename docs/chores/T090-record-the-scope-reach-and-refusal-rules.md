@@ -184,3 +184,28 @@ exit=0
 ```
 
 `.taskrail/bin/taskrail validate` is run at the close, after `taskrail done` marks the row.
+
+## Documentation
+
+The change *is* the documentation, and nothing else in the repository had to follow it.
+
+**No other file states the rule.** The principles are named in `CLAUDE.md` and nowhere else that
+states them as a rule — `grep -rn "design principle\|KISS\|YAGNI\|Occam\|rule of three\|premature
+optim" -i` over the tree returns only the section itself, `TODO.md`'s E08 epic and task rows, and
+the artifacts of T087, T089 and this task. Nothing under `src/taskrail/`.
+
+**The one live use of "the plan gate" outside history is correct as it stands.**
+`grep -rn "plan gate"` over the tree finds it in `src/taskrail/skills/taskrail-feature/SKILL.md:12`
+(and its installed copy), where `plan` really is that kind's own stage — not the general rule this
+task generalised. Everything else is a historical artifact under `docs/`, a closed task's row
+(T087's own, which recorded the question in the old vocabulary), a `DESIGN.md` line citing where a
+past decision was taken, or a test fixture. This repository does not rewrite its historical
+artifacts, and `TODO.md`'s rows are not this task's to edit, so none of it is changed.
+
+**No `CHANGELOG.md` entry** (decided at the `implement` gate). The changelog records user-facing
+changes, and its users are the repositories that install taskrail; `CLAUDE.md` is this repository's
+own instruction file, ships to nobody and changes no consumer's behaviour. T091, whose line does
+ship inside the core skill, carries the changelog entry for this verdict's adoption.
+
+No follow-up tasks were opened: the rest of T087's verdict is already covered by T091 (the pointer
+in the core skill), and nothing outside this task's change set turned out to need changing.
