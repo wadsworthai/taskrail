@@ -77,3 +77,4 @@
 | T093 | Add a reading map to the top of DESIGN.md so a gate can read only what it needs | [T093-add-a-reading-map-to-the-top-of-design-m.md](T093-add-a-reading-map-to-the-top-of-design-m.md) |
 | T096 | Settle whether autopilot.handoff is a placeholder or a setting with no settings | [T096-settle-whether-autopilot-handoff-is-a-pl.md](T096-settle-whether-autopilot-handoff-is-a-pl.md) |
 | T094 | Warn about a key taskrail does not know in .taskrail/config.toml | [T094-warn-about-a-key-taskrail-does-not-know.md](T094-warn-about-a-key-taskrail-does-not-know.md) |
+| T095 | Ask whether the options no visible repository sets or documents are still wanted | [T095-ask-whether-the-options-no-visible-repos.md](T095-ask-whether-the-options-no-visible-repos.md) |
