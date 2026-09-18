@@ -237,3 +237,24 @@ $ .taskrail/bin/taskrail validate ; echo "exit=$?"
 102 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
 exit=0
 ```
+
+## Documentation
+
+**The `docs` stage is a no-op, and was folded into the close with the gate's approval.** This
+chore's whole change *is* documentation: `DESIGN.md` §4 is the only place in the repository that
+described the refusal, as the search at the `scope` stage showed —
+
+```
+$ grep -rn "rather than the key\|quoting the prefix\|prefix it expected" \
+      README.md CLAUDE.md DESIGN.md src/taskrail/skills src/taskrail/integrations
+DESIGN.md:225:that does not match, quoting the prefix it expected rather than the key, so a repository whose
+```
+
+— one hit, now reworded. `README.md`, `CLAUDE.md`, the shipped skills under
+`src/taskrail/skills/` and the agent notes under `src/taskrail/integrations/` carry no copy of the
+claim, so nothing ships and `taskrail upgrade` has nothing to regenerate. `CHANGELOG.md` gets no
+bullet (decision 2): T103 already recorded the behaviour, and `DESIGN.md` is installed by neither
+`init` nor `upgrade`.
+
+One follow-up was opened, T115 (above). No other is recommended: T103 closed the behaviour and this
+task closes the sentence that outlived it.
