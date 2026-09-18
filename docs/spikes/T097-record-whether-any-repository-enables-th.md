@@ -499,9 +499,43 @@ git grep -n -- "--fetch" -- src/taskrail/skills src/taskrail/integrations README
 ## Outcome
 
 The `decide` gate of this spike is escalated to the human by
-`[autopilot].escalate_gates = ["spike:decide"]`. The answers are recorded here and in
-[`docs/autopilot/decisions/T097-record-whether-any-repository-enables-th.md`](../autopilot/decisions/T097-record-whether-any-repository-enables-th.md)
-when they arrive.
+`[autopilot].escalate_gates = ["spike:decide"]`. On **2026-09-18** they answered **1 B, 2 B, 3 C**:
+
+| # | Question | Answer |
+|---|---|---|
+| 1 | Does any repository you can see set `[git].claim_remote`? | **B** — none visible to them either. Recorded; **nothing retired**. |
+| 2 | Does any repository you can see set `[git].branch_record_remote`? | **B** — none visible either. Recorded; **nothing retired**. Route B on question 3 stayed available and was not taken. |
+| 3 | What happens to the skill's `--fetch` step? | **C** — keep the flag and say the condition plainly. One small `chore`, opened as T104. |
+
+**The recommendation against this task's own row was accepted, on the evidence.** The row proposed
+dropping `--fetch`; *V4* measured that saving at zero and *V7* measured what it would cost a
+mirrored consumer, and both were put to the human as written. Answering 1 B and 2 B did **not**
+license the removal the row anticipated: "no consumer visible" is recorded as a fact about this
+repository and nothing more, exactly as T087's prospective principles require.
+
+The answers are recorded here and in
+[`docs/autopilot/decisions/T097-record-whether-any-repository-enables-th.md`](../autopilot/decisions/T097-record-whether-any-repository-enables-th.md).
+
+### Follow-ups
+
+**One task, and no more.** Opened on this task's branch after the `decide` gate, so the measurement
+and its routing are reviewed together.
+
+| ID | Kind | Pts | Title | Evidence it rests on |
+|---|---|---|---|---|
+| T104 | `chore` | 1 | State in the core skill that `show --fetch` needs `branch_record_remote` | *V4* (the flag is free when the key is off), *V7* (it is load-bearing when the key is on) and *V9* (the skill already carries the condition, in a clause that is easy to read past) |
+
+Its executor should know what it is walking into, and the row says so: the file is
+`src/taskrail/skills/taskrail/SKILL.md`, which **ships to every consumer**, so the task needs
+`taskrail upgrade` for the installed copies under `.claude/` and the full suite — 
+`tests/test_skills_current_branch.py` and `tests/test_autopilot_skill.py` assert on shipped skill
+prose. It also names `README.md:50`, the second line teaching the same command (*V8*), and leaves
+to that task the decision whether it needs the same treatment.
+
+**No task was opened for anything else**, and none is recommended: not for either key, not for the
+four flags, not for `claims --remote`'s exit 2, and not for the `--local-only` flags.
+
+### How this gate was reached
 
 At the `frame` gate the orchestrator approved the question and the three-question format, added
 route C to question 3, and **declined** the lane's proposal to build throwaway clones for the
