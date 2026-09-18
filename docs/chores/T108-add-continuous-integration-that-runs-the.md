@@ -121,3 +121,15 @@ Results:
 
 The workflow itself is only proven once it runs on GitHub: the first pull request that carries
 this branch is where `test (3.11)` and `test (3.14)` appear.
+
+## Follow-ups opened
+
+- **T116** (bug, E05) — the workflow `init --github-workflow` generates pins
+  `astral-sh/setup-uv@v10`, which is not a tag setup-uv publishes: its bare major tags stop at
+  `v7`, and `v10` exists only as `v10.0.0`, `v10.0.1` and `v10.1.0`. The step cannot resolve, so
+  CI fails immediately in every repository that installed the extra at this version. Found while
+  pinning this workflow's own actions; deliberately not fixed here, since `src/taskrail/install.py`
+  is outside this task's boundary.
+- **T117** (chore, E06, depends on T116) — install the generated workflow in this repository, which
+  never had the extra (`"extras": {}`), so that something validates its own backlog. It follows
+  from the decision to keep `validate` out of `ci.yml`.
