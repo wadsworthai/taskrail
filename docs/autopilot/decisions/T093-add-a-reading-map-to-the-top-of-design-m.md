@@ -44,6 +44,21 @@ implement` re-run by the orchestrator in that worktree (`test` passed, `lint` no
 | 2 | The `docs` stage | run it as a no-op · stop at its gate | **run it as a no-op, do not stop** | The change is documentation, `CLAUDE.md`'s Layout line for `DESIGN.md` stays accurate, no skill or README mentions the map, and `CHANGELOG.md` is ruled out for the reason recorded at the `scope` gate. |
 | 3 | The flaky test the lane reported | open a task from this lane · leave it to the orchestrator | **leave it to the orchestrator; the lane opens nothing** | `tests/test_autopilot_notify.py::test_a_notify_command_past_the_timeout_is_killed_with_its_children` failed once under load — three lanes of this run were executing full suites on one machine — and passed three times afterwards. It is a wall-clock test and cannot be affected by adding Markdown to a document no code reads (T089 E3). It is outside this task's touch map, and reporting it rather than acting on it was the right call. The orchestrator carries it to the human. |
 
+## rebase after T091, T092 and T099 merged
+
+`review T093 --json` reported `rebase.needed: true`. The orchestrator rebased at hand-off, while the
+lane was stopped at the `close` gate: `git rebase origin/main`. Three conflicts, all of the known
+classes, resolved without the human:
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | `docs/chores/README.md` and `docs/autopilot/decisions/README.md`: a row appended by each side | keep both · stop | **keep both, one entry per task** | Known class 2, appended index rows: T091's and T092's rows came from the mainline, T093's from this branch. |
+| 2 | `TODO.md`: rows and status cells on both sides | unite by ID, a closed cell wins · keep both lines | **unite by ID** | Known class 1. T091 and T092 arrived `✅` from the mainline, T093 `✅` from this branch, and T099's row — added on the mainline while this lane worked — is kept. No side carries a `Reopens:` commit the other lacks. |
+
+Verified after the rebase: the reading map is intact and the branch still removes no line of
+`DESIGN.md`; T099's row survives; `git diff --check` clean; `taskrail checks T093` passed;
+`taskrail validate` reports 88 tasks and 0 errors.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, extended by the human to T093-T098.
