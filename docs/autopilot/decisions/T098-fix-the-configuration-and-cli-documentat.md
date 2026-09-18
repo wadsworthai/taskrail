@@ -26,6 +26,18 @@ Instructions given with the answers: apply (a)-(d) as proposed, plus the four §
 document the `--owner` flag here: T095 opens a chore for §6.2. Do not touch the reading map or the
 paragraphs T094 and T096 merged.
 
+## implement gate
+
+Reviewed: the `DESIGN.md` diff read by commit range in the lane's worktree — six hunks, +12 -4,
+nothing else in the file; `grep -c "kind add\|--eligible" DESIGN.md` returns 0; and `taskrail checks
+T098` re-run by the orchestrator, which passed.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The four T095 options: four new rows, or inside the rows of the commands that own them? | inside the existing rows · four literal rows | **inside the existing rows — the lane's judgement, not the orchestrator's literal wording** | §7's table is one row per command with its flags in the command cell, as `init`, `validate`, `import` and `checks` all are. Four flag-rows would list `taskrail epic add` and `taskrail next` twice and break the table's form. "Four more rows" was loose phrasing at the `scope` gate; the substance approved was one line each for the four options in §7's table, and that is what landed. The lane was right to ask rather than follow the wording off a cliff. |
+| 2 | Is the applied text what was approved? | accept · amend | **accepted** | (a)-(d) verbatim, and the new §4 sentence was exercised in throwaway repositories rather than reasoned about: with `epic_prefix = "EP"` the refusal quotes `EP` and never the key, and with `id_digits = 4` a new task came out `T0001`. Both halves of the sentence are tested. |
+| 3 | A `CHANGELOG.md` entry? | yes · no | **no** | It records user-facing behaviour, and this changes none. The precedent is T093 and T096, both `DESIGN.md`-only and both without an entry. |
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T095 and T097 are closing after the human answered their questionnaires; neither
