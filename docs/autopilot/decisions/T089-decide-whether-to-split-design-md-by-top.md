@@ -27,6 +27,29 @@ point for E2-E4: answering the `frame` and `decide` gates of T087 and the `frame
 T089 required §1-§4, §5.6, §8, §9, §10, §11 and §12.6, and did not require §7's command table or the
 rest of §12 — one orchestrator, one run, four gates, not a general measurement.
 
+## escalated to the human
+
+`spike:decide` is in this repository's `[autopilot].escalate_gates`, so the verdict went to the
+human. Reviewed before escalating: the artifact at commit 02c1e56, the lane's commits against
+`origin/main`, `taskrail checks T089 --stage decide` and `taskrail validate` (82 tasks, 0 errors),
+and an independent reproduction of the two load-bearing measurements — `grep -rn 'DESIGN'
+src/taskrail/skills/ src/taskrail/integrations/` returns nothing, and the citation census over the
+67 past decision records reproduces exactly (§12 in 36, §7 in 28, §6 in 13, §4 in 9, §5 in 8, §8 in
+7, §13 in 6). `read_first` is a tuple of paths in `config.py:79`, so it cannot name a section, as
+the lane states.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Split `DESIGN.md`, or leave it whole? | accept in full: no split, add a reading map (T093), `read_first` untouched · accept without T093 · split by topic · drop it from `read_first` | **accept in full** | As recommended. Two of the task row's three premises did not survive measurement: `read_first` is read once before the first dispatch, not at every gate, so the cost is per run rather than per gate; and the sections a split would move (§7, §12) are the ones past gate answers cite most. A full split was counted, not estimated: 149 internal rewrites, ~80 in maintained files and 1400 citations stranded in 116 documents this repository does not rewrite, for a saving measured at or below zero at this repository's run size, where the crossover is near three tasks and `max_lanes` is 3. |
+
+Answered by the human (the repository's maintainer), through the orchestrator, at the `decide`
+gate of run 20260918-1.
+
+Noted for the record: the task row's premise "the orchestrator reads it whole at every gate" was
+written by the orchestrator when the row was created, and the lane disproved it from the shipped
+skill, `references/gate-review.md` and §12.6. The row is left as written — it is the question that
+was asked — and the artifact records the correction.
+
 ## rebase after T087 merged
 
 T087 was squash-merged into `main` as 4a956c4, and `autopilot merged T087 --cleanup` proved the
