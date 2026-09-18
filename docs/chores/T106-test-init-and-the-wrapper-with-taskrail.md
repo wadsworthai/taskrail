@@ -171,3 +171,53 @@ subprocess environment, beside the `TASKRAIL_BIN` it already drops, with the rea
 Both are the same rule: nothing but the built PATH and the pin may supply taskrail. This is a
 property of how the suite is run, not a defect in `src/`, so nothing under `src/` was changed and
 no follow-up task is opened.
+
+## `docs` stage: nothing to update, one follow-up opened
+
+Documentation checked on the finished branch, and none of it changes:
+
+- `README.md` *Install* and `DESIGN.md` §9 already describe the route this test pins — `uvx` to
+  bootstrap, the committed wrapper from then on, `uv` as the only prerequisite, and `local:<path>`
+  for a checkout's own source. A test that holds them to it says nothing new, and the test's own
+  docstring, not a document, is where its `uvx`-transport limit belongs.
+- `CHANGELOG.md` gets no bullet: its *Unreleased* entries are user-facing behaviour changes, and a
+  test changes nothing a consumer can observe.
+- The repository documents no test conventions — there is no `CONTRIBUTING.md` and no `tests/`
+  README; `CLAUDE.md`'s *Commands* section only says how to run the suite, which is unchanged.
+  Whether a rule about subprocess tests dropping `VIRTUAL_ENV` and `TASKRAIL_BIN` should be written
+  down is left to **T113** to decide, not assumed here.
+- `DESIGN.md` §§3.1, 4 and 7 were not read or touched: another lane holds them in this run.
+
+**Probe: is the existing local-pin test vacuous too?** Asked because T106's first draft was, for a
+reason `tests/test_install.py:291` shares — it drops `TASKRAIL_BIN` but not `VIRTUAL_ENV`. The
+suite was running in this worktree at the time, so rather than mutate `tests/test_install.py` under
+a live collection, `test_wrapper_with_a_local_pin_runs_the_source_in_this_checkout` was copied
+verbatim into the scratchpad with one change — the pin resolves to a directory holding no taskrail
+source — and run against this checkout. **It passed**, so the existing test is vacuous:
+
+```
+.                                                                        [100%]
+1 passed in 0.18s
+```
+
+Why, measured on that same broken pin, each mechanism sufficient on its own:
+
+```
+--- 1) VIRTUAL_ENV set, PATH has uv only (no taskrail):
+taskrail 0.4.0.dev0
+--- 2) VIRTUAL_ENV unset, PATH includes the global taskrail dir:
+taskrail 0.3.0
+--- 3) VIRTUAL_ENV unset, PATH has uv only:
+error: Failed to spawn: `taskrail`
+  Caused by: No such file or directory (os error 2)
+```
+
+Case 2 is the sharper one: with a broken pin, `uv run --project` falls back to whatever `taskrail`
+is on `PATH` and runs a version the repository never pinned — `v0.3.0` here against a `0.4.0.dev0`
+checkout. Case 3 is the failure the test should be seeing.
+
+Follow-up opened on this branch: **T113** (bug, 1 pt, E05, depends on T106) — fix the vacuous
+test in `tests/test_install.py`. The fix stays out of T106: `CLAUDE.md` says to open a task rather
+than widen this one, and that file is outside this task's boundary.
+
+Nothing was committed from the probe; the scratchpad copy is not part of the branch.
