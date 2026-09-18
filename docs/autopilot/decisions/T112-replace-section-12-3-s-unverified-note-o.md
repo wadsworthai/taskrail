@@ -48,3 +48,20 @@ artifact and two index rows, and nothing else; the lane's `taskrail checks T112 
 | # | Question | Options | Decision | Reason |
 |---|---|---|---|---|
 | 1 | Pull request type and scope | **`docs` / `repo`**, as the lane recommends · the generated scope-less `chore:` | **`docs` / `repo`** | The change is documentation only, in `DESIGN.md`, and it matches how `main` titles its recent `DESIGN.md`-only tasks (T102, T098). CLAUDE.md asks for the type of the most significant change with the affected area as scope. |
+
+## rebase after T106, T107, T109, T110, T108 and T111 merged
+
+Six branches were merged into `main` (up to `e3f3e9a`). This branch was rebased onto `origin/main`,
+with three conflicts, all known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `docs/chores/README.md` and `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, no duplicate. |
+| 2 | `TODO.md` status cells | **unite by ID, `✅` wins** · stop | **as decided** | Known conflict class 1; the branch was cut before the six merges, so its copies of those rows are older, and no side has a `Reopens:` commit. |
+
+`DESIGN.md` did not conflict: T111 wrote in §12.1 and this branch in §12.3, which is the split the
+touch map set at dispatch.
+
+After the rebase: `grep "not verified" DESIGN.md` returns nothing, the replacement sentence and its
+`(T057 E4)` citation are in place, `taskrail checks T112` passed on the 1,247 tests the branch now
+collects, and `taskrail validate` reports 106 tasks, 0 errors.
