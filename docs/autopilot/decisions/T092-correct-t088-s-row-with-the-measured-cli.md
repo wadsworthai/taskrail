@@ -41,6 +41,21 @@ worktree (`test` passed, `lint` not configured, 87 tasks and 0 errors).
 | 1 | Is the applied edit what was approved? | accept · amend | **accepted** | One `edit --force` on the description cell, through the CLI, with the approved text verbatim and the method clause intact. `--force` changed no status: `show T088` still reports `done`. |
 | 2 | Anything to add at the `docs` stage? | nothing · more | **nothing** | The change is one backlog cell and its explanation is the artifact, already committed. `DESIGN.md`'s configuration documentation defects belong to T098, which T088 opened for them. |
 
+## rebase after T091 merged
+
+T091 was squash-merged into `main` as 5025641 and proved by content with `autopilot merged`. This
+branch was rebased at hand-off, while the lane was stopped at the `close` gate: `git rebase
+origin/main`. Three conflicts, all of the known classes:
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | `docs/chores/README.md` and `docs/autopilot/decisions/README.md`: a row appended by each side | keep both · stop | **keep both, one entry per task** | Known class 2, appended index rows. |
+| 2 | `TODO.md`: rows on both sides, including T091's status cell | unite by ID, `✅` wins · keep both lines | **unite by ID: T091 `✅` from the mainline, T092's own rows from this branch** | Known class 1. The rows are united **by ID**, not concatenated — a keep-both resolution duplicates rows, as it did once earlier in this run on T091's branch, where `validate` caught it at once. |
+
+After the rebase the correction this task exists for is intact: T088's row on the branch reads the
+measured figures. Five commits ahead of `origin/main`, `git diff --check` clean, `taskrail checks
+T092` passed, `taskrail validate` reports 87 tasks and 0 errors.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, extended by the human to T093-T098.
