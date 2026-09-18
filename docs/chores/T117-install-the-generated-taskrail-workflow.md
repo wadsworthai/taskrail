@@ -84,4 +84,39 @@ No other file changes; the trial run confirmed that (evidence below).
   worktree root, which is what the job's only `run` step does.
 - `taskrail checks T117` (`test`: `uv run pytest -q`) passes; `lint` is not configured here.
 
-Results: recorded at the implement stage.
+Results:
+
+- `init --github-workflow` created `.github/workflows/taskrail.yml` and nothing else; `updated`,
+  `skipped`, `removed` and `notes` were all empty, and `.taskrail/bin/taskrail` — the wrapper T118
+  owns — was reported `unchanged`. The only tracked-file change is `.taskrail/installed.json`:
+  `extras` gains `"github_workflow": true` and `files` gains the workflow's path and hash.
+- The file's sha256 is
+  `5e7e1aff268996fe32d56a9dd4de87a6d344c9694b8ab741659709887b87fab7`, equal to the hash `init`
+  recorded in `.taskrail/installed.json`, so what is committed is the template's output unmodified.
+- Re-running `init --github-workflow` created and updated nothing and reported
+  `.github/workflows/taskrail.yml` as `unchanged`: idempotent, and `upgrade` will keep this file
+  as committed.
+- The file parses as YAML into the keys GitHub expects: `name: taskrail`, the `on:` triggers
+  (`pull_request`, and `push` on `main`), and `jobs.validate` with `runs-on: ubuntu-latest` and
+  three steps — `actions/checkout@v7.0.1` with `fetch-depth: 0`, `astral-sh/setup-uv@v10.1.0`, and
+  `run: .taskrail/bin/taskrail validate`. A YAML 1.1 parser reads the `on:` key as the boolean
+  `true`, which is how every GitHub workflow is written and what GitHub accepts. `yamllint`
+  (default rules, `line-length` and `truthy` off) exits 0 with one `missing document start "---"`
+  warning — the same warning it gives for `ci.yml`, so the generated file is no worse than the
+  hand-written one.
+- The job's only `run` step was exercised for real from the worktree root:
+  `./.taskrail/bin/taskrail validate` printed
+  `108 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)` and exited 0. In CI the wrapper's
+  `local:.` pin runs this checkout's own source through the `uv` that `setup-uv` installs, and
+  `fetch-depth: 0` gives `validate` the history its reopen check needs.
+- `taskrail checks T117 --stage implement`: `test` (`uv run pytest -q`) passed — `1248 passed in
+  169.55s` — and `lint` is not configured in this repository, which `checks` reported as
+  `== lint: not configured`. Overall: `T117 in …/.worktrees/T117-…: passed`, exit 0.
+
+## Required checks
+
+After this merges and the workflow has run once on `main`, the checks to require on `main` are
+`test (3.11)` and `test (3.14)` from `ci.yml` (T108) and **`validate`** from `taskrail.yml`. The
+generated job has no `name:`, so GitHub reports it by its job id, `validate`, under the workflow
+named `taskrail`; regenerating the file from a changed template could rename it. Configuring
+branch protection is the human's, and is not part of this task.

@@ -1,0 +1,17 @@
+# Managed by taskrail: `taskrail init --github-workflow` and `taskrail upgrade` rewrite this file.
+name: taskrail
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.1.0
+      - run: .taskrail/bin/taskrail validate
