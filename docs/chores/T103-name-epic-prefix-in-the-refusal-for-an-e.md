@@ -196,3 +196,17 @@ $ .taskrail/bin/taskrail validate
 97 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
 exit=0
 ```
+
+## Documentation
+
+- `CHANGELOG.md`: one bullet appended last under *Unreleased*, saying what a reader of a failed
+  `validate` now sees and that nothing else changed.
+- **`DESIGN.md` §4 goes stale and is not touched here.** Lines 211-215 say "`validate` refuses an
+  ID that does not match, quoting the prefix it expected rather than the key, so a repository whose
+  epics are numbered `EP01` sets `epic_prefix = "EP"` here instead of renumbering them" — true when
+  T098 wrote it, false once this lands, and the reason the sentence exists disappears with it. §4
+  belongs to another lane in run 20260918-1, so the correction is **T110** (chore, 1 point, E08,
+  depends on T103) rather than an edit from here.
+- Nothing else needs changing: `README.md` does not quote either message, and the shipped skills
+  under `src/taskrail/skills/` do not mention `epic_prefix`, `prefix` or these error codes
+  (`git grep -n "epic_prefix\|epic-id\|task-id" -- src/taskrail/skills README.md` finds nothing).
