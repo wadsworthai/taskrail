@@ -17,3 +17,4 @@
 | T109 | Reject a next --limit that is zero or negative | [T109-reject-a-next-limit-that-is-zero-or-nega.md](T109-reject-a-next-limit-that-is-zero-or-nega.md) |
 | T116 | Pin a setup-uv tag that exists in the generated GitHub workflow | [T116-pin-a-setup-uv-tag-that-exists-in-the-ge.md](T116-pin-a-setup-uv-tag-that-exists-in-the-ge.md) |
 | T113 | Fix the vacuous local-pin wrapper test in test_install.py | [T113-fix-the-vacuous-local-pin-wrapper-test-i.md](T113-fix-the-vacuous-local-pin-wrapper-test-i.md) |
+| T118 | Pass the wrapper's own root to the CLI so a wrapper acts on its own checkout | [T118-pass-the-wrapper-s-own-root-to-the-cli-s.md](T118-pass-the-wrapper-s-own-root-to-the-cli-s.md) |

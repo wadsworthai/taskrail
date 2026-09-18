@@ -100,3 +100,4 @@
 | T115 | Decide how the wrapper and the CLI resolve the repository root when the cwd is another checkout | [T115-decide-how-the-wrapper-and-the-cli-resol.md](T115-decide-how-the-wrapper-and-the-cli-resol.md) |
 | T003 | Install taskrail in a first consumer project | [T003-install-taskrail-in-a-first-consumer-pro.md](T003-install-taskrail-in-a-first-consumer-pro.md) |
 | T117 | Install the generated taskrail workflow in this repository | [T117-install-the-generated-taskrail-workflow.md](T117-install-the-generated-taskrail-workflow.md) |
+| T118 | Pass the wrapper own root to the CLI so a wrapper acts on its own checkout | [T118-pass-the-wrapper-s-own-root-to-the-cli-s.md](T118-pass-the-wrapper-s-own-root-to-the-cli-s.md) |
