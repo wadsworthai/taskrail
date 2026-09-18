@@ -55,3 +55,25 @@ correct (uncommenting those six lines and nothing else makes `autopilot start` e
 | 1 | Anything to decide at this gate? | **no** | **no** | (B) was built with both sub-choices as approved, and the change stayed inside the four files the scope named. |
 | 2 | The test asserting both halves — that the block stays a comment, and that uncommenting it works | **accept** | **accept** | Pinning only the first would let the block rot into keys taskrail no longer takes while still passing. The second half is what makes it a comment someone can rely on rather than decoration. |
 | 3 | Leaving `README.md` and `CHANGELOG.md` uncommitted for the `docs` stage | **accept** | **accept** | The kind puts documentation in its own stage, and both files are shared append-only ones; keeping them out of the implement commit makes the code review read as code. |
+
+## close
+
+Reviewed: the whole diff against the merge base, `origin/main...HEAD` (three dots; `main` has moved
+since this branch was cut, so the two-dot form shows other branches' work as deletions) — seven
+commented lines in `default_config()`, one
+test, seven lines of `README.md`, one `CHANGELOG.md` bullet, the artifact, an index row and T003's
+`✅`, with `DESIGN.md` and `CLAUDE.md` untouched; the three stages' checks, the real `init` into a
+scratch repository, and `taskrail validate` (106 tasks, 0 errors); the claim released.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The `docs` stage opened nothing | **accept** | **accept** | The finding is discharged by this change, and nothing outside the approved boundary needed touching. |
+| 2 | Pull request type | **`feat` / `install`**, as the lane recommends · the kind's default `chore` | **`feat` / `install`** | What `init` writes changes, which is user-visible; CLAUDE.md asks for the type of the most significant change with the affected area as the scope. |
+| 3 | The title | **hand-written, naming the change** · the row's title, which `review` generates | **hand-written** | The row is named for the work — *Install taskrail in a first consumer project* — and that work was the human's, done before the lane existed. The squash commit is the only line that reaches `main`, and it should say what landed: the seeded block. This is the second time in this run a row's title has been the wrong sentence for the commit (T110 was the first), which is worth noticing but not worth a task yet. |
+
+Recorded for the pull request, since a reviewer needs it and it is not obvious from the diff: the
+two halves reach **different repositories with no overlap**. The seeded block serves repositories
+that have not run `init` yet; the README paragraph is the only thing that reaches the ones that
+have, because `installer.seed` writes the config only when it is missing and `upgrade` rewrites only
+the version pin. Drop the prose and the change serves nobody who already installed taskrail; drop
+the comment and it fixes nothing where the friction happens.
