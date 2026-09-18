@@ -61,3 +61,19 @@ rows; the lane's `taskrail checks T111 --stage implement` (1221 passed) and `tas
 |---|---|---|---|---|
 | 1 | Pull request type and scope | **`chore` / `skills`**, as the lane recommends · `docs` / `repo` | **`chore` / `skills`** | The shipped skill and its integration note are the user-facing part of the change; `DESIGN.md` records the reasoning behind them. |
 | 2 | The lane's report of a stale claim on T003 | **leave it; it is the orchestrator's hold and it still works** · release it | **leave it** | The claim is the orchestrator's deliberate hold on a task escalated to the human before any lane claimed it, and it reads `stale` only because no branch was ever created for it — there is no worktree to go stale. It still does its job: `autopilot next` offers nothing while it stands, which is the whole point. It is released when the human answers. |
+
+## rebase after T106, T107, T109, T110 and T108 merged
+
+Five branches were merged into `main` (up to `c5d43dc`). This branch was rebased onto `origin/main`,
+with four conflicts, all known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `docs/chores/README.md` and `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, no duplicate. |
+| 2 | Conflict in `CHANGELOG.md` | **keep both bullets**, this branch's above the mainline's | **keep both** | Appended changelog bullets, known conflict class 2; *Unreleased* is newest-first and this branch lands last. |
+| 3 | `TODO.md` status cells | **unite by ID, `✅` wins** · stop | **as decided** | Known conflict class 1; the branch was cut before the five merges, so its copies of those rows are older, and no side has a `Reopens:` commit. |
+
+After the rebase: the installed skill copy still carries both new texts — `Plan the count against
+your own context` at the rule and in the integration note's bullet — `taskrail checks T111` passed,
+and `taskrail validate` reports 106 tasks, 0 errors. No `upgrade` was re-run: the rebase brought no
+change to any skill source, and the installed copy was verified rather than regenerated.
