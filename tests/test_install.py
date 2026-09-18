@@ -134,7 +134,20 @@ def test_github_workflow_checks_out_full_history(empty_repo, capsys):
     # validate's reopen check (DESIGN §7) sees nothing past a shallow clone's boundary.
     init(empty_repo, "--github-workflow", capsys=capsys)
     workflow = (empty_repo / install.WORKFLOW).read_text()
-    assert "      - uses: actions/checkout@v7\n        with:\n          fetch-depth: 0\n" in workflow
+    assert "      - uses: actions/checkout@v7.0.1\n        with:\n          fetch-depth: 0\n" in workflow
+
+
+def test_github_workflow_pins_every_action_to_an_exact_release_tag(empty_repo, capsys):
+    # Not every action publishes a floating major tag: astral-sh/setup-uv stopped moving one
+    # after v7, so `@v10` named a ref that exists nowhere and the job failed before it ran.
+    # This asserts the shape, not that the tag exists: proving that needs the network, which no
+    # test here may use. An exact tag is a form a human verifies once against the releases.
+    init(empty_repo, "--github-workflow", capsys=capsys)
+    workflow = (empty_repo / install.WORKFLOW).read_text()
+    refs = re.findall(r"^\s*- uses: (.+)$", workflow, re.MULTILINE)
+    assert refs
+    loose = [ref for ref in refs if not re.fullmatch(r"[^@\s]+@v\d+\.\d+\.\d+", ref)]
+    assert not loose, f"not pinned to an exact release tag: {loose}"
 
 
 def test_upgrade_rewrites_an_unedited_workflow_from_an_earlier_template(empty_repo, capsys):

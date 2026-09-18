@@ -1,6 +1,6 @@
 # T116 — Pin a setup-uv tag that exists in the generated GitHub workflow
 
-Kind: bug · Epic: E05 · Status: diagnosed
+Kind: bug · Epic: E05 · Status: fixed
 
 ## Symptom
 
@@ -174,3 +174,86 @@ regression test asserting that every `uses:` in the generated workflow names an 
 tag. That test cannot prove a tag exists without reaching the network, which CI (T108) runs on
 every pull request and must not do; what it can do is forbid the shape that caused the bug, the
 bare major, and so make every ref a form a human can verify once against the action's releases.
+
+## Fix
+
+Decided at the diagnose gate, deliberately against the backlog row's wording, which asked to keep
+`actions/checkout@v7` floating: **both** actions are pinned to exact release tags. A mixed rule
+would need a per-action allowlist of who publishes a floating major — the very assumption that
+caused this bug — and no offline test could enforce it.
+
+- `src/taskrail/install.py`, `workflow()`: `actions/checkout@v7` → `actions/checkout@v7.0.1` and
+  `astral-sh/setup-uv@v10` → `astral-sh/setup-uv@v10.1.0`, the pair this repository's own
+  `.github/workflows/ci.yml` uses (T108), so the generated workflow and ours agree.
+- `tests/test_install.py`, new `test_github_workflow_pins_every_action_to_an_exact_release_tag`:
+  every `uses:` in the generated workflow must match `@vX.Y.Z`. It asserts the *shape*, and its
+  comment says so: no offline test can prove a tag exists, and one that asked GitHub would reach
+  the network on every pull request now that CI (T108) runs this suite. Forbidding the bare major
+  leaves every ref in a form a human verifies once against the action's releases.
+- `tests/test_install.py`, `test_github_workflow_checks_out_full_history`: its literal now reads
+  `actions/checkout@v7.0.1`.
+- `DESIGN.md` §9, the *Extras* bullet: records the convention beside the `fetch-depth: 0`
+  explanation.
+- `CHANGELOG.md`, Unreleased: what failed, that the fix is in the template, and that an installed
+  repository picks it up with `taskrail upgrade` — an untouched managed workflow is rewritten, a
+  locally edited one is skipped and reported.
+
+## Verification
+
+The regression test, run against the unfixed template, fails naming both loose refs — the
+root-cause one among them:
+
+```
+$ uv run pytest tests/test_install.py -k pins_every_action
+        loose = [ref for ref in refs if not re.fullmatch(r"[^@\s]+@v\d+\.\d+\.\d+", ref)]
+>       assert not loose, f"not pinned to an exact release tag: {loose}"
+E       AssertionError: not pinned to an exact release tag: ['actions/checkout@v7', 'astral-sh/setup-uv@v10']
+E       assert not ['actions/checkout@v7', 'astral-sh/setup-uv@v10']
+
+tests/test_install.py:150: AssertionError
+======================= 1 failed, 57 deselected in 0.20s =======================
+```
+
+After the fix, the workflow tests pass:
+
+```
+$ uv run pytest tests/test_install.py -k "workflow"
+tests/test_install.py ....                                               [100%]
+======================= 4 passed, 54 deselected in 0.22s =======================
+```
+
+The same reproduction as in *Evidence*, on the fixed source, now produces a workflow whose refs
+both resolve:
+
+```
+$ uv run taskrail --root <scratch> init --github-workflow
+$ cat <scratch>/.github/workflows/taskrail.yml
+...
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.1.0
+      - run: .taskrail/bin/taskrail validate
+
+$ git ls-remote https://github.com/actions/checkout 'refs/tags/v7.0.1'
+3d3c42e5aac5ba805825da76410c181273ba90b1	refs/tags/v7.0.1
+$ git ls-remote https://github.com/astral-sh/setup-uv 'refs/tags/v10.1.0'
+bec219d24cd3e171d82865faccec33120bb574f4	refs/tags/v10.1.0
+```
+
+Stage checks — `taskrail checks T116 --stage fix` runs `test` (`uv run pytest -q`); `lint` is not
+configured in this repository and is reported as such:
+
+```
+$ .taskrail/bin/taskrail checks T116 --stage fix
+== test: uv run pytest -q
+........................................................................ [  5%]
+...
+........................                                                 [100%]
+1248 passed in 163.48s (0:02:43)
+== lint: not configured
+passed test
+not configured lint
+T116 in <worktree>: passed
+exit=0
+```

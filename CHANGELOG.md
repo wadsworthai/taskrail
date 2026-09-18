@@ -12,6 +12,18 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **The workflow `--github-workflow` generates now names action tags that exist.** It pinned
+  `astral-sh/setup-uv@v10`, and that project publishes bare major tags only through `v7` — its
+  tenth line exists only as `v10.0.0`, `v10.0.1` and `v10.1.0` — so GitHub could not resolve the
+  step and the `validate` job failed before it ran anything, in every repository that installed
+  the extra at `v0.1.0`, `v0.2.0` or `v0.3.0`. The template now pins both of its actions to exact
+  release tags, `actions/checkout@v7.0.1` and `astral-sh/setup-uv@v10.1.0`, the same pair this
+  repository's own CI uses; a test keeps every `uses:` in that shape, since not every action
+  publishes a floating major. **An installed repository picks the fix up with `taskrail upgrade`**:
+  the workflow is a managed file, so an untouched one is rewritten, and one edited locally is left
+  alone and reported as `edited locally; --force replaces it` — a repository in that case changes
+  the `setup-uv` line itself (T116).
+
 - **The autopilot skill now says what bounds a run — the orchestrator's context — and tells the
   orchestrator to plan the count against it.** A run's count was chosen with no idea of its ceiling.
   A lane ends with its task, while the orchestrator accumulates every lane's report, every gate
