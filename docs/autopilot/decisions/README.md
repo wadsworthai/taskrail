@@ -92,3 +92,4 @@
 | T107 | Archive completed tasks and epics into a configurable document | [T107-archive-completed-tasks-and-epics-into-a.md](T107-archive-completed-tasks-and-epics-into-a.md) |
 | T109 | Reject a next --limit that is zero or negative | [T109-reject-a-next-limit-that-is-zero-or-nega.md](T109-reject-a-next-limit-that-is-zero-or-nega.md) |
 | T110 | Reword DESIGN.md section 4 where it says an ID refusal quotes the prefix rather than the key | [T110-reword-design-md-4-where-it-says-an-id-r.md](T110-reword-design-md-4-where-it-says-an-id-r.md) |
+| T108 | Add continuous integration that runs the test suite | [T108-add-continuous-integration-that-runs-the.md](T108-add-continuous-integration-that-runs-the.md) |

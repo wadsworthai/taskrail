@@ -34,3 +34,4 @@
 | T104 | State in the core skill that `show --fetch` needs `branch_record_remote` | [T104-state-in-the-core-skill-that-show-fetch.md](T104-state-in-the-core-skill-that-show-fetch.md) |
 | T106 | Test init and the wrapper with taskrail absent from PATH | [T106-test-init-and-the-wrapper-with-taskrail.md](T106-test-init-and-the-wrapper-with-taskrail.md) |
 | T110 | Reword DESIGN.md §4 where it says an ID refusal quotes the prefix rather than the key | [T110-reword-design-md-4-where-it-says-an-id-r.md](T110-reword-design-md-4-where-it-says-an-id-r.md) |
+| T108 | Add continuous integration that runs the test suite | [T108-add-continuous-integration-that-runs-the.md](T108-add-continuous-integration-that-runs-the.md) |

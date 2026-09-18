@@ -43,6 +43,7 @@ DESIGN.md              # the full model; the autopilot is §12, the current-bran
 CHANGELOG.md           # user-facing changes, under Unreleased until a release
 TODO.md, docs/         # this repository's own backlog and its task artifacts
 .taskrail/, .claude/   # taskrail installed into this repository, running from source
+.github/workflows/     # this repository's own CI: the test suite on 3.11 and 3.14
 ```
 
 ## Agent portability
