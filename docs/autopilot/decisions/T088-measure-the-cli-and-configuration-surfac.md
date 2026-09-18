@@ -70,6 +70,28 @@ git rebase --onto origin/main 45137368de55c2d6b55ea62198e0adae1f98af23
 After the rebase: one commit ahead of `origin/main`, `git diff --check` clean, `taskrail checks T088`
 passed, `taskrail validate` reports 81 tasks and 0 errors.
 
+## rebase after T089 merged
+
+T089 was squash-merged into `main` as 15823fc and `autopilot merged T089 --cleanup` proved it by
+content. `review T088 --json` reported `rebase.needed: true` onto `origin/main`, with no unmerged
+dependency, so the orchestrator rebased at hand-off, while the lane was stopped at the `close` gate:
+
+```
+git rebase origin/main
+```
+
+Three conflicts, all of the known classes, resolved without the human:
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | `docs/spikes/README.md`: a row appended by each side | keep both · stop | **keep both, one entry per task** | Known class 2, appended index rows: T089's row came from the mainline, T088's from this branch. |
+| 2 | `docs/autopilot/decisions/README.md`: a row appended by each side | keep both · stop | **keep both, one entry per task** | Known class 2, the same case in the decision-record index. |
+| 3 | `TODO.md`: rows added on both sides, and two status cells | keep all rows, `✅` wins per ID · stop | **T093 from the mainline and T094-T098 from this branch all kept; T088 `✅` from this branch, T089 `✅` from the mainline** | Known class 1, backlog rows united by ID: a status that is `✅` on either side stays `✅`, and neither side carries a `Reopens:` commit the other lacks. |
+
+After the rebase: six commits ahead of `origin/main`, `git diff --check` clean, `taskrail checks
+T088` passed, `taskrail validate` reports 87 tasks and 0 errors, and the branch's diff adds only
+this task's own files and rows.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, extended by the human to T090, T091 and T092 after T087 merged.
