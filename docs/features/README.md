@@ -42,3 +42,4 @@
 | T081 | Commit a task's changes only when it is done with commit = on-done | [T081-commit-a-task-s-changes-only-when-it-is.md](T081-commit-a-task-s-changes-only-when-it-is.md) |
 | T083 | Close a current-branch task without fetch, rebase or publish | [T083-close-a-current-branch-task-without-fetc.md](T083-close-a-current-branch-task-without-fetc.md) |
 | T094 | Warn about a key taskrail does not know in .taskrail/config.toml | [T094-warn-about-a-key-taskrail-does-not-know.md](T094-warn-about-a-key-taskrail-does-not-know.md) |
+| T099 | Default the backlog file to TASKRAIL.md | [T099-default-the-backlog-file-to-taskrail-md.md](T099-default-the-backlog-file-to-taskrail-md.md) |

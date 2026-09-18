@@ -51,7 +51,7 @@ a globally installed CLI and never touches a repository's pin, so it has no part
 Restart the agent session after `init` or `upgrade`: agents load skills when a session starts,
 so one already running does not see new or changed skills.
 
-`init` is safe to run again. It creates `.taskrail/config.toml` and `TODO.md` when missing, and
+`init` is safe to run again. It creates `.taskrail/config.toml` and `TASKRAIL.md` when missing, and
 installs the skills and the wrapper. Three optional flags:
 
 - `--github-workflow` adds `.github/workflows/taskrail.yml`, running `taskrail validate` on
@@ -65,7 +65,7 @@ installs the skills and the wrapper. Three optional flags:
   block of `.gitattributes` to commit, and defines the driver in this clone's git config, which
   each clone opts into by running `taskrail init --merge-driver` once.
 
-Commit `.taskrail/`, `TODO.md` and the installed skills. Skills and managed files you edit are
+Commit `.taskrail/`, `TASKRAIL.md` and the installed skills. Skills and managed files you edit are
 never overwritten silently; `--force` replaces them.
 
 ## Use

@@ -345,13 +345,13 @@ def driven(tmp_path, monkeypatch, capsys):
     git(root, "init", "-q", "-b", "main")
     assert main(["--root", str(root), "init", "--merge-driver", "--json"]) == 0
     capsys.readouterr()
-    (root / "TODO.md").write_text(backlog(BASE_ROWS))
+    (root / "TASKRAIL.md").write_text(backlog(BASE_ROWS))
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "init")
     return root
 
 
-def commit(root: Path, text: str, message: str, path: str = "TODO.md") -> None:
+def commit(root: Path, text: str, message: str, path: str = "TASKRAIL.md") -> None:
     (root / path).write_text(text)
     git(root, "add", path)
     git(root, "commit", "-q", "-m", message)
@@ -374,7 +374,7 @@ def test_git_merge_keeps_rows_appended_on_both_branches(driven, capsys):
     commit(driven, backlog([*BASE_ROWS, row("⬜", "T010", "Mine")]), "add T010")
     result = attempt(driven, "merge", "--no-edit", "topic")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert (driven / "TODO.md").read_text() == backlog([*BASE_ROWS, row("⬜", "T010", "Mine"), row("⬜", "T011", "Theirs")])
+    assert (driven / "TASKRAIL.md").read_text() == backlog([*BASE_ROWS, row("⬜", "T010", "Mine"), row("⬜", "T011", "Theirs")])
     assert validate(driven, capsys) == 0
 
 
@@ -387,7 +387,7 @@ def test_git_rebase_replays_rows_and_a_done_mark_onto_new_rows(driven, capsys):
     git(driven, "switch", "-q", "topic")
     result = attempt(driven, "rebase", "main")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert (driven / "TODO.md").read_text() == backlog(
+    assert (driven / "TASKRAIL.md").read_text() == backlog(
         [BASE_ROWS[0], BASE_ROWS[1], row("✅", "T003", "Rounding"), row("⬜", "T010", "Mine"), row("⬜", "T011", "Theirs")]
     )
     assert validate(driven, capsys) == 0
@@ -400,7 +400,7 @@ def test_git_cherry_pick_of_a_done_mark_next_to_an_appended_row(driven):
     commit(driven, backlog([*BASE_ROWS, row("⬜", "T010", "Mine")]), "add T010")
     result = attempt(driven, "cherry-pick", "topic")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert (driven / "TODO.md").read_text() == backlog([BASE_ROWS[0], BASE_ROWS[1], row("✅", "T003", "Rounding"), row("⬜", "T010", "Mine")])
+    assert (driven / "TASKRAIL.md").read_text() == backlog([BASE_ROWS[0], BASE_ROWS[1], row("✅", "T003", "Rounding"), row("⬜", "T010", "Mine")])
 
 
 def test_a_rebase_replaying_a_row_already_done_upstream_keeps_it_done(driven, capsys):
@@ -411,7 +411,7 @@ def test_a_rebase_replaying_a_row_already_done_upstream_keeps_it_done(driven, ca
     git(driven, "switch", "-q", "topic")
     result = attempt(driven, "rebase", "main")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert (driven / "TODO.md").read_text() == backlog([*BASE_ROWS, row("✅", "T010", "Opened"), row("⬜", "T011", "Next")])
+    assert (driven / "TASKRAIL.md").read_text() == backlog([*BASE_ROWS, row("✅", "T010", "Opened"), row("⬜", "T011", "Next")])
 
 
 @pytest.mark.parametrize("trailer", [True, False])
@@ -425,7 +425,7 @@ def test_a_reopen_commit_on_the_pending_side_keeps_it_pending(driven, trailer):
     result = attempt(driven, "merge", "--no-edit", "topic")
     assert result.returncode == 0, result.stdout + result.stderr
     expected = "⬜" if trailer else "✅"
-    assert (driven / "TODO.md").read_text() == backlog([*BASE_ROWS, row(expected, "T010", "Opened"), row("⬜", "T011", "Next")])
+    assert (driven / "TASKRAIL.md").read_text() == backlog([*BASE_ROWS, row(expected, "T010", "Opened"), row("⬜", "T011", "Next")])
 
 
 def test_reopen_commits_patch_equivalent_on_both_sides_cancel_out(driven):
@@ -445,8 +445,8 @@ def test_a_real_conflict_is_left_with_markers_around_the_row_only(driven):
     commit(driven, backlog([BASE_ROWS[0], row("⬜", "T002", "Mine"), BASE_ROWS[2], row("⬜", "T010")]), "retitle mine")
     result = attempt(driven, "merge", "--no-edit", "topic")
     assert result.returncode != 0
-    assert git(driven, "diff", "--name-only", "--diff-filter=U") == "TODO.md"
-    text = (driven / "TODO.md").read_text()
+    assert git(driven, "diff", "--name-only", "--diff-filter=U") == "TASKRAIL.md"
+    text = (driven / "TASKRAIL.md").read_text()
     assert text.count("<<<<<<<") == 1
     assert "<<<<<<< HEAD\n" + row("⬜", "T002", "Mine") + "=======\n" + row("⬜", "T002", "Theirs") + ">>>>>>> topic\n" in text
     assert row("⬜", "T010") + row("⬜", "T011") in text
@@ -460,7 +460,7 @@ def test_a_driver_that_cannot_start_falls_back_to_an_ordinary_merge(driven, monk
     commit(driven, backlog(BASE_ROWS, intro="Done when: ours."), "ours")
     result = attempt(driven, "merge", "--no-edit", "topic")
     assert result.returncode != 0
-    assert "<<<<<<< HEAD\nDone when: ours.\n=======\nDone when: theirs.\n>>>>>>> topic\n" in (driven / "TODO.md").read_text()
+    assert "<<<<<<< HEAD\nDone when: ours.\n=======\nDone when: theirs.\n>>>>>>> topic\n" in (driven / "TASKRAIL.md").read_text()
 
 
 def test_a_clone_without_the_driver_definition_uses_git_text_merge(driven):
@@ -471,7 +471,7 @@ def test_a_clone_without_the_driver_definition_uses_git_text_merge(driven):
     commit(driven, backlog([*BASE_ROWS], intro="Done when: ours."), "prose")
     result = attempt(driven, "merge", "--no-edit", "topic")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert (driven / "TODO.md").read_text() == backlog([*BASE_ROWS], e02=[row("✅", "T009")], intro="Done when: ours.")
+    assert (driven / "TASKRAIL.md").read_text() == backlog([*BASE_ROWS], e02=[row("✅", "T009")], intro="Done when: ours.")
 
 
 # --- installing ------------------------------------------------------------------------------------
@@ -513,7 +513,7 @@ def test_init_merge_driver_writes_attributes_config_and_the_extra(plain, capsys)
     assert "git config merge.taskrail" in report["created"]
     assert (plain / ".gitattributes").read_text().startswith("*.png binary\n")
     assert block(plain) == [
-        "/TODO.md merge=taskrail",
+        "/TASKRAIL.md merge=taskrail",
         "/docs/autopilot/decisions/README.md merge=taskrail",
         "/docs/bugs/README.md merge=taskrail",
         "/docs/chores/README.md merge=taskrail",
@@ -537,8 +537,8 @@ def test_init_without_the_flag_installs_no_merge_driver(plain, capsys):
 
 def test_upgrade_refreshes_the_block_and_only_updates_an_existing_definition(plain, capsys):
     cli(plain, "init", "--merge-driver", "--integration", "claude", capsys=capsys)
-    todo = (plain / "TODO.md").read_text() + "| E01 | Billing | Charge | todo/E01-billing.md |\n"
-    (plain / "TODO.md").write_text(todo)
+    todo = (plain / "TASKRAIL.md").read_text() + "| E01 | Billing | Charge | todo/E01-billing.md |\n"
+    (plain / "TASKRAIL.md").write_text(todo)
     (plain / "todo").mkdir()
     (plain / "todo/E01-billing.md").write_text("## E01 — Billing\n")
     git(plain, "config", "--local", "--unset", "merge.taskrail.driver")

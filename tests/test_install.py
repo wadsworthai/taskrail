@@ -39,7 +39,7 @@ def init(root, *argv, capsys):
 
 def test_init_creates_a_valid_project(empty_repo, capsys):
     report = init(empty_repo, "--integration", "claude", capsys=capsys)
-    for path in [".taskrail/config.toml", "TODO.md", ".taskrail/bin/taskrail", ".gitignore"]:
+    for path in [".taskrail/config.toml", "TASKRAIL.md", ".taskrail/bin/taskrail", ".gitignore"]:
         assert path in report["created"]
     assert sorted(p.parent.name for p in (empty_repo / ".claude/skills").glob("*/SKILL.md")) == SKILLS
     assert os.access(empty_repo / ".taskrail/bin/taskrail", os.X_OK)
@@ -69,7 +69,7 @@ def test_init_never_touches_an_existing_config_or_backlog(empty_repo, capsys):
     (empty_repo / "BACKLOG.md").write_text("# mine\n")
     init(empty_repo, capsys=capsys)
     assert (empty_repo / "BACKLOG.md").read_text() == "# mine\n"
-    assert not (empty_repo / "TODO.md").exists()
+    assert not (empty_repo / "TASKRAIL.md").exists()
 
 
 def test_locally_edited_skills_are_kept_unless_forced(empty_repo, capsys):
@@ -170,8 +170,8 @@ def test_pre_commit_hook_blocks_an_invalid_backlog(empty_repo, capsys, monkeypat
     init(empty_repo, "--pre-commit", capsys=capsys)
     git(empty_repo, "add", "-A")
     git(empty_repo, "commit", "-q", "-m", "init")  # a valid backlog passes the hook
-    (empty_repo / "TODO.md").write_text("# TODO\n")  # no Epics section
-    git(empty_repo, "add", "TODO.md")
+    (empty_repo / "TASKRAIL.md").write_text("# TODO\n")  # no Epics section
+    git(empty_repo, "add", "TASKRAIL.md")
     result = subprocess.run(["git", "commit", "-q", "-m", "break"], cwd=empty_repo, capture_output=True, text=True)
     assert result.returncode != 0
     assert "commit aborted" in result.stderr

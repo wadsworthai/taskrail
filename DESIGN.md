@@ -32,7 +32,8 @@ section is added, add its row here.
 Goals:
 
 - One backlog format, validated by a program instead of interpreted by a model.
-- Tasks grouped by epics; `TODO.md` is the main file, and any epic can move to its own file.
+- Tasks grouped by epics; one main file — `TASKRAIL.md` unless the repository names another — and
+  any epic can move to its own file.
 - Several backlogs per repository (for example a template backlog and a product backlog), each
   with its own ID prefix, mainline and allowed dependency direction.
 - Task kinds as data. The core ships `bug`, `chore`, `feature` and `spike`; a consuming
@@ -68,8 +69,10 @@ Non-goals for v1:
 
 ### 3.1 Main file
 
+The main file is the one `[[backlog]].file` names, `TASKRAIL.md` when the key is absent (§4).
+
 ```markdown
-# TODO
+# Backlog
 
 ## Epics
 
@@ -137,7 +140,7 @@ name = "template"
 prefix = "T"
 epic_prefix = "E"                # epic IDs: 1-4 uppercase letters, different from `prefix`
 id_digits = 3                    # digits an allocated ID is padded to: T001; 1 to 6
-file = "TODO.md"
+file = "TASKRAIL.md"             # optional; this is the default
 mainline = "main"
 artifacts = "docs"
 may_depend_on = []               # T tasks may depend only on T tasks
@@ -207,6 +210,14 @@ match = ["ui"]
 name = "PORT"
 values = ["5433", "5434"]
 ```
+
+An entry's `file` is optional and defaults to **`TASKRAIL.md`**. taskrail does not take `TODO.md`,
+the one name a consuming repository is most likely to be using for its own list already: `init`
+seeds `TASKRAIL.md` beside it and leaves it alone. A repository that wants `TODO.md`, or any other
+name, writes `file` and is unaffected by the default — and because the key was required before
+v0.4.0, no configuration that loads at all omits it, so nothing that exists today changes. Nothing
+renames an existing backlog file or offers to; a repository adopting its own `TODO.md` either
+writes `file = "TODO.md"` or converts it with `taskrail import TODO.md --write` (§7.3).
 
 An entry's `epic_prefix` (default `E`) and `id_digits` (default 3) shape that backlog's IDs: an
 epic ID is `epic_prefix` plus two or more digits, a task ID is `prefix` plus `id_digits` or more
@@ -961,9 +972,11 @@ are configured.
 **Dry run by default.** Without `--write` nothing is written: the converted file goes to stdout
 and a summary to stderr; `--json` returns the summary with the file in `content`. `--write`
 replaces the backlog's `file` with the result. The source may be that file (an in-place
-conversion, the usual case once `init` has left an existing `TODO.md` alone) or another file,
-which is left untouched. A target other than the source is replaced only when it is missing or
-holds nothing but headings and empty tables, like the file `init` seeds.
+conversion, for a repository whose config already names the list it keeps) or another file, which
+is left untouched — the usual case, since `init` seeds `TASKRAIL.md` and leaves a repository's own
+`TODO.md` where it is, so converting it writes into the seeded file. A target other than the source
+is replaced only when it is missing or holds nothing but headings and empty tables, like the file
+`init` seeds.
 
 **Task tables.** A table is a task table when, after mapping, its header has an `ID` and a `✓`
 column. Other tables stay as they are; one with an `ID` column but no status column is listed in

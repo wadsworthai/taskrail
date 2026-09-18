@@ -21,6 +21,18 @@ instead of `upgrade`. To install the CLI on your machine as well:
   what upgrading means with no CLI installed: `uvx --from "git+<repo>@<tag>" taskrail upgrade`
   moves the pin, where `self upgrade` only replaces a global CLI. Installing globally stays
   supported and documented, and no behaviour changed (T100).
+- **The backlog file defaults to `TASKRAIL.md`, and taskrail no longer takes `TODO.md`.**
+  `[[backlog]].file` was required and `init` seeded it as `TODO.md` — the one name a consuming
+  repository is most likely to be using for its own list, which `init` then silently adopted as the
+  backlog, leaving the repository failing `validate` out of the box. `file` is now optional and
+  defaults to `TASKRAIL.md`, `init` writes that name in the config it seeds and creates that file,
+  and a repository's own `TODO.md` is left where it is. **Nothing changes for an existing
+  repository**: `file` was required, so no config that loads at all omits it, and `init` and
+  `upgrade` never rewrite or re-seed a backlog file that exists. Nothing is renamed and nothing
+  offers to rename; to keep `TODO.md`, write `file = "TODO.md"`, or convert it with
+  `taskrail import TODO.md --write`. The one cost: a config written for this version that *omits*
+  `file` will not load on v0.3.0 or earlier, which exits 2 with `missing required key \`file\``
+  (T099).
 
 - **`validate` warns about a name in `.taskrail/config.toml` that taskrail does not define.** A key
   taskrail does not know was ignored in silence, so a typo did nothing and no configuration key

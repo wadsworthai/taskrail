@@ -12,7 +12,7 @@ import pytest
 from conftest import BASE_CONFIG
 
 from taskrail.cli import main
-from taskrail.install import DEFAULT_TODO
+from taskrail.install import DEFAULT_BACKLOG
 from taskrail.markdown import split_row
 
 
@@ -502,7 +502,7 @@ def test_an_in_place_import_run_twice_changes_nothing_the_second_time(repo, caps
 
 def test_importing_into_the_seeded_backlog_twice(git_repo, capsys):
     repo = git_repo
-    repo.write("TODO.md", DEFAULT_TODO)
+    repo.write("TODO.md", DEFAULT_BACKLOG)
     repo.write("BACKLOG.md", TWO_SECTIONS)
     code, result, err = import_json(repo, *MAP_FLAGS, "--write", capsys=capsys, file="BACKLOG.md")
     assert code == 0, err
@@ -521,7 +521,7 @@ def test_importing_into_the_seeded_backlog_twice(git_repo, capsys):
 
 
 def test_importing_the_output_again_is_a_no_op(repo, capsys):
-    repo.write("TODO.md", DEFAULT_TODO)
+    repo.write("TODO.md", DEFAULT_BACKLOG)
     repo.write("BACKLOG.md", PRESERVED)
     code, out, _ = run(repo.root, "import", str(repo.root / "BACKLOG.md"), capsys=capsys)
     assert code == 0

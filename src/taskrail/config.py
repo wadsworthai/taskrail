@@ -13,6 +13,7 @@ from taskrail.issues import ConfigError, Issue, warning
 from taskrail.predicates import ColumnPredicate, parse_column_predicate, resolve_column
 
 CONFIG_PATH = Path(".taskrail") / "config.toml"
+DEFAULT_BACKLOG_FILE = "TASKRAIL.md"  # [[backlog]].file when the key is absent (DESIGN.md §4, T099)
 PREFIX_RE = re.compile(r"^[A-Z]{1,4}$")
 NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 CORE_TASK_COLUMNS = ("✓", "ID", "Kind", "Depends On", "Title", "Pts", "Description")
@@ -23,7 +24,7 @@ COMMIT_POLICIES = ("stages", "on-done")  # [git].commit and a kind's top-level `
 class BacklogConfig:
     name: str
     prefix: str
-    file: str
+    file: str = DEFAULT_BACKLOG_FILE
     mainline: str = "main"
     artifacts: str = "docs"
     may_depend_on: tuple[str, ...] = ()
@@ -236,7 +237,7 @@ def load_config(root: Path) -> Config:
             continue
         name = expect(raw, "name", str, required=True)
         prefix = expect(raw, "prefix", str, required=True)
-        file = expect(raw, "file", str, required=True)
+        file = expect(raw, "file", str, DEFAULT_BACKLOG_FILE)
         if name is None or prefix is None or file is None:
             continue
         label = f"backlog `{name}`"
