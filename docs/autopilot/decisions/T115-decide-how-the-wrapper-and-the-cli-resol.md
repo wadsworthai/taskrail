@@ -22,3 +22,24 @@ the pin and to select the `local:` source project, and then never passes it to t
 wrapper's location decides *which taskrail runs* and the cwd decides *which repository it acts on*.
 That asymmetry, not a missing feature, is what the decision is about, and it should be put to the
 human in those terms.
+
+## escalated to the human — the decide gate
+
+`spike:decide` is in this repository's `escalate_gates`, so the gate's three questions went to the
+human with the lane's evidence and recommendations.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| Q1 | Should the wrapper pass its own root to the CLI, on all three `exec` paths? | **yes** · document the convention only · only for `local:` pins · a new environment variable | **yes** | The rule collapses to one sentence — the wrapper you invoke is the repository you act on — and it fixes both observed incidents: the claim that cost T106, T108 and T110 a release-and-re-claim, and the cross-checkout `upgrade` that silently reverted a lane's installed copy. The one behaviour change, a wrapper aimed at another repository without `--root`, is a caller who already gets the wrong pinned version today, and `--root` still wins. `taskrail checks` was measured and is untouched by the change, which removes the one objection that would have been decisive. |
+| Q2 | A new CLI warning when the wrapper's location and the cwd disagree? | **no new warning; extend the existing one to `done`** · no warning at all · warn when the cwd is outside the resolved root | **no new warning, and `done` warns as `claim` does** | With Q1 adopted the resolved root is the wrapper's, so a disagreement warning would fire only on correct use — a subdirectory, or a deliberate `--root`. `done` is the opposite case: it puts a `✅` into the wrong backlog in total silence, and `_freeze_branch` already computes what it would need. It is the command with the worst blast radius and the only one of the two that reaches the case no root rule can see. |
+| Q3 | `DESIGN.md` §9's wording | **the lane's proposed replacement, which follows from Q1** | **as proposed** | It states what the paragraph never did: the wrapper operates on its own checkout and passes that root to the CLI, so which wrapper is invoked decides which repository is acted on, and `--root` overrides it. |
+
+Answered by the human (the repository's maintainer), 2026-09-18.
+
+The lane's answer to the question the orchestrator put to it at the frame gate — what would make a
+documented convention stick where three lanes already missed it — is recorded in the artifact and is
+why the documentation-only option was declined: "run the wrapper from inside your worktree" is a
+**cwd** discipline, and a cwd is ambient state that resets between commands, never appears in the
+command an agent copies, and is invisible in a transcript. The three lanes were not missing a
+sentence; the thing they controlled, the wrapper path they typed, was already correct. Q1 is the
+change that makes that path the thing the rule is about.
