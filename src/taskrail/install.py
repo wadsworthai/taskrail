@@ -205,6 +205,13 @@ scope = ""                   # default Conventional Commits scope of pull reques
 [checks]                     # commands the task kinds run as quality gates
 # test = "make test"
 # lint = "make lint"
+
+# [autopilot]                # `taskrail autopilot`; DESIGN.md §12 has every key
+# enabled = true             # until this is set, `autopilot start` refuses; the skill installs anyway
+# max_lanes = 3              # lanes in use at once
+# read_first = []            # documents the orchestrator answers lane gates from first
+# governing = []             # a lane that touches one of these escalates to the human
+# escalate_gates = []        # "kind:stage" always taken to the human, e.g. "spike:decide"
 '''
 
 

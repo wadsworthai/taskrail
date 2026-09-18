@@ -29,9 +29,26 @@ Verified in this checkout rather than taken on report:
   `.taskrail/config.toml` only when it is missing. So whatever `default_config()` seeds reaches
   new installs only, never an existing repository.
 
+## Why a comment in the config, and why the README sentence with it
+
+`upgrade()` in `src/taskrail/install.py` calls `install()` and then `set_version_pin()`, which
+rewrites only the `version` line, and `installer.seed` writes `.taskrail/config.toml` only when it
+is missing. **So the seeded block reaches new installs only.** No repository that has already run
+`init` will ever receive it — including the one whose install produced this finding. Those
+repositories are served by the README sentence and by nothing else, which is why the
+documentation half of this change is not optional.
+
+The comment is what fixes the friction for a *new* repository, and the reason is where it sits.
+Documentation on the autopilot was not missing: README already names `[autopilot].enabled = true`,
+and DESIGN.md §4 and §12.9 list all sixteen keys plus the `group` and `resource` tables. The
+friction happened anyway. Documentation that exists but sits where the reader is not looking is
+not a fix; a consumer meeting this question is inside `.taskrail/config.toml`, so that is where
+the answer has to be.
+
 ## Change set
 
-Proposed, pending the decision below. Under the recommended option:
+Approved at the scope gate: option (B), with both sub-choices as recommended — a fully commented
+block, not a live `enabled = false`, and the five keys this repository's own config uses.
 
 - `src/taskrail/install.py` — in `default_config()`, append a fully commented `[autopilot]`
   block after `[checks]`, carrying the keys a repository enabling the autopilot actually sets
@@ -50,9 +67,10 @@ Proposed, pending the decision below. Under the recommended option:
 - `CHANGELOG.md` — one bullet under Unreleased, appended.
 - `docs/chores/README.md` — the index row for this document.
 
-## Decisions needed
+## Decisions — asked at the scope gate, answered
 
-**Question: which of these should T003 build?**
+**Question: which of these should T003 build?** **Answered: (B), with both sub-choices as
+recommended.** The reasoning below is the one the answer approved.
 
 The friction is real and reported by a consumer, so it is evidence, not speculation — but
 CLAUDE.md is explicit that an option with no caller today is not written, and that a documented
@@ -106,15 +124,63 @@ otherwise:
 
 ## Verification
 
-To be filled in at the implement stage with the real output of:
+What the seeded config now ends with, from a real `init` into a throwaway repository outside this
+checkout (`taskrail --root <scratch> init --integration claude`, which created
+`.taskrail/config.toml`, `TASKRAIL.md`, the wrapper, all six skills and `.gitignore`):
 
-- `uv run pytest -q` (the task's `test` check, through `taskrail checks T003 --stage implement`);
-  `lint` is not configured in this repository and will be reported as such.
-- An actual `taskrail init` into a scratch repository outside this checkout, showing the seeded
-  `.taskrail/config.toml` with the commented `[autopilot]` block, and `taskrail validate` in that
-  repository exiting 0 with no `config-unknown-key` warning — proving the comment stays inert.
-- `taskrail autopilot start` in that scratch repository still refusing with exit 5 while the
-  block is commented, which is the guarantee the change must not weaken.
+```toml
+[checks]                     # commands the task kinds run as quality gates
+# test = "make test"
+# lint = "make lint"
+
+# [autopilot]                # `taskrail autopilot`; DESIGN.md §12 has every key
+# enabled = true             # until this is set, `autopilot start` refuses; the skill installs anyway
+# max_lanes = 3              # lanes in use at once
+# read_first = []            # documents the orchestrator answers lane gates from first
+# governing = []             # a lane that touches one of these escalates to the human
+# escalate_gates = []        # "kind:stage" always taken to the human, e.g. "spike:decide"
+```
+
+In that repository, with the block commented — the meaning of the seeded config is unchanged:
+
+```
+$ taskrail --root <scratch> validate
+history: not checked (no commits)
+0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)          # exit 0, no config-unknown-key warning
+
+$ taskrail --root <scratch> autopilot start --count 1
+taskrail: the autopilot is disabled; set [autopilot].enabled = true in .taskrail/config.toml to allow `autopilot start`
+                                                             # exit 5 — the opt-in guarantee holds
+```
+
+And after uncommenting those six lines and nothing else, which is the whole of the opt-in:
+
+```
+$ taskrail --root <scratch> validate
+0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)          # exit 0; every seeded key is accepted
+
+$ taskrail --root <scratch> autopilot start --count 1
+20260918-1                                                   # exit 0 — a run starts
+```
+
+The suite, through the task's own checks (`lint` is not configured in this repository):
+
+```
+$ .taskrail/bin/taskrail checks T003 --stage implement
+…
+1248 passed in 153.66s (0:02:33)
+== lint: not configured
+passed          test
+not configured  lint
+T003 in …/.worktrees/T003-install-taskrail-in-a-first-consumer-pro: passed     # exit 0
+```
+
+The new test `test_init_seeds_the_autopilot_section_commented_out` in `tests/test_install.py`
+asserts both halves of that: the block is present and commented, `tomllib` finds no `autopilot`
+table in the seeded config, `validate` exits 0 and `autopilot start` exits 5 naming
+`[autopilot].enabled = true` — then, with the six lines uncommented, that `enabled` parses as
+`true` and a run starts. So the comment cannot drift into live configuration, and it cannot
+drift into a block that no longer parses.
 
 ## Notes
 
