@@ -38,3 +38,16 @@ worktree's regenerated wrapper and `grep -c "planned, T118"` returning **0** in 
 | 1 | The header comment in the generated wrapper, extended beyond the three `exec` lines | **keep it** · drop it | **keep it** | That file is what a consuming repository reads, and its comment described a behaviour that is now different. Leaving it would ship a wrapper whose own header contradicts what it does — the same class of inaccuracy as the `(*planned, T118*)` marker this task removes. It is inseparable from the change, not a widening of it. |
 | 2 | The second behavioural assertion, run from `cwd=home` | **accept** | **accept** | It is non-trivial in both worlds: before the fix the caller's `--root` beats the cwd, after it beats the injected root. An assertion that only meant something after the fix would not have proved the escape hatch survived. |
 | 3 | The structural test's four-`exec` shape | **accept** | **accept** | Asserting that exactly one line — the `TASKRAIL_BIN` one — carries no `--root "$root"` pins both halves: the three paths cannot drift, and the exclusion is on record as deliberate. Its docstring saying it is the weaker kind, with the behavioural test carrying the meaning, is what keeps it honest. |
+
+## close
+
+Reviewed: the whole diff against the merge base — `wrapper_script()`'s three `exec` lines and its
+header comment, two regression tests, `DESIGN.md` §9's removed marker, one changelog bullet, the
+regenerated wrapper and its digest, the artifact and its index row; the `impact` sweep; and
+`taskrail validate` (108 tasks, 0 errors).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The `impact` stage opened nothing | **accept** | **accept** | It was a real sweep of the places the injected root reaches, not an assertion that there are none: the generated workflow's `validate`, the pre-commit hook and the merge driver all invoke the wrapper by a relative path from the checkout's own root, so the injected root is the one they were resolving anyway. The lane also checked the skills for wording the fix would falsify and found none — the cwd discipline still matters for the case no root rule can catch, which is T119's. |
+| 2 | Pull request type and scope | **`fix` / `install`** | **`fix` / `install`** | The change is in `src/taskrail/install.py`'s wrapper template. |
+| 3 | The lane's note on resolving a `.taskrail/installed.json` digest conflict | **adopt it** | **adopt it** | A digest conflict is not a textual merge: take either side and re-run the rebased worktree's own wrapper with `upgrade`, which rewrites the wrapper and its recorded digest consistently. That is the known conflict class 3 procedure, stated precisely for this case. |
