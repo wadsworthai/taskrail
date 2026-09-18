@@ -22,3 +22,16 @@ deliberately, from the primary checkout, to hold the task while it waits for the
 escalated task that never claimed is otherwise re-dispatched by `next` on the following call. Its
 branch is recorded correctly; only its `worktree` field points at the primary checkout, because that
 is where the claim was made. Leave it alone.
+
+## implement gate
+
+Reviewed: commit `b80da2a` and the diff `bd821db..HEAD`, read by the orchestrator — a single hunk in
+`DESIGN.md`, two lines out and three in, with §4's configuration example, §3.1, §7 and §7.4
+byte-identical; T115's row in `TODO.md`; the lane's two reproductions re-run against the edited
+branch; `taskrail checks T110` (1221 passed) and `taskrail validate` (102 tasks, 0 errors).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Anything to decide at this gate? | **no** | **no** | The wording, the changelog, the row's line numbers and the follow-up were settled at the scope gate and applied as answered. |
+| 2 | T115's kind | **accept `spike`** · `bug` | **accept `spike`** | Its contract is a documented decision, not code under a regression test, which is what the answer to D4 asked for; `spike` is the kind T095 and T097 used for the same shape of question. Note for whoever runs it: this repository sets `escalate_gates = ["spike:decide"]`, so its decision gate reaches the human by configuration. |
+| 3 | Stop again at the `docs` stage, which changes nothing? | **fold it into the close** · stop twice | **fold it into the close** | The change *is* the documentation, and the scope-gate grep already showed no other copy of the stale claim anywhere in the repository. A gate whose only content is "nothing to do" is a stop for its own sake. |
