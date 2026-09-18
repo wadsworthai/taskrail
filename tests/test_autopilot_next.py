@@ -301,20 +301,22 @@ def test_a_dispatch_holds_its_lane_until_it_is_claimed_or_expires(pilot, capsys)
 # 5
 
 
-def test_gate_and_escalated_occupy_a_lane_and_failed_does_not(pilot, capsys):
+def test_a_gate_occupies_a_lane_while_escalated_and_failed_do_not(pilot, capsys):
     configure(pilot, "max_lanes = 2\n")
     run_id = start(pilot.root, capsys, count=4)
     pilot.lane("T001", run_id)
     pilot.lane("T003", run_id)
     data(pilot.root, "autopilot", "lane", "T001", "--run", run_id, "--state", "gate", capsys=capsys)
     data(pilot.root, "autopilot", "lane", "T003", "--run", run_id, "--state", "escalated", "--reason", "governing", capsys=capsys)
-    assert ids(dispatch(pilot.root, capsys, run_id)) == []
-
-    data(pilot.root, "autopilot", "lane", "T003", "--run", run_id, "--state", "failed", "--reason", "hangs", capsys=capsys)
     result = dispatch(pilot.root, capsys, run_id)
-    assert ids(result) == ["T002"]
+    assert ids(result) == ["T002"]  # the escalated lane waits for a human and holds no lane (T105)
+    assert [lane["id"] for lane in result["lanes"]["occupied"]] == ["T001", "T002"]
     assert "T003" not in skipped(result) and "T007" not in skipped(result)  # claimed; blocked
 
+    again = dispatch(pilot.root, capsys, run_id)  # a lane at a gate keeps its place
+    assert ids(again) == [] and again["limited_by"] == "max_lanes"
+
+    data(pilot.root, "autopilot", "lane", "T003", "--run", run_id, "--state", "failed", "--reason", "hangs", capsys=capsys)
     configure(pilot, "max_lanes = 4\n")
     assert main(["--root", str(pilot.root), "release", "T003", "--owner", "lane"]) == 0
     result = dispatch(pilot.root, capsys, run_id)

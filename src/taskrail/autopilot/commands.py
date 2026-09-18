@@ -257,6 +257,13 @@ def cmd_lane(args) -> int:
         return _fail(f"--state {state} needs --reason", EXIT_USAGE)
     if handed_off and task.id not in stack.done_on_branch(project) and task.id not in stack.discarded_on_branch(project):
         return _fail(f"{task.id} is neither done nor discarded on its branch (done-branch or discarded-branch), so it cannot be handed off", EXIT_REFUSED)
+    if state == runs.PARKED:  # only a lane that exists can wait for one (T105)
+        found = task_state(task, project, stored, _local_claims(project).get(task.id))
+        if found not in runs.PARKABLE:
+            return _fail(
+                f"{task.id} is {found}, so it holds no lane to park; --state parked needs a task that is {', '.join(runs.PARKABLE[:-1])} or {runs.PARKABLE[-1]}",
+                EXIT_REFUSED,
+            )
     current = stored["tasks"].get(task.id, {}).get("state", "running")
     if args.reason is not None and (state or current) == "running":
         return _fail("a running lane has no reason; pass --state gate, escalated or failed with --reason", EXIT_USAGE)
@@ -444,6 +451,8 @@ def _status_text(report: dict) -> str:
                 lines.append(f"  {row['id']:<6} {row['problem']}")
                 continue
             parts = [f"  {row['id']:<6} {row['state']:<11}"]
+            if not row["holds_lane"] and row["claim"]:
+                parts.append("no lane")  # a workspace kept while the task waits (T105)
             if row["handle"]:
                 parts.append(f"handle {row['handle']}")
             if row["group"]:

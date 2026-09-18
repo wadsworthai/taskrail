@@ -12,6 +12,21 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **A task waiting for the human no longer holds an autopilot lane, and the answer puts it back in
+  the queue.** A lane stopped at an escalated gate kept its lane until the human replied, so a run
+  with `max_lanes = 3` and two escalations had one lane working while `autopilot next` reported
+  `limited_by: max_lanes`. An `escalated` task now keeps its claim, branch and worktree but frees
+  its lane and its resource values, exactly as a `failed` one has always done, so `next` may start
+  another task in its place. When the human answers, the orchestrator records the new lane state
+  `taskrail autopilot lane <ID> --run <R> --state parked`, and the next `next --run <R>` sends the
+  task back before any task that has never started — oldest answer first, subject to `max_lanes`,
+  the group limits and the resources, but not to the run's count, which already held it — with
+  `restart: true` in its entry so the lane resumes on its own branch. An answer that arrives while
+  every lane is busy waits: `next` lists it in `parked` with why, and `autopilot status` reports
+  every task's `holds_lane`, false for a task that keeps its workspace but no lane. Nothing caps
+  those parked workspaces, so a run may hold `max_lanes` working lanes plus every task waiting for
+  a human (T105).
+
 - **uvx is the documented default, and nothing has to be installed on the machine.** The
   no-global-install route already worked — the committed wrapper runs the pinned version through
   `uvx`, and the generated GitHub workflow installs only `uv` — but the documentation taught

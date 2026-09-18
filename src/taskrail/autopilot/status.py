@@ -16,9 +16,23 @@ from taskrail.query import base_dict, blocked_by
 from taskrail.review import REOPENS, resolve_remote
 from taskrail.templates import render
 
-STATES = ("pending", "dispatched", "running", "gate", "escalated", "failed", "done-branch", "handed-off", "done-merged", "discarded-branch", "discarded")
-RECORDED = ("failed", "escalated", "gate")  # lane states only the run file knows
-WITH_BRANCH = ("running", "gate", "escalated", "failed", "done-branch", "handed-off", "discarded-branch")  # states whose files count
+STATES = (
+    "pending",
+    "dispatched",
+    "running",
+    "gate",
+    "escalated",
+    "parked",
+    "failed",
+    "done-branch",
+    "handed-off",
+    "done-merged",
+    "discarded-branch",
+    "discarded",
+)
+OCCUPYING = ("running", "gate", "dispatched")  # states that use a lane and hold resources; `escalated` waits for a human (T105)
+RECORDED = ("failed", "escalated", "parked", "gate")  # lane states only the run file knows
+WITH_BRANCH = ("running", "gate", "escalated", "parked", "failed", "done-branch", "handed-off", "discarded-branch")  # states whose files count
 WAITING = ("done-branch", "discarded-branch")  # a branch that waits for hand-off (T053, T065)
 MERGED_KEY = "autopilot_done_on_mainline"
 MAINLINE_KEY = "autopilot_closed_on_mainline"
@@ -265,6 +279,7 @@ def _lane_details(task: Task, project: Project, run: dict, claim: Claim | None, 
     silent = state == "running" and idle is not None and idle > config.autopilot.silent_minutes
 
     return {
+        "holds_lane": state in OCCUPYING,  # false for a task that keeps its workspace but no lane (T105)
         "handle": lane.get("handle"),
         "group": lane.get("group"),
         "reason": lane.get("reason"),

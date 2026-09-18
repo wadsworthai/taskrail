@@ -20,8 +20,10 @@ from taskrail import gitutil, ids
 from taskrail.config import Config
 
 RUN_ID_RE = re.compile(r"^(\d{8})-([1-9]\d*)$")
-LANE_STATES = ("running", "gate", "escalated", "failed")  # what `autopilot lane --state` records
+LANE_STATES = ("running", "gate", "escalated", "parked", "failed")  # what `autopilot lane --state` records
 REASON_REQUIRED = ("escalated", "failed")
+PARKED = "parked"  # the human answered: the task keeps its workspace and waits for a lane (T105)
+PARKABLE = ("running", "gate", "escalated", "failed", "parked")  # states a lane can be parked from
 HANDED_OFF = "handed-off"
 DISPATCHED = "dispatched"  # recorded by `autopilot next` until the lane claims or the dispatch expires
 GATE_STATES = ("gate", "escalated")  # states `lane --gate` records a stage for
