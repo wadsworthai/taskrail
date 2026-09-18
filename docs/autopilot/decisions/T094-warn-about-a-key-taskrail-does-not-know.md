@@ -49,6 +49,21 @@ on does fail when the declaration drifts from the parser.
 Instructions given with the answers: run `verify` as planned — exercise the feature in a fresh
 scratch repository rather than this one's config — and close.
 
+## rebase after T096 merged
+
+T096 was squash-merged into `main` as df64fe6. `review T094 --json` reported `rebase.needed: true`,
+so the orchestrator rebased at hand-off, while the lane was stopped at the `close` gate:
+`git rebase origin/main`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | `docs/autopilot/decisions/README.md`: a row appended by each side | keep both · stop | **keep both, one entry per task** | Known class 2, appended index rows. The only conflict of the rebase. |
+| 2 | `DESIGN.md`, which both tasks edited | resolve · escalate | **no conflict arose** | The placement constraint set at the `plan` gate did its job: T096 wrote inside §4's example block and in §12.10, T094 after the block and in §7's `validate` row, so git merged them without overlap. `§12.10 on batch` is still present on the rebased branch, and the one removed `DESIGN.md` line is T094's own rewrite of the `validate` row. |
+
+After the rebase: six commits ahead of `origin/main`, `git diff --check` clean, `taskrail checks
+T094` passed, `taskrail validate` reports 88 tasks and 0 errors — and this repository's own config
+still produces no warning, which is the live drift check the feature depends on.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, three lanes: T094, T095, T096.
