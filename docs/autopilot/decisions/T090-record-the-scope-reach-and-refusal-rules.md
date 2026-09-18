@@ -31,6 +31,24 @@ Noted for the `implement` gate, needing no change to the text: under a stage who
 principle is a decision, so it still stops as soon as it appears. The wording "at the task's first
 gate" therefore holds under every gate value this repository uses.
 
+## implement gate
+
+Reviewed: the `CLAUDE.md` diff read by commit range in the lane's worktree, not from the report —
+one hunk, 9 insertions and 3 deletions, replacing the section's opening paragraph and stopping
+before the `KISS` bullet, with the five bullets untouched; `grep -c "plan gate" CLAUDE.md` returns
+0; and `taskrail checks T090 --stage implement` re-run by the orchestrator in that worktree: `test`
+passed with 1183 tests in 136.57s, `lint` not configured.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the applied text what was approved? | accept · amend | **accepted; applied verbatim** | The diff is the text approved at the `scope` gate, with nothing added and nothing else touched. |
+| 2 | Does this change need a `CHANGELOG.md` bullet? | yes · no | **no** | `CHANGELOG.md` records user-facing changes, and its users are the repositories that install taskrail. `CLAUDE.md` is this repository's own instruction file: it ships to nobody and no consumer's behaviour changes. T091, whose line does ship in the core skill, gets the entry instead. |
+| 3 | What does the suite prove here? | that the rules work · that nothing broke | **that nothing broke** | No test reads `CLAUDE.md`. The artifact says exactly that rather than claiming the checks verify the rules, which is the right way to record it. |
+
+The lane's note about `decisions` gates went into the artifact's rationale and not into `CLAUDE.md`,
+as instructed: an objection on a principle is a decision in §5.6's sense, so it stops mid-stage
+under a `"decisions"` gate, and the sentence needs no clause about gate values.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T090 and T091 run in parallel and adopt T087's verdict in separate areas.
