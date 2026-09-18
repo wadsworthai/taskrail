@@ -45,3 +45,17 @@ tests/test_install_without_path.py -q` re-run by the orchestrator in the lane's 
 Given with the answers: run the probe on the existing test without committing the mutation; write
 the follow-up task's description from what the probe shows, naming the measurement; if the probe
 shows the existing test is sound, open no task and record that instead.
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — the new test, the artifact, two index rows, T113's
+row and T106's `✅`, with nothing under `src/` and `tests/test_install.py` untouched, working tree
+clean; `taskrail checks T106` re-run by the orchestrator (`1222 passed in 169.56s`, one more than
+`origin/main`'s 1221, `lint` not configured); `taskrail validate` (102 tasks, 0 errors); and the
+probe that produced T113, whose measured output the row carries.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Does the `docs` stage's conclusion of no documentation change hold? | accept · ask for a `CHANGELOG.md` bullet or a `README.md` line | **accept** | The test pins behaviour `README.md` *Install* and `DESIGN.md` §9 already describe, so neither says anything new, and *Unreleased* records user-facing behaviour changes, which this is not. The `uvx` transport's exclusion is stated in the test's own docstring, where the next reader of the test will be. |
+| 2 | T113's row, opened from the probe | accept as written · reword · do not open | **accept as written** | The probe settled the premise the row rests on: the copy with a broken pin passed, and two sufficient mechanisms were measured. The second was not in anyone's theory — with `VIRTUAL_ENV` unset, `uv run --project` falls back to a globally installed `taskrail`, running `0.3.0` against a `0.4.0.dev0` checkout — which is a stronger reason for the task than the one it was opened to check. |
+| 3 | Pull request type and scope | `test` / `install`, as the lane recommends · `chore` / `install` | **`test` / `install`** | The only substantive change in the pull request is a test, and CLAUDE.md asks for the type of the most significant change with the affected area as scope. |
