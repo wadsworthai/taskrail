@@ -38,3 +38,13 @@ nothing.
 |---|---|---|---|---|
 | 1 | Anything to decide at this gate? | **no** | **no** | The wording was settled at the scope gate and applied word for word, with the approved order kept: mechanism first, T033 demoted to a consequence, portability clause last. |
 | 2 | Stop again at `docs`? | **fold it into the close** · stop twice | **fold it into the close** | The change is the documentation, the restart procedure it describes is unchanged, and no follow-up is open. |
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — `DESIGN.md` in one hunk at §12.3, T112's `✅`, the
+artifact and two index rows, and nothing else; the lane's `taskrail checks T112 --stage implement`
+(1221 passed), `taskrail validate` (101 tasks, 0 errors) and the empty `grep "not verified"`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | **`docs` / `repo`**, as the lane recommends · the generated scope-less `chore:` | **`docs` / `repo`** | The change is documentation only, in `DESIGN.md`, and it matches how `main` titles its recent `DESIGN.md`-only tasks (T102, T098). CLAUDE.md asks for the type of the most significant change with the affected area as scope. |
