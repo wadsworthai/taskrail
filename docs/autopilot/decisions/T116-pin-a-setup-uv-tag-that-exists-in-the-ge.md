@@ -1,0 +1,26 @@
+# T116 — autopilot decisions
+
+Decisions the orchestrator took on the human's behalf while this task ran in an autopilot lane.
+Each is recorded before it is given to the lane.
+
+## diagnose gate
+
+Reviewed: the artifact `docs/bugs/T116-pin-a-setup-uv-tag-that-exists-in-the-ge.md` and its commit
+`de8e8b6` (artifact and index row alone); the generated workflow, produced from this branch's source
+into a scratch repository rather than quoted from `install.py`; the tag lists, which the lane
+queried over the network and which the orchestrator had independently queried before the row was
+written — `astral-sh/setup-uv` has `v10.0.0`, `v10.0.1`, `v10.1.0` and no bare `v10`, and its bare
+majors stop at `v7`, while `actions/checkout` publishes `v7` pointing at `v7.0.1`; and the blast
+radius, `git tag --contains` showing the line unchanged since `30885c3` and shipped in `v0.1.0`,
+`v0.2.0` and `v0.3.0`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| Q1 | Which tag to pin, and does `actions/checkout@v7` stay floating? | **pin both exactly: `actions/checkout@v7.0.1` and `astral-sh/setup-uv@v10.1.0`** · fix setup-uv only, as the row's wording says · SHA pins · `v10.0.1` | **pin both exactly — against the row's wording, deliberately** | The row says to keep `checkout@v7` floating, and the lane was right to ask rather than follow it. A mixed rule needs a per-action allowlist of who publishes a floating major, and that assumption is exactly what caused this bug; a uniform rule — every `uses:` names an exact `vX.Y.Z` — is the only one a network-free test can enforce, which is what makes Q2 possible. It also matches the pair T108 just merged into this repository's own `ci.yml`, so the generated workflow and ours agree. SHA pins are a different convention and out of proportion here. |
+| Q2 | Can a test catch this class offline? | **assert every `uses:` names an exact `vX.Y.Z`** · assert the two literal strings · compare against this repository's `ci.yml` · no test | **the shape assertion** | No offline test can prove a tag exists, and one that asks GitHub is unacceptable now that T108 runs the suite on every pull request. Forbidding the shape that caused the bug is the honest thing a test can do, and the docstring must say what it does not prove. Comparing against `ci.yml` couples the packaged template to a repository-local file, which is cleverer than KISS wants. |
+| Q3 | `DESIGN.md` §9 and `CHANGELOG.md` | **both** · changelog only · neither | **both** | The bug is user-visible and shipped in three releases, so the changelog owes a reader what failed and how an installed repository picks the fix up — `taskrail upgrade` rewrites an untouched managed workflow and reports a locally edited one as skipped. §9's *Extras* bullet already explains `fetch-depth: 0`; one clause there records the convention the test enforces, so a later edit does not undo it by reflex. |
+
+Given with the answers: the existing `test_github_workflow_checks_out_full_history` asserts the
+literal `actions/checkout@v7` line and must be updated with the pin — it is in this lane's half of
+`tests/test_install.py`, not T113's. Stop before touching any shared helper or import in that file,
+as offered.
