@@ -28,6 +28,19 @@ Instructions given with the answers: edit the description cell only, through the
 under *Verification* the real output of `show T088 --json`, the one-row `git diff` of `TODO.md`,
 `taskrail validate` and `taskrail checks T092`.
 
+## implement gate
+
+Reviewed: the `TODO.md` diff read by commit range in the lane's worktree — one line, one cell, with
+the status, ID, kind, points, dependency and title byte-identical on both sides and no other row
+touched; the new text against what was approved at `scope`, which it matches verbatim; and
+`taskrail checks T092 --stage implement` and `taskrail validate` re-run by the orchestrator in that
+worktree (`test` passed, `lint` not configured, 87 tasks and 0 errors).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the applied edit what was approved? | accept · amend | **accepted** | One `edit --force` on the description cell, through the CLI, with the approved text verbatim and the method clause intact. `--force` changed no status: `show T088` still reports `done`. |
+| 2 | Anything to add at the `docs` stage? | nothing · more | **nothing** | The change is one backlog cell and its explanation is the artifact, already committed. `DESIGN.md`'s configuration documentation defects belong to T098, which T088 opened for them. |
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, extended by the human to T093-T098.
