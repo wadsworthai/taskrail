@@ -34,6 +34,19 @@ recorded `branch: main` and warned; the lane released it and re-claimed with `--
 leaving the other lanes' claims untouched. That is the CLI behaving as designed — the wrapper
 resolves the root from the working directory — and the lane's handling was correct.
 
+## implement gate
+
+Reviewed: the diff read by commit range in the lane's worktree — three changed lines, exactly the
+approved change set (§4's comment gains "; §12.10 on batch", §12.10's entry records T033's result
+while keeping the condition live, and one comment line sits above `HANDOFF_MODES`), plus the
+artifact and its index row; and `taskrail checks T096 --stage implement` re-run by the orchestrator
+in that worktree, which passed.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the applied change what was approved? | accept · amend | **accepted** | Three lines, both `DESIGN.md` edits inside the two agreed spots and away from where T094 may write, and the parser exercised to show `batch` is still refused — which is what the new text claims. |
+| 2 | The `docs` stage | run it as a no-op · stop at its gate | **run it as a no-op, do not stop** | Nothing else in the repository states the key's value range: the shipped skills mention only `handoff.next`, `handoff.queue` and `handoff.in_review`, and no config or example writes the key. |
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1, three lanes: T094, T095, T096.
