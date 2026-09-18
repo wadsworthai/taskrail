@@ -9,3 +9,4 @@
 | T089 | Decide whether to split DESIGN.md by topic for what the orchestrator reads first | [T089-decide-whether-to-split-design-md-by-top.md](T089-decide-whether-to-split-design-md-by-top.md) |
 | T088 | Measure the CLI and configuration surface against YAGNI and report what has no consumer | [T088-measure-the-cli-and-configuration-surfac.md](T088-measure-the-cli-and-configuration-surfac.md) |
 | T095 | Ask whether the options no visible repository sets or documents are still wanted | [T095-ask-whether-the-options-no-visible-repos.md](T095-ask-whether-the-options-no-visible-repos.md) |
+| T097 | Record whether any repository enables the remote half of claims and branch records | [T097-record-whether-any-repository-enables-th.md](T097-record-whether-any-repository-enables-th.md) |
