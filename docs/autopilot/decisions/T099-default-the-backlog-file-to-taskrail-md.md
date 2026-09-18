@@ -31,6 +31,21 @@ each observed failing; name the forward-compatibility cost in the `CHANGELOG.md`
 written for the new CLI that omits `file` will not load on v0.3.0 or earlier; and rename or migrate
 nothing, this repository's own `TODO.md` included.
 
+## implement gate
+
+Reviewed: the change in `config.py` and `install.py` read by commit range — one constant, a
+dataclass default, `expect(..., DEFAULT_BACKLOG_FILE)` in place of `required=True`, and the seed
+with its renamed constant and heading; the red-first evidence, where eight of nine tests failed for
+their own assertions and the ninth, the regression guard on behaviour that must not move, passed
+before and after; and `taskrail checks T099` re-run by the orchestrator, which passed.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the implementation what was approved? | accept · amend | **accepted** | Both halves from one constant, `init` still writing the key, `TABLE_KEYS` untouched so T094 keeps warning about a misspelling of `file`, and `seed()` itself unchanged — which is what makes the "nothing existing changes" criteria hold. |
+| 2 | The eleven existing tests it had to update | accept · question them | **accepted** | Each was a test that goes through `init` and then assumes the seeded name, including `.gitattributes`' `/TODO.md merge=taskrail`. The ones deliberately left alone — `conftest.py`'s `BASE_CONFIG` and everything built on it, which writes `file = "TODO.md"` itself — are a second, larger proof that a repository naming its file is untouched. |
+| 3 | The test the lane corrected rather than the code | accept · investigate | **accepted** | Its first version asserted the whole repository was byte-identical after `upgrade`, which is false: `upgrade` legitimately rewrites the version pin. Narrowing it to the backlog file and the `file = "TODO.md"` line pins the property that matters. Correcting a test that was wrong, and saying so, is better than loosening one that was right. |
+| 4 | The README swaps, deferred at the `plan` gate | accept · re-check | **accepted** | The lane read T100's merged text before editing, found both sentences survived word for word, left the two occurrences that name the *source* of an import, and recorded the intended final text in the artifact in case the rebase conflicts on the neighbouring line. That is the deferral doing exactly what it was for. |
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T101 edits one line of `cli.py`; T102 edits `DESIGN.md` §6.2; T100 is handed off and
