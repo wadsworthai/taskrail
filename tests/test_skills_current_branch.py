@@ -1,5 +1,7 @@
 """T084: the skills follow the workflow `show` reports — the current branch, on-done commits,
-`decisions` gates and a report-only close — in the sources and in the copies `init` installs."""
+`decisions` gates and a report-only close — in the sources and in the copies `init` installs.
+
+T091 adds the pointer to the repository's own instructions, checked in the same two places."""
 
 import re
 
@@ -97,6 +99,14 @@ def test_a_claim_warning_on_the_current_branch_means_a_detached_head(skill_copy)
 
 
 # --- 2. Stages and commits -------------------------------------------------------------------------
+
+
+def test_the_stages_step_reads_the_repositorys_instructions_first(skill_copy):
+    """T091: every kind's executor reads the repository's instructions before the first stage."""
+    text = step(skill_copy("taskrail/SKILL.md"), "5. **Stages.**", "6. **Scope.**")  # `step` lower-cases
+    assert "before the first stage, read the repository's own agent instruction files" in text
+    for word in ("claude", "opencode", "agents.md", "kiss", "yagni"):  # no agent, no file, no principle
+        assert word not in text, word
 
 
 def test_stages_commit_by_the_effective_policy(skill_copy):

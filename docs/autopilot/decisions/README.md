@@ -72,3 +72,4 @@
 | T089 | Decide whether to split DESIGN.md by topic for what the orchestrator reads first | [T089-decide-whether-to-split-design-md-by-top.md](T089-decide-whether-to-split-design-md-by-top.md) |
 | T088 | Measure the CLI and configuration surface against YAGNI and report what has no consumer | [T088-measure-the-cli-and-configuration-surfac.md](T088-measure-the-cli-and-configuration-surfac.md) |
 | T090 | Record the scope, reach and refusal rules for the design principles in CLAUDE.md | [T090-record-the-scope-reach-and-refusal-rules.md](T090-record-the-scope-reach-and-refusal-rules.md) |
+| T091 | Tell every executor to read the repository's agent instruction files before it plans | [T091-tell-every-executor-to-read-the-reposito.md](T091-tell-every-executor-to-read-the-reposito.md) |

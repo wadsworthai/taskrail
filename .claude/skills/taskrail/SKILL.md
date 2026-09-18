@@ -93,7 +93,9 @@ of `taskrail show`) supplies what happens inside each stage.
    branch: switch to that branch, or name it with `taskrail branch`, before any edit. Under
    `"current"`, where `taskrail branch` exits 5, a `warning` means a detached `HEAD`: check out a
    branch before any edit.
-5. **Stages.** Take `kind_descriptor.stages` in order. Skip a stage whose `applies` is false: its
+5. **Stages.** Before the first stage, read the repository's own agent instruction files, if it
+   has any, and follow what they ask of the work you are about to do. Take
+   `kind_descriptor.stages` in order. Skip a stage whose `applies` is false: its
    column does not match this task. When `applies` and `judgement` are both true, decide whether
    the stage is relevant to this task; to skip it, record the stage and your reason in the
    artifact and in the next gate report — and if its gate is `always`, stop and ask before
