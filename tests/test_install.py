@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -49,6 +50,24 @@ def test_init_creates_a_valid_project(empty_repo, capsys):
     assert run(empty_repo, "validate", capsys=capsys)[0] == 0
     manifest = json.loads((empty_repo / ".taskrail/installed.json").read_text())
     assert manifest["integrations"] == ["claude"]
+
+
+# `init` configures no autopilot: the seeded block is a comment a repository uncomments itself.
+def test_init_seeds_the_autopilot_section_commented_out(empty_repo, capsys):
+    init(empty_repo, capsys=capsys)
+    config = (empty_repo / ".taskrail/config.toml").read_text()
+    for key in ["[autopilot]", "enabled = true", "max_lanes", "read_first", "governing", "escalate_gates"]:
+        assert f"# {key}" in config
+    assert tomllib.loads(config).get("autopilot") is None
+    assert run(empty_repo, "validate", capsys=capsys)[0] == 0
+    code, _, err = run(empty_repo, "autopilot", "start", "--count", "1", capsys=capsys)
+    assert code == 5 and "[autopilot].enabled = true" in err
+
+    uncommented = re.sub(r"(?m)^# (\[autopilot\]|enabled|max_lanes|read_first|governing|escalate_gates)", r"\1", config)
+    (empty_repo / ".taskrail/config.toml").write_text(uncommented)
+    assert tomllib.loads(uncommented)["autopilot"]["enabled"] is True
+    assert run(empty_repo, "validate", capsys=capsys)[0] == 0
+    assert run(empty_repo, "autopilot", "start", "--count", "1", capsys=capsys)[0] == 0
 
 
 def test_changing_skills_asks_for_an_agent_restart(empty_repo, capsys):

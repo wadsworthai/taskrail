@@ -98,3 +98,4 @@
 | T116 | Pin a setup-uv tag that exists in the generated GitHub workflow | [T116-pin-a-setup-uv-tag-that-exists-in-the-ge.md](T116-pin-a-setup-uv-tag-that-exists-in-the-ge.md) |
 | T113 | Fix the vacuous local-pin wrapper test in test_install.py | [T113-fix-the-vacuous-local-pin-wrapper-test-i.md](T113-fix-the-vacuous-local-pin-wrapper-test-i.md) |
 | T115 | Decide how the wrapper and the CLI resolve the repository root when the cwd is another checkout | [T115-decide-how-the-wrapper-and-the-cli-resol.md](T115-decide-how-the-wrapper-and-the-cli-resol.md) |
+| T003 | Install taskrail in a first consumer project | [T003-install-taskrail-in-a-first-consumer-pro.md](T003-install-taskrail-in-a-first-consumer-pro.md) |
