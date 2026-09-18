@@ -1,9 +1,11 @@
 """`autopilot next`: the tasks to dispatch now, and the resources each lane gets (DESIGN.md §12.1, §12.7).
 
 Lanes, groups and resource values are shared by every open run in the clone; a closed run is ignored.
-A lane is in use while its task is `running`, `gate`, `escalated` or `dispatched`; a lane that
-stopped using one gives its resource values back the next time `next` runs. Claiming stays the
-lane's job.
+A lane is in use while its task is `running`, `gate` or `dispatched`; a lane that stopped using one
+gives its resource values back the next time `next` runs. A task `escalated` or `parked` keeps its
+claim, branch and worktree but no lane, and a `parked` task — one whose escalation the human has
+answered — is redispatched before any task that has never started (T105). Claiming stays the lane's
+job.
 """
 
 from __future__ import annotations
@@ -14,15 +16,15 @@ from datetime import datetime, timezone
 from taskrail import claims as claims_module
 from taskrail import branchrows, prior, stack
 from taskrail.autopilot import runs
-from taskrail.autopilot.status import discarded_on_mainline, done_on_mainline, task_state
+from taskrail.autopilot.status import OCCUPYING, discarded_on_mainline, done_on_mainline, task_state
 from taskrail.claims import Claim
 from taskrail.config import GroupConfig
 from taskrail.model import Project, Task
 from taskrail.query import base_dict, blocked_by, eligible, state, task_dict
 from taskrail.templates import render
 
-OCCUPYING = ("running", "gate", "escalated", "dispatched")  # states that use a lane and hold resources
-COUNTED = ("dispatched", "running", "gate", "escalated", "failed", "done-branch", "handed-off", "done-merged")  # toward a run's count
+# toward a run's count; `escalated`, `parked` and `failed` wait for a human and keep their place (T105)
+COUNTED = ("dispatched", "running", "gate", "escalated", "parked", "failed", "done-branch", "handed-off", "done-merged")
 ENVIRONMENT_PREFIX = "TASKRAIL_RESOURCE_"
 
 
@@ -147,9 +149,58 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
             by_id = {task.id: task for task in candidates}
             candidates = [by_id[task_id] for task_id in named if task_id in by_id]
 
-        chosen: list[tuple[Task, dict, list[str]]] = []
+        chosen: list[tuple[Task, dict, list[str], bool]] = []
         skipped: list[dict] = []
         limited_by = None
+
+        def give_a_lane(task: Task, groups: list[str], *, restart: bool) -> None:
+            """Put a task in a lane: the first free value of every resource, its place in each group, the run's record."""
+            allocated = {}
+            for resource in autopilot.resources:
+                value = next(v for v in resource.values if v not in held[resource.name])
+                held[resource.name][value] = task.id
+                allocated[resource.name] = value
+            occupied[task.id] = {"id": task.id, "run": run_id, "state": "dispatched", "groups": groups}
+            for name in groups:
+                members[name].append(task.id)
+            if run is not None:
+                if restart:  # a parked lane is on its way back: it leaves its gate and its answer behind (T105)
+                    runs.record_lane(run, task.id, state="running", now=now)
+                lane = runs.lane(run, task.id)
+                lane[runs.DISPATCHED] = runs.now_iso(now)
+                lane["resources"] = allocated
+            chosen.append((task, allocated, groups, restart))
+
+        # Parked lanes first: the human has answered, the workspace is there, and the run's count already holds them (T105).
+        parked: list[dict] = []
+        answered = sorted(
+            ((every_run[record_id]["tasks"].get(task_id) or {}).get("updated") or "", task_id, record_id)
+            for (record_id, task_id), found in states.items()
+            if found == runs.PARKED
+        )
+        for _, task_id, record_id in answered:
+            task = project.task(task_id)
+            lane_record = every_run[record_id]["tasks"].get(task_id) or {}
+            groups = _groups_of(task, recorded_group(task_id, record_id), autopilot.groups)
+            full = next((name for name in groups if len(members[name]) >= limits[name]), None)
+            exhausted = next((r.name for r in autopilot.resources if all(v in held[r.name] for v in r.values)), None)
+            if run is None or record_id != run_id:
+                why = f"needs --run {record_id}"
+            elif autopilot.max_lanes - len(occupied) <= 0:
+                why = "no free lane"
+                limited_by = limited_by or "max_lanes"
+            elif full:
+                why = f"group {full} is full"
+            elif exhausted:
+                why = f"resource:{exhausted}"
+            else:
+                why = None
+            parked.append(
+                {"id": task_id, "run": record_id, "gate": lane_record.get("gate"), "reason": lane_record.get("reason"), "dispatched": why is None, "why": why}
+            )
+            if why is None:
+                give_a_lane(task, groups, restart=True)
+
         for task in candidates:
             if kinds is not None and task.kind not in kinds:
                 if named is not None:
@@ -170,6 +221,8 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
             failed_in = [record["id"] for record in ([run] if run else every_run.values()) if (record["tasks"].get(task.id) or {}).get("state") == "failed"]
             # An unclaimed candidate may still hold a lane: dispatched, recorded at a gate, or closing (T054).
             occupying_in = [(record_id, state) for (record_id, task_id), state in states.items() if task_id == task.id and state in OCCUPYING]
+            if not occupying_in and task.id in occupied:  # a parked lane this call just sent back, whose claim was released (T105)
+                occupying_in = [(occupied[task.id]["run"], occupied[task.id]["state"])]
             groups = _groups_of(task, recorded_group(task.id, run_id), autopilot.groups)
             full = next((name for name in groups if len(members[name]) >= limits[name]), None)
             if task.id in merged or task.id in discarded:
@@ -192,21 +245,9 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
                 skipped.append({"id": task.id, "reason": reason})
                 continue
 
-            allocated = {}
-            for resource in autopilot.resources:
-                value = next(v for v in resource.values if v not in held[resource.name])
-                held[resource.name][value] = task.id
-                allocated[resource.name] = value
-            occupied[task.id] = {"id": task.id, "run": run_id, "state": "dispatched", "groups": groups}
-            for name in groups:
-                members[name].append(task.id)
+            give_a_lane(task, groups, restart=False)
             if remaining is not None:
                 remaining -= 1
-            if run is not None:
-                lane = runs.lane(run, task.id)
-                lane[runs.DISPATCHED] = runs.now_iso(now)
-                lane["resources"] = allocated
-            chosen.append((task, allocated, groups))
 
         if named is not None:
             listed = {task.id for task in candidates} | {entry["id"] for entry in skipped}
@@ -217,7 +258,7 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
     return {
         "run": run_id,
         "preview": run is None,
-        "dispatch": [_entry(task, project, claimed, allocated, groups) for task, allocated, groups in chosen],
+        "dispatch": [_entry(task, project, claimed, allocated, groups, restart) for task, allocated, groups, restart in chosen],
         "lanes": {
             "max": autopilot.max_lanes,
             "occupied": [
@@ -248,12 +289,13 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
             for resource in autopilot.resources
         ],
         "released": released,
+        "parked": parked,
         "skipped": skipped,
         "limited_by": limited_by,
     }
 
 
-def _entry(task: Task, project: Project, claimed: dict[str, Claim], allocated: dict[str, str], groups: list[str]) -> dict:
+def _entry(task: Task, project: Project, claimed: dict[str, Claim], allocated: dict[str, str], groups: list[str], restart: bool) -> dict:
     """`show --json`'s fields for a dispatched task, plus what its lane brief needs."""
     config = project.config
     data = task_dict(task, project, claimed)
@@ -267,6 +309,7 @@ def _entry(task: Task, project: Project, claimed: dict[str, Claim], allocated: d
     data["groups"] = list(groups)
     data["decisions"] = render(config.autopilot.decisions, task, config)
     data["decisions_index"] = render(config.autopilot.decisions_index, task, config)
+    data["restart"] = restart  # a parked lane returning to its own branch and worktree (T105)
     return data
 
 
@@ -275,7 +318,15 @@ def text(report: dict) -> str:
     for task in report["dispatch"]:
         values = " ".join(f"{name}={value}" for name, value in task["resources"].items())
         base = (task["base"] or {}).get("onto") or "—"
-        lines.append(f"{task['id']:<6} {task['kind']:<8} {task['branch'] or '—'}  base {base}" + (f"  {values}" if values else ""))
+        lines.append(
+            f"{task['id']:<6} {task['kind']:<8} {task['branch'] or '—'}  base {base}"
+            + (f"  {values}" if values else "")
+            + ("  restart" if task.get("restart") else "")
+        )
+    for entry in report["parked"]:
+        what = "restarted" if entry["dispatched"] else f"waiting: {entry['why']}"
+        at_gate = f" at {entry['gate']}" if entry["gate"] else ""
+        lines.append(f"  parked {entry['id']} (run {entry['run']}){at_gate}: {what}")
     for entry in report["skipped"]:
         lines.append(f"  skipped {entry['id']}: {entry['reason']}")
     for entry in report["released"]:
@@ -284,6 +335,9 @@ def text(report: dict) -> str:
     lanes = report["lanes"]
     summary = [f"dispatched {len(report['dispatch'])}" if report["dispatch"] else "nothing to dispatch"]
     summary.append(f"{len(lanes['occupied'])}/{lanes['max']} lanes in use")
+    waiting = [entry for entry in report["parked"] if not entry["dispatched"]]
+    if waiting:
+        summary.append(f"{len(waiting)} parked waiting for a lane")
     if report["remaining"] is not None:
         summary.append(f"{report['remaining']} more for run {report['run']}")
     if report["limited_by"]:
