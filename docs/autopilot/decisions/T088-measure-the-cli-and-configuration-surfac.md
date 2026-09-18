@@ -24,6 +24,35 @@ throwaway enumeration script in the session scratchpad, outside the repository; 
 consumer ladder the draft defines, and never write that an option has no consumer when what was
 verified is that none is visible in this repository.
 
+## decide gate
+
+The orchestrator answered the three organisational questions; the verdict itself went to the human
+below. Reviewed: the artifact at commit 178077b, the lane's commits against `origin/main`,
+`taskrail checks T088 --stage decide` and `taskrail validate` (81 tasks, 0 errors), and an
+independent reproduction of the load-bearing findings — a bogus key added to a copy of this
+repository's config left `validate` at 0 errors, 0 warnings, exit 0; `git grep` for `--file`,
+`--id` and `--limit` outside `cli.py` returns nothing; `taskrail kind add` exits 2 while §7
+documents it, and `list --eligible` is documented and absent; `config.py:48` is
+`HANDOFF_MODES = ("sequential",)`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Should T092's description be corrected to the exact figures? | leave it, its executor reads this artifact · someone edits the row | **leave it** | As recommended. The difference is counting method, not fact, and "about 70" and "about 42" are honest. The lane must not edit another task's row, and neither should the orchestrator merely to sharpen an approximation. |
+| 2 | A separate task for `--owner`? | fold it into task 2's question list · a task of its own | **fold it into task 2** | As recommended. 147 test occurrences, no skill and no documented workflow make it the clearest "a test but no user", but removal is implausible — it is the suite's only way to simulate a second person — so the likely answer is a line of documentation, not a decision. |
+| 3 | Act now on the skills telling every executor to pass `show --json --fetch`, which is a no-op while `branch_record_remote` is unset? | wait for task 4 · change the skill now | **wait for task 4** | The one-line skill change depends on task 4's answer, and `src/taskrail/skills/` is outside this run's touch map. Recorded here so the finding is not lost. |
+
+## escalated to the human
+
+`spike:decide` is in this repository's `[autopilot].escalate_gates`, so the verdict went to the
+human, with the alternatives and their costs as the lane stated them.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Accept the surface report and its five follow-up tasks? | accept the report and all five · only task 1 · accept, open nothing · reject the report | **accept the report and all five tasks** | As recommended. The report removes nothing and proposes no removal: each task is a question to be argued on its own merits when worked, which is what T087's prospective verdict requires. Task 1 — `validate` warning about a configuration key it does not define — is the only finding the measurement supports on its own evidence, and it is a precondition for retiring any key safely, since an unknown key today is ignored in silence. |
+
+Answered by the human (the repository's maintainer), through the orchestrator, at the `decide`
+gate of run 20260918-1.
+
 ## rebase after T087 merged
 
 T087 was squash-merged into `main` as 4a956c4, and `autopilot merged T087 --cleanup` proved the
