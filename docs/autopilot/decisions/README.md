@@ -90,3 +90,4 @@
 | T105 | Free a lane while a task waits for the human and requeue it when they answer | [T105-free-a-lane-while-a-task-waits-for-the-h.md](T105-free-a-lane-while-a-task-waits-for-the-h.md) |
 | T106 | Test init and the wrapper with taskrail absent from PATH | [T106-test-init-and-the-wrapper-with-taskrail.md](T106-test-init-and-the-wrapper-with-taskrail.md) |
 | T107 | Archive completed tasks and epics into a configurable document | [T107-archive-completed-tasks-and-epics-into-a.md](T107-archive-completed-tasks-and-epics-into-a.md) |
+| T109 | Reject a next --limit that is zero or negative | [T109-reject-a-next-limit-that-is-zero-or-nega.md](T109-reject-a-next-limit-that-is-zero-or-nega.md) |

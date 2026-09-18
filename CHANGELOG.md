@@ -12,6 +12,17 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **`next --limit` refuses a value below 1 instead of answering it wrongly.** `--limit` took any
+  integer and was used only as a slice bound, so `--limit 0` printed `no eligible tasks` (and `[]`
+  with `--json`) and exited 0 — indistinguishable from a backlog with nothing eligible — while a
+  negative value silently dropped that many tasks from the **end** of the list and reported the
+  rest as a complete answer. It now uses the same converter as `validate --history-limit`:
+  `--limit 0` and `--limit=-1` exit 2 with
+  `argument --limit: expected a whole number of at least 1, got \`0\``, printing nothing to
+  stdout, and a non-numeric value gets that message too instead of `invalid int value`. **A script
+  passing 0 or a negative `--limit` now fails where it used to exit 0**; every value of 1 or more
+  behaves exactly as before (T109).
+
 - **`taskrail archive` moves closed tasks and closed epics out of the backlog.** A backlog kept
   every row it ever had, so a long-lived one grew without bound and a reader met years of finished
   work before the open rows. The new command — run by the human, never automatic on `done` — moves
