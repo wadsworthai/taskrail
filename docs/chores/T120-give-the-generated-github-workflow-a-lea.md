@@ -183,3 +183,22 @@ Results:
 - `taskrail checks T120 --stage implement`: `test` (`uv run pytest -q`) passed, `1252 passed in
   184.86s`; `lint` is not configured in this repository, reported as `== lint: not configured`.
   Overall `passed`, exit 0.
+
+## Documentation and follow-ups
+
+- **`DESIGN.md` §9 *Extras***: the `--github-workflow` sentence already recorded the template's
+  two other deliberate properties — `fetch-depth: 0` and the exact release tags — each with its
+  reason. The permissions block is the third of the same kind, so it is a clause in that same
+  sentence: `contents: read` at the workflow level and nothing else, because the job writes
+  nothing back and every scope a `permissions` block leaves unnamed is `none`, against a default
+  that is read-write in older repositories. Nothing else in §9 changed.
+- **`CHANGELOG.md`**: one bullet under *Unreleased*, beside T116's bullet about this same
+  template. It names what the default was, what the block is and why it is `contents: read`
+  rather than no scopes at all, and it says plainly what `upgrade` cannot do for one consumer:
+  a repository whose workflow was edited locally is left alone and reported as
+  `edited locally; --force replaces it`, so it adds the two lines itself — the bullet prints them.
+- **`README.md`** was not changed: its one line describes what the extra adds, not how the job is
+  configured, and nothing a consumer runs or decides changes.
+- No follow-up tasks. Nothing outside the change set needed touching, and no design principle in
+  `CLAUDE.md` argued against what the row asked for — the change adds four lines of template text,
+  no flag and no configuration.
