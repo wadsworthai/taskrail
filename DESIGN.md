@@ -1348,9 +1348,12 @@ committed wrapper, `.taskrail/bin/taskrail`, which is how a repository normally 
 runs the pinned version through `uvx`, or the installed CLI when that one's version matches the
 pin. The only prerequisite on any machine, CI runner or agent sandbox is `uv` — the workflow
 `--github-workflow` writes installs no taskrail, only `astral-sh/setup-uv`. A pin of the form
-`local:<path>` makes the wrapper run the taskrail source at that path in the current checkout, so
-a worktree runs its own branch's code; `upgrade` never replaces such a pin. `TASKRAIL_BIN`
-overrides the wrapper entirely; `TASKRAIL_SOURCE` overrides the repository URL.
+`local:<path>` makes the wrapper run the taskrail source at that path in its own checkout, so
+a worktree runs its own branch's code; `upgrade` never replaces such a pin. The wrapper also
+operates on its own checkout: it passes that root to the CLI, so which wrapper is invoked decides
+which repository is acted on, whatever the current directory is. `--root` points it at another
+repository, and overrides that default. `TASKRAIL_BIN` overrides the wrapper entirely;
+`TASKRAIL_SOURCE` overrides the repository URL.
 
 ## 10. Layout
 

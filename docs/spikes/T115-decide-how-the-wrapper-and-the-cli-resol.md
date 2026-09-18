@@ -17,9 +17,17 @@ is proposed as a second, small follow-up. `DESIGN.md` §9's sentence about `loca
 currently true of the code and silent about the target repository, and is the likely source of the
 wrong mental model; a replacement is proposed below.
 
-This spike changed no code, no test, no configuration and no skill. Everything measured below was
-run in a throwaway clone under the scratchpad, with its remote removed; the patched wrapper used in
-the P-series is a sandbox-only copy named `taskrail-patched` and exists nowhere in this repository.
+**The maintainer answered on 2026-09-18: yes to question 1, no new disagreement warning but yes to
+2C for question 2, and the proposed §9 wording for question 3.** The wording is applied in this
+task; the two behaviour changes are [T118](../../TODO.md) (the wrapper passes its own root, all
+three `exec` paths) and [T119](../../TODO.md) (`done` warns like `claim`). The full result is in
+*Outcome*.
+
+This spike changed no code, no test, no configuration and no skill; the one file it changed outside
+`docs/` is `DESIGN.md` §9's last paragraph, which the `decide` gate approved. Everything measured
+below was run in a throwaway clone under the scratchpad, with its remote removed; the patched
+wrapper used in the P-series is a sandbox-only copy named `taskrail-patched` and exists nowhere in
+this repository.
 
 ## Question
 
@@ -409,12 +417,33 @@ Under 1B the same paragraph would instead have to read "…the wrapper acts on t
 current directory is in, whichever wrapper is invoked; run it from inside the checkout you mean, or
 pass `--root`", which is the convention with nothing behind it.
 
-**Follow-up tasks proposed** (opened only if this decision is accepted; nothing is implemented in
-this task):
+## Outcome
 
-1. `fix(install)` — the wrapper passes its own root to the CLI, on all three `exec` paths, with a
-   test that the wrapper run from another checkout acts on its own; and the §9 wording above.
-2. `fix(cli)` — `done` warns, like `claim`, when the checked-out branch is not the task's.
+The maintainer accepted the recommendation in full on 2026-09-18:
+
+| Question | Answer |
+|---|---|
+| 1 — the wrapper passes its own root to the CLI | **yes**, on all three `exec` paths |
+| 2 — a warning when the wrapper's location and the cwd disagree | **no**; and **yes** to 2C, `done` warning as `claim` does |
+| 3 — `DESIGN.md` §9 | the proposed replacement, **approved and applied in this task** |
+
+Two follow-up tasks carry the behaviour changes; neither is implemented here.
+
+- **T118** (`bug`, 2pt, E05) — *Pass the wrapper's own root to the CLI so a wrapper acts on its own
+  checkout.* Its row carries the two findings that only the reproduction could show, because they
+  are what justify fixing this rather than documenting it: the `upgrade` accident needs **no
+  `--force`**, since the manifest digest guard only skips files a human edited, and it leaves `git
+  status` **clean** in the damaged checkout, so it reads as "forgot to run `upgrade`" rather than as
+  an overwrite. The row also records that its regression test must pin `--root` being a global flag
+  whose **last occurrence wins** — that is what leaves a caller the escape hatch measured in P3 —
+  and that **`TASKRAIL_BIN` is deliberately left alone**, since it delegates to a binary of the
+  caller's choosing.
+- **T119** (`bug`, 1pt, E05) — *Warn from `done`, as `claim` does, when the checked-out branch is
+  not the task's.*
+
+§9 now describes the wrapper's behaviour before T118 implements it. That is deliberate and was
+approved at this gate: `DESIGN.md` is the design, and §12 and §13 already mark what is implemented
+where the distinction matters.
 
 ## What would change the decision
 
