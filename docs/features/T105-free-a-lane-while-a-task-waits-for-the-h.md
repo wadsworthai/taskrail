@@ -175,6 +175,35 @@ shared with them except `CHANGELOG.md` and `.taskrail/installed.json`, both know
 - **Automatic requeueing.** Nothing infers that the human answered: the orchestrator records it.
 - **`failed` → `parked` by a command other than `lane`**, and any new top-level command.
 
+## Verification
+
+Exercised with the CLI, not only through the suite.
+
+**On run 20260918-1, read-only** (`autopilot status --run …` and the `next` preview, which records
+nothing; `next --run` was not run against a live run). Every task row carries `holds_lane`, true
+only for `running`; `T104` (`handed-off`) and `T057` (`done-branch`) report `holds_lane: false`,
+and the preview's `parked` is `[]` with `restart: false` on both ordinary dispatches.
+
+**A throwaway repository, `max_lanes = 1`, two tasks** — the whole round trip, with the real
+commands:
+
+```
+== next #1      T001   chore   T001-first-task  base main
+                dispatched 1 · 1/1 lanes in use · limited by max_lanes
+== escalate     T001 in run 20260918-1: escalated at scope (needs a human)
+== next #2      T002   chore   T002-second-task  base main          ← the freed lane is filled
+== status         T001   escalated    no lane  idle 0m  — needs a human
+== park         T001 in run 20260918-1: parked at scope (approved)
+== next #3        parked T001 (run 20260918-1) at scope: waiting: no free lane
+                nothing to dispatch · 1/1 lanes in use · 1 parked waiting for a lane · limited by max_lanes
+== next #4      T001   chore   T001-first-task  base main  restart  ← back first, once a lane frees
+                  parked T001 (run 20260918-1) at scope: restarted
+== refusal      taskrail: T002 is pending, so it holds no lane to park; --state parked needs a task
+                that is running, gate, escalated, failed or parked            (exit 5)
+```
+
+Nothing differed from the plan.
+
 ## Decisions taken at the plan gate
 
 Answered by the orchestrator from this repository's `CLAUDE.md` and `DESIGN.md` §12; the full
