@@ -38,3 +38,4 @@
 | T111 | Record the orchestrator's context budget where a run's count is chosen | [T111-record-the-orchestrator-s-context-budget.md](T111-record-the-orchestrator-s-context-budget.md) |
 | T112 | Replace section 12.3's unverified note on old lane handles with the measured reason | [T112-replace-section-12-3-s-unverified-note-o.md](T112-replace-section-12-3-s-unverified-note-o.md) |
 | T003 | Install taskrail in a first consumer project | [T003-install-taskrail-in-a-first-consumer-pro.md](T003-install-taskrail-in-a-first-consumer-pro.md) |
+| T117 | Install the generated taskrail workflow in this repository | [T117-install-the-generated-taskrail-workflow.md](T117-install-the-generated-taskrail-workflow.md) |
