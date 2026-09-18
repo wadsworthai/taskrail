@@ -1,0 +1,27 @@
+# T112 — autopilot decisions
+
+Decisions the orchestrator took on the human's behalf while this task ran in an autopilot lane.
+Each is recorded before it is given to the lane.
+
+## scope gate
+
+Reviewed: the artifact `docs/chores/T112-replace-section-12-3-s-unverified-note-o.md` and its commit
+`d137590` (artifact and index row alone, `DESIGN.md` untouched); §12.3's current text; T057's E4
+figures and its *Limits* section, quoted from the merged artifact rather than from the brief; the
+grep showing the suite asserts on §12.7 and §4 but nothing in §12.3; and the grep showing the
+unverified claim exists in exactly one place.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| Q1 | The replacement wording | **the two-sentence form** · A, one sentence with a dash-aside · B, ending on "is unmeasured" · C, mechanism without the figures | **the two-sentence form, as recommended** | It names the agent first, gives the mechanism, carries the four figures in one clause and cites `T057 E4` in the style §12.3 already uses for `T033 F2`. A loses the T033 trial and packs the whole finding into one long sentence. B reintroduces the hedging word the task exists to remove — the gap did move rather than close, but "another agent may store lane conversations differently" says that without sounding like the old sentence. C is the one option that defeats the task: the figures are what turn "not verified" into "measured", and they cost a single clause. |
+| Q2 | A `CHANGELOG.md` entry | **none** · one bullet | **none** | No behaviour, CLI surface, configuration or skill changes, and the three most recent documentation-only tasks on `main` added none. |
+
+Given with the answers: the demotion of T033's observation to a consequence of the measurement is
+the right order and should survive review — the trial is now evidence of the mechanism rather than
+the reason to doubt it.
+
+## Conflict handling agreed for all lanes
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | `DESIGN.md` §12 with two lanes in it | **split by subsection** · serialize the lanes | **T112 takes §12.3 and nothing else; T111 takes §12.1 and the count-choosing text, plus the autopilot skill** | The two changes are about different things and sit in different subsections, so both can be written at once and git rebases them without meeting. The skill's restart procedure at `SKILL.md:163` stays correct under this measurement and belongs to T111. |
