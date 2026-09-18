@@ -37,3 +37,17 @@ state with `grep SABOTAGE` empty; and `taskrail checks T113 --stage fix` (1,247 
 | 1 | The import block grew by two lines, not the one flagged | **accept** | **accept** | `shutil` is needed for the `skipif`, both lines are at the top of the file and both are in this lane's half. T116 has been told to expect a two-line textual conflict there and nothing in the generated-workflow tests. |
 | 2 | `path_with_uv_but_no_taskrail(tmp_path)` where `empty_repo` is the same directory | **leave it** · pass `empty_repo` and drop the fixture | **leave it** | The two are the same path, so nothing behavioural turns on it; taking `tmp_path` reads the way the helper's signature intends. Not worth a change. |
 | 3 | The assertion left as `stdout.startswith("taskrail ")` | **accept** | **accept** | With no `taskrail` reachable by any other route, a version line can only have come from the pin. A version-equality assertion would have been worthless anyway, since the ambient fallback printed exactly the version a correct pin prints — which is the finding this task added to the row. |
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — the edited test and its two import lines, the
+`CLAUDE.md` bullet, the artifact, two index rows and T113's `✅`, with no `src/` change and no
+`CHANGELOG.md` bullet; the `impact` sweep, which rests on the diagnose probe's shim log rather than
+on a reading; `taskrail checks T113 --stage fix` (1,247 passed) and `taskrail validate` (106 tasks,
+0 errors); working tree clean and `grep SABOTAGE` empty.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The `impact` stage opened nothing — accept? | **accept** | **accept** | Each of the three candidates was closed by evidence already in hand: the shim log showing no other test in the file spawns `uv`, the same log showing the wrapper passes the pin correctly, and the rule now written in `CLAUDE.md`. |
+| 2 | The row's incomplete description, left unedited | **accept; the artifact carries the correction** | **accept** | The row belongs to a closed task and the artifact states the correction against it, which is where a reader meets both. Editing a closed row would also add conflict surface in `TODO.md` for nothing that outlives the task. |
+| 3 | Pull request type and scope | **`fix` / `tests`** · the generated scope-less `fix:` | **`fix` / `tests`** | The change is a test that proved nothing; `tests` is the affected area, and CLAUDE.md asks for the area as the scope. |
