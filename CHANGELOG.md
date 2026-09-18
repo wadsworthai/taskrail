@@ -12,6 +12,20 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **The autopilot skill now says what bounds a run — the orchestrator's context — and tells the
+  orchestrator to plan the count against it.** A run's count was chosen with no idea of its ceiling.
+  A lane ends with its task, while the orchestrator accumulates every lane's report, every gate
+  answer and every hand-off, so the orchestrator's session is the one that fills up, and compaction
+  is not the limit that matters. `taskrail-autopilot` now has the orchestrator measure its own cost
+  per dispatched task, propose the count it can hold when the human asks for more, and send the rest
+  to a fresh session through *Resume a run* — the planned path for a long backlog, not only a
+  recovery. The rule is in the portable skill and carries no numbers; the measured figures, which
+  are one agent's and one model's, are attributed in the Claude Code integration note and in
+  DESIGN.md §12.1: nine of this repository's own runs, 36,728 and 44,343 tokens of orchestrator
+  context per dispatched task on the two long ones over a 32k–39k session overhead — roughly 21 to
+  26 tasks in a 1M context — against 38 lanes that peaked at 78k–356k and never compacted (T057
+  measured it, T111 wrote it down). No CLI behaviour changed.
+
 - **`next --limit` refuses a value below 1 instead of answering it wrongly.** `--limit` took any
   integer and was used only as a slice bound, so `--limit 0` printed `no eligible tasks` (and `[]`
   with `--json`) and exited 0 — indistinguishable from a backlog with nothing eligible — while a

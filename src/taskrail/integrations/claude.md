@@ -42,3 +42,11 @@
   per Bash call, absolute paths, `git -C` and `taskrail --root` rather than `cd … &&` — and
   re-run a lane's checks at a gate or at hand-off with `taskrail checks <ID>`, which runs them
   in its worktree with its resources.
+- **A measured figure for *Plan the count against your own context*.** Nine autopilot runs of
+  taskrail's own repository were harvested on Claude Code, all on one 1M-context model: the two
+  long runs cost their orchestrator 36,728 and 44,343 tokens of context per dispatched task, over a
+  session overhead of 32,000–39,000 — **roughly 21 to 26 tasks in a 1M context**. Lanes were never
+  the constraint: 38 of them peaked between 78,404 and 355,752 tokens, and neither they nor any
+  orchestrator ever compacted. Start from that band, and measure your own if your model or your
+  window differs — the band scales with the window, so the same rate against 200k is four or five
+  tasks.
