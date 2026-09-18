@@ -44,3 +44,19 @@ from both the working tree and history, the next ID is `T115` — a live reissue
 task. With the archive present in either place it is `T121`. That is what turns "the counter looks
 right" into "the archive scan is what keeps it right", on this repository's real data, and it is the
 guarantee T107 built `ids.used_ids`' revision scan for.
+
+## close
+
+Reviewed: the whole diff against the merge base — `TODO.md` at 15 lines with one row, the new
+157-line `docs/archive.md`, seven lines of `CLAUDE.md`, the artifact and its index row; the
+`done` commit alone in `TODO.md`; `taskrail validate` (1 task, 0 errors) and `taskrail claims`
+(none).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The `docs` stage carried rather than stopped at | **accept** | **accept** | Its documentation was inside the approved change set and was applied at `implement`; nothing further needed writing and no follow-up was opened, so the conditional gate had nothing to stop for. |
+| 2 | Pull request type and scope | **`chore` / `backlog`** · `chore` / `repo` | **`chore` / `backlog`** | `backlog` is the area CLAUDE.md's *Merging* section names for this work, and the change is this repository's own backlog and nothing else. |
+
+`taskrail done T114` returned `"warning": null` — T119's new key, computed by T119's new code, on a
+row written from the task's own branch. The wrong-checkout case was ruled out at the exact point it
+would have bitten, by a guard merged four hours earlier in the same session.
