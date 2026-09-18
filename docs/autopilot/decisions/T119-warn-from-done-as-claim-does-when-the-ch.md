@@ -54,3 +54,20 @@ other `set_status` caller is `cmd_reopen`, ruled out with a probe; and `taskrail
 Worth keeping where a later reader will find it: `taskrail done T119 --json` returned
 `"warning": null` — the new key, computed by the new code, run correctly inside the task's own
 worktree, silent. The fix closed its own task and demonstrated its quiet case doing it.
+
+## rebase after T003, T117 and T118 merged
+
+`main` advanced to `b865681` (T118). This branch was rebased onto `origin/main`, with four
+conflicts, all known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `docs/bugs/README.md` and `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2. |
+| 2 | Conflict in `CHANGELOG.md` | **keep both bullets**, this branch's above the mainline's | **keep both** | Appended changelog bullets, known conflict class 2; *Unreleased* is newest-first and this branch lands last. |
+| 3 | `TODO.md` status cells | **unite by ID, `✅` wins** | **as decided** | Known conflict class 1. |
+
+`src/taskrail/cli.py` did not conflict: T118 changed `install.py`'s wrapper template and this branch
+changes `_change_status`, which is the split the touch map set at dispatch.
+
+After the rebase: `_closed_elsewhere` is in place at `src/taskrail/cli.py:835` and called at `:814`,
+`taskrail checks T119` passed with 1,255 tests, and `taskrail validate` reports 109 tasks, 0 errors.
