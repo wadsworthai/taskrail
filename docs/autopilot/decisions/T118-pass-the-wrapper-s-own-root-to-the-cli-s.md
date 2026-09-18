@@ -23,3 +23,18 @@ repository's committed wrapper is unedited.
 Given with the answers: removing `(*planned, T118*)` from `DESIGN.md` §9 is part of this task. Once
 the code does it, the sentence is no longer planned, and leaving the marker would be the same class
 of inaccuracy the marker was added to prevent.
+
+## fix gate
+
+Reviewed: commit `7ec554c` and the diff `cf2b1fa..HEAD`; the regression tests' recorded failure,
+where the behavioural one fails as `['elsewhere'] == ['home']` — the defect itself, the wrapper
+reporting the backlog of the directory the shell was in; the structural one's failure naming the
+three `exec` lines; `taskrail checks T118 --stage fix` (1,250 passed); and, checked by the
+orchestrator rather than taken from the report, `grep -c 'root "$root"'` returning **3** in this
+worktree's regenerated wrapper and `grep -c "planned, T118"` returning **0** in `DESIGN.md`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The header comment in the generated wrapper, extended beyond the three `exec` lines | **keep it** · drop it | **keep it** | That file is what a consuming repository reads, and its comment described a behaviour that is now different. Leaving it would ship a wrapper whose own header contradicts what it does — the same class of inaccuracy as the `(*planned, T118*)` marker this task removes. It is inseparable from the change, not a widening of it. |
+| 2 | The second behavioural assertion, run from `cwd=home` | **accept** | **accept** | It is non-trivial in both worlds: before the fix the caller's `--root` beats the cwd, after it beats the injected root. An assertion that only meant something after the fix would not have proved the escape hatch survived. |
+| 3 | The structural test's four-`exec` shape | **accept** | **accept** | Asserting that exactly one line — the `TASKRAIL_BIN` one — carries no `--root "$root"` pins both halves: the three paths cannot drift, and the exclusion is on record as deliberate. Its docstring saying it is the weaker kind, with the behavioural test carrying the meaning, is what keeps it honest. |
