@@ -1212,12 +1212,21 @@ location it reads. With both integrations installed, the skills are therefore wr
 
 ## 9. Distribution
 
-Modeled on Spec Kit: a CLI installed with uv, which writes files into the consuming
-repository.
+Modeled on Spec Kit: a CLI run with uv, which writes files into the consuming repository. The
+recommended route installs nothing on the machine — `uvx` runs the release once to bootstrap the
+repository, and the wrapper `init` commits runs it from then on:
+
+```bash
+uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0" taskrail init --integration claude
+.taskrail/bin/taskrail validate
+```
+
+`init` pins the version it ran as, so the bootstrap tag becomes the pin and every later call
+reproduces the taskrail that wrote the repository. Installing the CLI globally is the alternative,
+and is equally supported — the wrapper takes an installed CLI when its version matches the pin:
 
 ```bash
 uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0"
-taskrail init --integration claude
 ```
 
 Tags are the plain version, `vX.Y.Z`.
@@ -1252,14 +1261,19 @@ session starts.
 
 `taskrail upgrade` repeats the install with the recorded integrations and pins the config to
 the running CLI version. `taskrail self upgrade [--tag]` reinstalls the CLI from a release tag.
+The two are not alternatives: `self upgrade` replaces a globally installed CLI and never touches a
+repository's pin, so for a repository that installed no CLI, upgrading is moving the pin — which is
+what `upgrade` writes, run at the wanted release:
+`uvx --from "git+…@vX.Y.Z" taskrail upgrade`.
 
 Unlike Spec Kit, the skills call the CLI while they work. `init` therefore also writes a
-committed wrapper, `.taskrail/bin/taskrail`: it runs the installed CLI when its version matches
-the pin, and otherwise runs the pinned version through `uvx`. The only prerequisite on any
-machine, CI runner or agent sandbox is `uv`. A pin of the form `local:<path>` makes the wrapper
-run the taskrail source at that path in the current checkout, so a worktree runs its own
-branch's code; `upgrade` never replaces such a pin. `TASKRAIL_BIN` overrides the wrapper
-entirely; `TASKRAIL_SOURCE` overrides the repository URL.
+committed wrapper, `.taskrail/bin/taskrail`, which is how a repository normally calls taskrail: it
+runs the pinned version through `uvx`, or the installed CLI when that one's version matches the
+pin. The only prerequisite on any machine, CI runner or agent sandbox is `uv` — the workflow
+`--github-workflow` writes installs no taskrail, only `astral-sh/setup-uv`. A pin of the form
+`local:<path>` makes the wrapper run the taskrail source at that path in the current checkout, so
+a worktree runs its own branch's code; `upgrade` never replaces such a pin. `TASKRAIL_BIN`
+overrides the wrapper entirely; `TASKRAIL_SOURCE` overrides the repository URL.
 
 ## 10. Layout
 

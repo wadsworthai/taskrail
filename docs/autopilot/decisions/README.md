@@ -80,3 +80,4 @@
 | T095 | Ask whether the options no visible repository sets or documents are still wanted | [T095-ask-whether-the-options-no-visible-repos.md](T095-ask-whether-the-options-no-visible-repos.md) |
 | T097 | Record whether any repository enables the remote half of claims and branch records | [T097-record-whether-any-repository-enables-th.md](T097-record-whether-any-repository-enables-th.md) |
 | T098 | Fix the configuration and CLI documentation defects DESIGN.md carries | [T098-fix-the-configuration-and-cli-documentat.md](T098-fix-the-configuration-and-cli-documentat.md) |
+| T100 | Make uvx the documented default and stop assuming a global install | [T100-make-uvx-the-documented-default-and-stop.md](T100-make-uvx-the-documented-default-and-stop.md) |

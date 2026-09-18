@@ -11,20 +11,48 @@ See [DESIGN.md](DESIGN.md) for the full model.
 
 ## Install
 
-taskrail needs [uv](https://docs.astral.sh/uv/).
+The only prerequisite is [uv](https://docs.astral.sh/uv/) — on your machine, on a CI runner and
+in an agent sandbox alike. Nothing needs to be installed on the machine itself.
+
+**Recommended: no global install.** Bootstrap the repository with `uvx`, then call taskrail
+through the wrapper `init` commits:
+
+```bash
+cd your-repository
+uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0" \
+  taskrail init --integration claude          # or --integration opencode; repeatable
+.taskrail/bin/taskrail validate
+```
+
+`init` pins the version it ran as in `.taskrail/config.toml`, and the committed wrapper
+`.taskrail/bin/taskrail` runs exactly that version through `uvx`. So the tag you bootstrap with
+becomes the pin, and every later call — yours, another clone's, CI's, an agent's — reproduces the
+taskrail that wrote the repository.
+
+**Or install the CLI on your machine**, to type `taskrail` instead of the wrapper's path:
 
 ```bash
 uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0"
-cd your-repository
-taskrail init --integration claude            # or --integration opencode; repeatable
 ```
+
+Both routes are supported, and they agree: the wrapper uses an installed CLI when its version
+matches the pin and falls back to `uvx` when it does not, so a repository is never worked with a
+taskrail it did not pin.
+
+**Upgrading.** Without a global install, the pin *is* the version, and moving it is the upgrade:
+
+```bash
+uvx --from "git+https://github.com/wadsworthai/taskrail.git@vX.Y.Z" taskrail upgrade
+```
+
+That re-installs the skills for `vX.Y.Z` and writes the new pin. `taskrail self upgrade` replaces
+a globally installed CLI and never touches a repository's pin, so it has no part in this route.
 
 Restart the agent session after `init` or `upgrade`: agents load skills when a session starts,
 so one already running does not see new or changed skills.
 
 `init` is safe to run again. It creates `.taskrail/config.toml` and `TODO.md` when missing, and
-installs the skills and a committed wrapper, `.taskrail/bin/taskrail`, which runs the version
-pinned in the config — through `uvx` if the installed CLI differs. Two optional flags:
+installs the skills and the wrapper. Three optional flags:
 
 - `--github-workflow` adds `.github/workflows/taskrail.yml`, running `taskrail validate` on
   pull requests and pushes to the mainlines, with full git history so its check for reopens
@@ -41,6 +69,10 @@ Commit `.taskrail/`, `TODO.md` and the installed skills. Skills and managed file
 never overwritten silently; `--force` replaces them.
 
 ## Use
+
+A repository calls taskrail through the wrapper `init` commits: `.taskrail/bin/taskrail <command>`.
+The examples below are written short so they fit; with the CLI installed on your machine they work
+as typed.
 
 ```bash
 taskrail validate                      # check the backlog; non-zero on errors
@@ -70,8 +102,8 @@ taskrail autopilot lane T012 --run 20260913-1 --handle <agent-id> --state gate -
 taskrail autopilot status              # run tasks' states, idle lanes, overlaps, escalation flags, hand-off queue
 taskrail autopilot merged T012 --cleanup # prove the squash merge by content, remove worktree and branch, list rebases
 taskrail autopilot notify --event escalation --run 20260913-1 --task T012   # run [autopilot].notify; never blocks
-taskrail upgrade                       # re-install skills for this CLI version and pin it
-taskrail self upgrade                  # update the CLI to the latest release
+taskrail upgrade                       # re-install the skills for the running version and pin it
+taskrail self upgrade                  # update a globally installed CLI; not needed without one
 ```
 
 Every command accepts `--json`. Exit codes are listed in DESIGN.md.
@@ -221,8 +253,8 @@ the pin, so a mismatched build is never taken for the release.
 1. In a pull request: set `version` in `pyproject.toml`, run `uv lock`, add the changelog entry.
 2. After it is squash-merged: `git tag -a vX.Y.Z <merge commit> -m "taskrail X.Y.Z"`
    and `git push origin vX.Y.Z`. A published tag never moves.
-3. Verify a clean install from the tag, then bump `main` to the next `.dev0` version, so builds
-   from `main` never claim to be the release.
+3. Verify a clean install from the tag, on both routes, then bump `main` to the next `.dev0`
+   version, so builds from `main` never claim to be the release.
 
 ## History
 
