@@ -1,0 +1,42 @@
+# T003 — autopilot decisions
+
+Decisions the orchestrator took on the human's behalf while this task ran in an autopilot lane.
+Each is recorded before it is given to the lane.
+
+## escalated to the human — before any lane started
+
+This task asks for `taskrail init` to be run in a real project and the friction noted. No lane can
+do that: this repository has no consumer project in it, and the publishing constraint forbids naming
+a private one. The task was escalated before any lane claimed it, and the human — who already uses
+taskrail in other repositories — answered the orchestrator's five questions directly.
+
+| # | Question | Answer |
+|---|---|---|
+| 1 | The install route: `uvx`, or a globally installed CLI? | `uvx`, with no global install — T100's documented default worked as documented |
+| 2 | What had to be done by hand after `init`? | Nothing except the autopilot |
+| 3 | A CLI message that left them not knowing what to do next? | None |
+| 4 | Something taskrail assumed about the repository's layout that was not true? | Nothing |
+| 5 | Was the autopilot enabled there? | Yes |
+
+Answered by the human (the repository's maintainer), 2026-09-18. Answer 2 is the whole finding, and
+the lane is to write it as a property of taskrail — *`init` does not set up the autopilot* — which is
+true of every consumer and identifies none.
+
+## scope gate
+
+Reviewed: the artifact `docs/chores/T003-install-taskrail-in-a-first-consumer-pro.md` and its commit
+`f5b7427` (artifact and index row alone); the lane's re-verification of both premises the
+orchestrator handed it — `init --help` has no autopilot option, and `grep autopilot
+src/taskrail/install.py` returns nothing — and two facts the lane found on its own.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | What should T003 build? | **(B) a fully commented `[autopilot]` block in `default_config()`, plus one sentence in README's *Install*** · (A) an `init --autopilot` flag · (C) documentation only · (D) a follow-up task and close on the write-up | **(B), as recommended** | It removes the friction where the friction happens: the consumer is already inside `.taskrail/config.toml` when the question arises, and the seeded config already uses commented examples under `[columns]` and `[checks]`, so this follows the file rather than inventing a shape. CLAUDE.md prefers a documented convention over a mechanism that enforces it, and a comment *is* that convention. (A) adds a flag, an install path and a second question — does it write `enabled = true` or a disabled stub? — for friction a comment removes; YAGNI. (C) alone is refuted by the evidence: README already names `enabled` and DESIGN.md lists all sixteen keys, and the friction happened anyway. (D) defers ten commented lines at more cost in process than in code. |
+| 2 | Commented, or a live `enabled = false`? | **commented** | **commented** | The seeded config's meaning stays byte-for-byte what it is today: no `[autopilot]` table appears in any new repository, and nothing changes for the loader or for `validate`. |
+| 3 | Which keys? | **the five this repository's own config uses** · all sixteen | **five, with a pointer to DESIGN.md §12** | `enabled`, `max_lanes`, `read_first`, `governing`, `escalate_gates` are what a repository actually sets; the rest would be noise in every new config. |
+
+Given with the answers: the lane's own finding decides how much the README sentence matters —
+`upgrade()` calls `install()` and `set_version_pin()`, and `installer.seed` writes the config only
+when it is missing, so **a seeded block reaches new installs only**. Every repository that has
+already run `init`, including the consumer this task came from, is served by the README line and by
+nothing else. Say so in the artifact.
