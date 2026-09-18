@@ -49,6 +49,20 @@ Noted, no action: the worktree's `CLAUDE.md` carries the *Design principles* sec
 primary checkout lacked when this run began, because T090 merged mid-run. Every lane briefed from
 here on reads the current file; the observation is correct and cost nothing.
 
+## close gate and rebase at hand-off
+
+Reviewed the close: `done` committed on its own, the backlog differing only in this task's row and
+T110's, no upstream on the branch, `taskrail validate` clean. Rebased onto `origin/main` over T102
+and T099; three conflicts, all known classes (the two artifact indexes and `TODO.md`'s rows). No
+source file conflicted, as the lane predicted from its own diff of the base against the mainline.
+After the rebase `taskrail checks T103` passed.
+
+Published as **`fix(cli)`**, departing from the kind's default `chore`, on the lane's argument: the
+pull request title is the single commit that reaches `main` and is what semantic versioning reads,
+and this change alters what every consumer sees from a failed `validate` after an upgrade — which is
+why it earned a changelog entry. A `chore` title would ship that entry with nothing to trigger a
+release.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T099 holds `config.py` and `install.py`; T102 holds `DESIGN.md` §6.1.
