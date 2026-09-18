@@ -33,3 +33,16 @@ real `init` into a scratch repository and its YAML parse; and, recomputed by the
 | 1 | Anything to decide at this gate? | **no** | **no** | The stage did what the scope gate approved and nothing surprising came up. |
 | 2 | The `upgrade` guard the lane offered at the scope gate | **held; accept** | **accept** | The run's report shows the wrapper, the config with its `local:.` pin, `TODO.md` and all eight skill files coming back `unchanged` — so regenerating the workflow touched the workflow and the manifest and nothing else. The guard was worth asking for and worth reading afterwards. |
 | 3 | The YAML parse confirming no job-level `permissions` | **accept** | **accept** | It is the check that makes the workflow-level choice mean what decision 1 said it means: the workflow grant *is* the job's grant, so every unnamed scope is `none`. Asserting the literal block in the suite and parsing once by hand here is the right division — the suite stays dependency-free. |
+
+## close
+
+Reviewed: the whole diff against the merge base — three template lines, one test, the regenerated
+workflow and its digest, the `DESIGN.md` §9 clause, one changelog bullet, the artifact, two index
+rows and T120's `✅`, with `ci.yml`, the wrapper, `cli.py` and §7 untouched; `taskrail validate`
+(109 tasks, 0 errors).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The `docs` stage continued without stopping | **accept** | **accept** | Its gate is `conditional` and nothing arose to decide: no follow-up opened, and no design principle argued against the row. |
+| 2 | The changelog bullet ending in the two-line block a consumer can paste | **accept** | **accept** | `upgrade` rewrites an untouched workflow and reports an edited one as `edited locally; --force replaces it`. For that one consumer the change can do nothing automatically, so the bullet gives them the exact lines instead of describing them. That is the difference between announcing a hardening and delivering it. |
+| 3 | Pull request type and scope | **`chore` / `install`** · `fix` | **`chore` / `install`** | It hardens a generated file rather than repairing a broken one — unlike T116, which fixed a workflow that could not resolve its action. The template lives in `src/taskrail/install.py`. |
