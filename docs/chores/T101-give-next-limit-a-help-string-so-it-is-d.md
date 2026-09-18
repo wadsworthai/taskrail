@@ -153,3 +153,17 @@ T101 in …/.worktrees/T101-give-next-limit-a-help-string-so-it-is-d: passed
 `lint` is not configured in this repository — the task's `checks` map defines `test` only.
 
 `taskrail validate` — at close.
+
+## `docs` stage: nothing to update
+
+Ran and found no documentation to change, re-checked on the finished branch:
+
+- `DESIGN.md:654` already documents the flag (`[--limit N]`, "`--limit` keeps the first N of
+  them"), added by T098 — which is why this task was code only.
+- `grep -rn -- "--limit" .claude/ README.md CHANGELOG.md src/taskrail/skills/
+  src/taskrail/integrations/ examples/` (excluding `--history-limit`) matches nothing: no skill,
+  no integration note, no installed copy, no README or example names the flag, so nothing there
+  can be out of date with a help string. No `taskrail upgrade` is needed.
+- No `CHANGELOG.md` entry, by decision 3: a help string is not a behaviour change.
+- Follow-up opened: **T109** (bug, 1 pt) for `--limit`'s type. Nothing opened for the 65
+  help-less arguments, by the gate's ruling; the enumeration above is the record.
