@@ -104,3 +104,95 @@ the orchestrator's known-conflict list. Alternative: no entry — there is prece
    the valid case is untouched.
 
 Actual results go under **Results** below at the implement stage.
+
+## Decisions taken at the scope gate
+
+| # | Question | Answer |
+|---|----------|--------|
+| 1 | `project.py:43` here or a follow-up? | **Here** — the row's description asks for it and no other lane holds the file. |
+| 2 | `importer.py:362` too? | **No, and no follow-up task** — a different command, not named by the row, and its message already names `id_digits` in the hint it appends. Recorded here so the third member of the family is not lost. |
+| 3 | Name `id_digits` in the `task-id` message? | **No** — the row asks for the prefix refusal, and a bare number is self-explanatory where bare letters are not. |
+| 4 | A `CHANGELOG.md` bullet? | **Yes**, one short bullet: it changes what every reader of a failed `validate` sees, which a consumer meets after an upgrade. An appended changelog bullet is a known conflict class, so a parallel lane's bullet is not a reason to decline. |
+
+## Results
+
+Both messages changed; nothing else in `src/` was touched.
+
+```
+$ git diff --stat 4026b0c -- src          # 4026b0c is the branch's base on origin/main
+ src/taskrail/backlog.py | 2 +-
+ src/taskrail/project.py | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+```
+
+**1. The `EP01` repository, the same one as above, after the change:**
+
+```
+$ uv run taskrail --root <tmp>/repro validate
+TODO.md:7: error: epic ID `EP01` does not match epic_prefix `E` plus two or more digits [epic-id]
+TODO.md:9: error: section `EP01` is not in the Epics table [epic-unlisted]
+history: not checked (not a git repository)
+0 task(s) in 1 backlog(s): 2 error(s), 0 warning(s)
+exit=1
+```
+
+Then the fix the message now names, `epic_prefix = "EP"` added to `[[backlog]]`, and nothing else:
+
+```
+$ uv run taskrail --root <tmp>/repro validate
+history: not checked (not a git repository)
+1 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
+exit=0
+```
+
+The message is now enough to get from the failure to the fix without reading `config.py`.
+
+**2. The `task-id` sibling, the same repository with `T001` renamed `X001`:**
+
+```
+$ uv run taskrail --root <tmp>/repro validate
+TODO.md:15: error: task ID `X001` does not match prefix `T` plus 3 or more digits [task-id]
+history: not checked (not a git repository)
+1 task(s) in 1 backlog(s): 1 error(s), 0 warning(s)
+exit=1
+```
+
+**3. The two new tests fail without the change.** Stashing only the two source files and running
+them:
+
+```
+$ git stash push -- src/taskrail/backlog.py src/taskrail/project.py
+$ uv run pytest tests/test_validate.py -q -k "names_the"
+E       AssertionError: assert 'epic_prefix' in 'epic ID `EP01` does not match `E` plus two or more digits'
+FAILED tests/test_validate.py::test_task_id_refusal_names_the_prefix_key
+FAILED tests/test_validate.py::test_epic_id_refusal_names_the_epic_prefix_key
+2 failed, 17 deselected in 0.84s
+$ git stash pop
+```
+
+They assert only that the key is named, in the style of `tests/test_import.py:462-463`, so a
+later rewording that keeps the key will not break them.
+
+**4. The stage's checks:**
+
+```
+$ taskrail checks T103 --stage implement
+== test: uv run pytest -q
+1198 passed in 150.48s (0:02:30)
+== lint: not configured
+passed test
+not configured lint
+T103 in <worktree>: passed
+exit=0
+```
+
+`lint` is declared by the `chore` kind but this repository configures no `lint` command, so it is
+reported as not configured — not a failure.
+
+**5. This repository's own backlog, whose IDs are `E##`/`T###`, is unaffected:**
+
+```
+$ .taskrail/bin/taskrail validate
+97 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
+exit=0
+```

@@ -31,6 +31,21 @@ def test_duplicate_id_and_bad_format(repo):
     assert "task-id" in codes
 
 
+def test_task_id_refusal_names_the_prefix_key(repo):
+    # The refusal has to name the key that would accept the ID, not only the prefix's value.
+    repo.write("TODO.md", BASE_TODO.replace("| T001 |", "| X001 |", 1))
+    _, issues = repo.load()
+    message = next(i.message for i in issues if i.code == "task-id")
+    assert "prefix" in message
+
+
+def test_epic_id_refusal_names_the_epic_prefix_key(repo):
+    repo.write("TODO.md", BASE_TODO.replace("E01", "EP01"))
+    _, issues = repo.load()
+    message = next(i.message for i in issues if i.code == "epic-id")
+    assert "epic_prefix" in message
+
+
 def test_dependency_problems(repo):
     todo = BASE_TODO.replace("| T001       |", "| T999       |").replace("| T002       |", "| T003       |")
     repo.write("TODO.md", todo)
