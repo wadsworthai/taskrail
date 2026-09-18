@@ -1,6 +1,6 @@
 # T091 — Tell every executor to read the repository's agent instruction files before it plans
 
-Kind: chore · Epic: E08 · Status: scoped
+Kind: chore · Epic: E08 · Status: implemented
 
 ## Goal
 
@@ -162,6 +162,104 @@ At the implement stage, all inside this worktree:
    configured in this repository. The full suite is run and its count recorded.
 6. `.taskrail/bin/taskrail validate` on this branch.
 
+## Decisions at the scope gate
+
+Recorded in `docs/autopilot/decisions/T091-tell-every-executor-to-read-the-reposito.md`. Five
+decisions were taken as recommended; one departed from the recommendation:
+
+1. The wording, approved exactly as proposed above.
+2. The place: the first sentence of step 5, **Stages**.
+3. `taskrail-chore`'s existing line stays unchanged.
+4. The test goes in `tests/test_skills_current_branch.py`, with two corrections: match the
+   lower-cased step (which `step()` already produces through `flat()`) for both the sentence and
+   the forbidden words, and extend the module docstring, which named T084 only.
+5. The CHANGELOG bullet is written, and the task's touch map is widened to `CHANGELOG.md` for it.
+6. **Departure:** the pull request is `feat(skills)`, not `docs(skills)`. The change adds an
+   instruction every executor follows in every consuming repository after `upgrade` — behaviour,
+   not documentation — and the precedent is T084's
+   `feat(skills): teach the skills the current-branch workflow, on-done commits and decisions gates`.
+   The title becomes
+   `feat(skills): tell every executor to read the repository's instructions before it plans (T091)`,
+   published by the orchestrator at hand-off.
+
 ### Results
 
-_To be filled at the implement stage._
+The change set was applied as approved. `<wt>` is this worktree.
+
+1. **The source.** `git diff src/taskrail/skills/taskrail/SKILL.md` is the one added sentence and
+   nothing else: step 5 of *Working a task* becomes
+
+   ```
+   -5. **Stages.** Take `kind_descriptor.stages` in order. Skip a stage whose `applies` is false: its
+   +5. **Stages.** Before the first stage, read the repository's own agent instruction files, if it
+   +   has any, and follow what they ask of the work you are about to do. Take
+   +   `kind_descriptor.stages` in order. Skip a stage whose `applies` is false: its
+       column does not match this task. …
+   ```
+
+   The rest of the step, and the rest of the file, are untouched.
+
+2. **The installed copies.** `.taskrail/bin/taskrail upgrade` printed:
+
+   ```
+   updated   .claude/skills/taskrail/SKILL.md
+   note      skills changed: restart the agent session so it loads them
+   11 file(s) already up to date
+   ```
+
+   `git diff .claude/skills/taskrail/SKILL.md` is the same three-line hunk at the same place, and
+   `grep -c "## On Claude Code" .claude/skills/taskrail/SKILL.md` prints `1`: this repository's
+   Claude Code notes are still inserted at the harness marker. In `.taskrail/installed.json` the
+   digest of `.claude/skills/taskrail/SKILL.md` changes from `8f486a96…` to `b07a8833…`.
+
+   `upgrade` also rewrote `"version": "v0.3.0"` to `"v0.4.0"` in that file, which the change set did
+   not predict. It is not an edit of this task's: the field is written by `init` and `upgrade` as
+   `release_tag()` of the running CLI, `main` was bumped to `0.4.0.dev0` by T086, and `release_tag()`
+   drops the development suffix. T086's decision 2 recorded exactly this — "the next
+   `.taskrail/bin/taskrail upgrade` on `main` rewrites it" — and left it to happen here. Nothing
+   reads the field back, and this repository pins `local:.`, so it changes no behaviour. It is kept
+   rather than hand-edited: reverting that line would make the manifest disagree with what `upgrade`
+   writes and would edit a generated file by hand. Reported at the implement gate.
+
+3. **Idempotence.** A second `.taskrail/bin/taskrail upgrade` printed `12 file(s) already up to
+   date` and changed nothing: `git status --short` lists the same four modified files after it as
+   before it.
+
+4. **The test, observed failing first.** With the new test in place and the skill text still
+   unchanged, `uv run pytest tests/test_skills_current_branch.py -k repositorys_instructions -q`
+   failed in all three copies for the intended reason:
+
+   ```
+   >       assert "before the first stage, read the repository's own agent instruction files" in text
+   E       assert "before the first stage, read the repository's own agent instruction files" in
+           "5. **stages.** take `kind_descriptor.stages` in order. skip a stage whose `applies` is false: …"
+   FAILED …::test_the_stages_step_reads_the_repositorys_instructions_first[source]
+   FAILED …::test_the_stages_step_reads_the_repositorys_instructions_first[claude]
+   FAILED …::test_the_stages_step_reads_the_repositorys_instructions_first[opencode]
+   3 failed, 49 deselected in 0.30s
+   ```
+
+   The failure output also shows the extracted step already lower-cased (`5. **stages.**`): `step()`
+   returns `flat()`, which collapses whitespace and lower-cases, so both the sentence assertion and
+   the forbidden-word loop are case-insensitive, as the scope gate's correction requires. After the
+   sentence was added and `upgrade` had run, `uv run pytest tests/test_skills_current_branch.py -q`
+   printed `52 passed in 1.58s` — the three new parametrizations cover the source and both
+   integrations' installed copies.
+
+5. **The stage's checks.** `.taskrail/bin/taskrail checks T091 --stage implement`, exit 0:
+
+   ```
+   == test: uv run pytest -q
+   …
+   1186 passed in 138.51s (0:02:18)
+   == lint: not configured
+   passed         test
+   not configured lint
+   T091 in <wt>: passed
+   ```
+
+   That check is the full suite. 1186 is 1183 — the count T087's lane recorded on this base — plus
+   this task's three parametrizations, and nothing else moved.
+
+6. **Validation.** `.taskrail/bin/taskrail validate` on this branch:
+   `82 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.

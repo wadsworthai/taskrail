@@ -8,6 +8,12 @@ uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git
 
 ## Unreleased
 
+- **Every executor reads the repository's own instructions before it plans.** The `taskrail` skill's
+  procedure now opens its stages step by telling the executor to read the repository's agent
+  instruction files, if it has any, and follow what they ask of the work at hand — so every kind
+  does what `taskrail-chore` alone did, whatever agent runs it. Run `taskrail upgrade` to install
+  it (T091).
+
 ## 0.3.0
 
 Adds the current-branch workflow (DESIGN.md §13) for a repository worked by a single maintainer:
