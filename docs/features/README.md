@@ -44,3 +44,4 @@
 | T094 | Warn about a key taskrail does not know in .taskrail/config.toml | [T094-warn-about-a-key-taskrail-does-not-know.md](T094-warn-about-a-key-taskrail-does-not-know.md) |
 | T099 | Default the backlog file to TASKRAIL.md | [T099-default-the-backlog-file-to-taskrail-md.md](T099-default-the-backlog-file-to-taskrail-md.md) |
 | T105 | Free a lane while a task waits for the human and requeue it when they answer | [T105-free-a-lane-while-a-task-waits-for-the-h.md](T105-free-a-lane-while-a-task-waits-for-the-h.md) |
+| T107 | Archive completed tasks and epics into a configurable document | [T107-archive-completed-tasks-and-epics-into-a.md](T107-archive-completed-tasks-and-epics-into-a.md) |
