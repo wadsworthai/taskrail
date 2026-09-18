@@ -14,6 +14,7 @@ from taskrail.model import Project, Status
 def load_project(config: Config, overlay: dict[str, str] | None = None) -> tuple[Project, list[Issue]]:
     """Load everything; `overlay` maps relative paths to contents that replace what is on disk."""
     kinds, issues = load_kinds(config)
+    issues = [*config.warnings, *issues]  # names `.taskrail/config.toml` holds that taskrail ignores (T094)
     backlogs = []
     counter = [0]
     for backlog_config in config.backlogs:

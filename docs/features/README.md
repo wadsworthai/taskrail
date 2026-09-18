@@ -41,3 +41,4 @@
 | T080 | Work a task on the checked-out branch with task_branch = current | [T080-work-a-task-on-the-checked-out-branch-wi.md](T080-work-a-task-on-the-checked-out-branch-wi.md) |
 | T081 | Commit a task's changes only when it is done with commit = on-done | [T081-commit-a-task-s-changes-only-when-it-is.md](T081-commit-a-task-s-changes-only-when-it-is.md) |
 | T083 | Close a current-branch task without fetch, rebase or publish | [T083-close-a-current-branch-task-without-fetc.md](T083-close-a-current-branch-task-without-fetc.md) |
+| T094 | Warn about a key taskrail does not know in .taskrail/config.toml | [T094-warn-about-a-key-taskrail-does-not-know.md](T094-warn-about-a-key-taskrail-does-not-know.md) |

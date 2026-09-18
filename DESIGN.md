@@ -223,6 +223,17 @@ list of unique non-empty strings. Every message names the table entry and the ke
 `[git].commit` is checked when the config loads too: a value other than `"stages"` or `"on-done"`,
 a boolean included, exits 2 naming `git.commit` (*implemented, T081*).
 
+**A name taskrail does not define is a warning, never an error** (*implemented, T094*). `validate`
+reports every name the file holds that is not above as a `config-unknown-key` warning, naming it and
+the table it sits in — `[git]`, the top level, or a repeatable table's entry by its own `name` — with
+`did you mean …?` for a near miss of a name that exists; a table taskrail does not know is one
+`config-unknown-table` warning for the table, not one per key inside it. It is a warning and not an
+error on purpose: a repository pinned to an older CLI must keep loading a config written for a newer
+one, and the other way round, so the exit code stays 0 and every command goes on working. The names
+under `[checks]` are the repository's own and never warn, nor do the keys of `[columns].aliases`,
+which §3.2 already checks. Without it, a key a new version withdraws — and equally a typo — changes
+what a repository gets with no message at all.
+
 ## 5. Kinds
 
 ### 5.1 Descriptor — `types/<kind>/kind.toml`
@@ -629,7 +640,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 |---|---|
 | `taskrail init [--integration NAME]… [--github-workflow] [--pre-commit] [--merge-driver] [--force]` | Install into a repository; idempotent (§9) |
 | `taskrail integration list` | Available agent integrations |
-| `taskrail validate [--no-history] [--history-limit N]` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks. Also warns about reopens committed without a trailer (*Reopens in history* below) |
+| `taskrail validate [--no-history] [--history-limit N]` | Check every rule in §3 and §4; non-zero exit on any error. For CI and hooks. Also warns about reopens committed without a trailer (*Reopens in history* below), and about every name `.taskrail/config.toml` holds that taskrail does not define (§4) |
 | `taskrail list [--epic E01] [--eligible] [--fetch]` | Tasks, with computed blocked and eligible state; each `--json` entry carries `show`'s task fields, `worktree` and `worktree_base` included, without `kind_descriptor` and `prior_work` |
 | `taskrail show <ID> [--fetch]` | One task with everything an executor needs: resolved skill, stages, claim, mainline, `base` (see *Dependencies and the base* below; never fetches; its `row` says whether the base has the task's row, and the text names `taskrail workspace` when only this checkout has it), `branch` with `branch_source` (`recorded` or `template`, §6.4), `worktree` (the worktree that has the branch checked out, else `<worktree_dir>/<branch>`; relative to `worktree_base`, with `..` segments for a worktree outside it, and the same from every checkout of the clone (T072); `null` unless `worktree = "required"`), `worktree_base` (the absolute directory `worktree` is relative to and task worktrees are created under: the repository's main checkout — the first entry of `git worktree list` — or, when that entry is a bare repository, the directory holding it; the same from every checkout (T075); `null` when `worktree` is), artifact and index paths, `never_edit`, check commands, `prior_work` (§7.2), `task_branch` (`"task"` or `"current"`; what `"current"` changes is in §6.4), and `close` with `commit`, the task's effective commit policy (§5.1; T081), and `review`, `"publish"` under `task_branch = "task"` and `"report"` under `"current"` (§7.1; T083) |
 | `taskrail next [--fetch]` | Eligible (`pending`) tasks in order: points ascending, then file order; never a `done-branch` or `discarded-branch` task; a task whose `base.row` is `missing` stays listed, its text line ending `(row not on <onto>)`; `--json` entries as for `list` |
