@@ -1,6 +1,7 @@
 # T089 — Decide whether to split DESIGN.md by topic for what the orchestrator reads first
 
-**Verdict** — **do not split `DESIGN.md`.** The measurements contradict two of the premises the
+**Verdict** — accepted by the human at the `decide` gate on 2026-09-18, in full and as
+recommended; see *Outcome* below. **Do not split `DESIGN.md`.** The measurements contradict two of the premises the
 task row rests on, and the option the row proposes is the most expensive one on the table. The
 orchestrator reads `read_first` **once before the first dispatch**, not at every gate (E2), so the
 1844 lines are a per-run cost, not a per-gate one; and §7 and §12, the two sections a split would
@@ -472,6 +473,37 @@ to the next, so §3 includes the worked `TODO.md` example whose own `##` heading
 separately (63 lines, not 7). The per-run figures rest on run handles that appear in 22 of 67
 decision records; they describe 9 runs, and the ten-task run `20260914-1` is the only large one in
 the record.
+
+## Outcome
+
+The `decide` gate of this spike is escalated to the human by
+`[autopilot].escalate_gates = ["spike:decide"]`. On 2026-09-18 the human accepted the verdict **in
+full**: do not split `DESIGN.md`, adopt the reading map as T093, leave
+`[autopilot].read_first` unchanged. The four alternatives were put to them with the costs above
+attached, and none was taken. The answer is recorded in
+[`docs/autopilot/decisions/T089-decide-whether-to-split-design-md-by-top.md`](../autopilot/decisions/T089-decide-whether-to-split-design-md-by-top.md).
+
+Before escalating, the orchestrator reproduced the two load-bearing measurements rather than taking
+them on this document's word: `grep -rn 'DESIGN' src/taskrail/skills/ src/taskrail/integrations/`
+returns nothing (E3), the census over the 67 past decision records comes out identical (E4: §12 in
+36, §7 in 28, §6 in 13, §4 in 9, §5 in 8, §8 in 7, §13 in 6), and `src/taskrail/config.py:79`
+confirms `read_first` is a tuple of paths, so it cannot name a section (E2).
+
+Two things the gate asked to be made explicit here:
+
+- **The row's premise was the orchestrator's own, and E2 disproves it.** "DESIGN.md … is listed in
+  `[autopilot].read_first`, so the orchestrator reads it whole at every gate" was written by the
+  orchestrator when T089's row was created, not by the human. The shipped skill,
+  `references/gate-review.md` and §12.6 all say *before the first dispatch*. **The row stays as
+  written** — it is the question that was asked, and rewriting it would erase the question — and
+  this artifact carries the correction. E2 is the most valuable finding of the spike, more than the
+  verdict it supports: it is a fact about how this repository's autopilot actually works that
+  nobody had checked, and any future argument about the size of a `read_first` document has to
+  start from it.
+- **T093 stays narrow.** A table of contents *inside the file being changed*: no renumbering, no
+  new file, no citation moved, `read_first` untouched. Its whole value over options 2, 3 and 4 is
+  that it is one reversible diff. A T093 that grew into a map of separate documents would be the
+  split this spike rejected, arriving by another route.
 
 ## Follow-ups
 
