@@ -1,0 +1,39 @@
+# T103 — autopilot decisions
+
+Decisions the orchestrator took on the human's behalf while this task ran in an autopilot lane.
+Each is recorded before it is given to the lane.
+
+## scope gate
+
+Reviewed: the artifact at commit 1bcb73e, the diff against the base (the artifact and one index row;
+no source touched, as `scope` requires), and the lane's reproduction of the failure in a throwaway
+repository, which is the evidence the wording rests on.
+
+**A correction the orchestrator owes the lane.** The brief quoted this task's row up to "Name the
+key in the message" and stopped; the row continues "and keep the same shape for the prefix refusal
+in `project.py` if it has the same defect". The lane read the row itself, found the clause, found
+the defect, and asked. Its touch map was drawn from the truncated quote, so it is widened here.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | `project.py:43` here, or a follow-up? | **here** · a follow-up | **here; the touch map is widened to `src/taskrail/project.py`** | The row asks for it. One word each, one family, one reviewer pass — splitting it would cost more in ceremony than the change itself. No other lane holds that file. |
+| 2 | `importer.py:362`, the third sibling | leave it, noted · include it · a follow-up task | **leave it, noted in the artifact** | A different command, not named by the row, and its message already names `id_digits` in the hint it appends. The lane checked that including it would break no test, so this is a free choice made on scope rather than on cost — which is the right reason to decline. |
+| 3 | Name `id_digits` in the `task-id` message too | leave it · name it | **leave it** | The row asks for the prefix refusal. A bare number is self-explanatory where bare letters are not, and every grammar that names the key reads badly. |
+| 4 | A `CHANGELOG.md` bullet | **yes, one short bullet** · no | **yes** | It changes what every reader of a failed `validate` sees, which is the kind of change a consumer meets after an upgrade — unlike T098 and T102, which changed only a repository document. One correction to the brief: **appended changelog bullets are a known conflict class** (class 2), so the risk of a parallel lane adding one is not a reason to decline; the orchestrator's earlier lane briefs listed the classes incompletely. |
+
+Instructions given with the answers: assert that the key is named rather than pinning the sentence,
+following `tests/test_import.py:462-463`, which is the house pattern the lane found; re-run the
+`EP01` reproduction and a matching `task-id` one after the change.
+
+Noted: `epic-id` has **no** test anywhere in the repository, which the lane established rather than
+assumed after the brief claimed one existed. Two new tests, not an extension.
+
+## Conflict handling agreed for all lanes
+
+Run 20260918-1. T099 holds `config.py` and `install.py`; T102 holds `DESIGN.md` §6.1.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Which lane edits which files? | split by file · shared | **T103: `backlog.py`, `project.py`, `tests/`, `CHANGELOG.md`** | No other live lane holds any of them. |
+| 2 | How are the expected conflicts resolved? | escalate · known classes | **known classes: backlog rows (1), appended index rows (2), appended changelog bullets (2); a conflict inside a source file escalates** | |
+| 3 | May this lane change behaviour? | allow · forbid | **forbidden** | Message text only: no exit code, no error code, no regex, no `--json` shape. |
