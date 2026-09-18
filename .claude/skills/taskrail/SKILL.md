@@ -1,6 +1,6 @@
 ---
 name: taskrail
-description: Work a taskrail backlog (TODO.md grouped by epics) through the taskrail CLI — find, claim, create and close tasks, and follow the procedure every task kind shares. Use whenever a task ID such as T012 is mentioned, when asked what to work on next, when adding tasks or epics, and before running any taskrail-* executor skill.
+description: Work a taskrail backlog (a Markdown file, `TASKRAIL.md` by default, grouped by epics) through the taskrail CLI — find, claim, create and close tasks, and follow the procedure every task kind shares. Use whenever a task ID such as T012 is mentioned, when asked what to work on next, when adding tasks or epics, and before running any taskrail-* executor skill.
 license: MIT
 metadata:
   source: https://github.com/wadsworthai/taskrail
@@ -8,9 +8,10 @@ metadata:
 
 # taskrail
 
-The backlog is Markdown: `TODO.md` holds an `## Epics` table and one section per epic, and an
-epic may live in its own file instead. Each task is a table row with a status (`⬜` pending,
-`✅` done, `❌` discarded), an ID, a kind, dependencies and a title.
+The backlog is Markdown: the file the repository's config names — `TASKRAIL.md` by default — holds
+an `## Epics` table and one section per epic, and an epic may live in its own file instead.
+`taskrail show <ID> --json` reports the file a task's row is in. Each task is a table row with a
+status (`⬜` pending, `✅` done, `❌` discarded), an ID, a kind, dependencies and a title.
 
 **The CLI owns IDs and statuses.** Never invent an ID, never type a status emoji into a row,
 and never reformat a table. Create tasks with `taskrail new`, close them with `taskrail done`

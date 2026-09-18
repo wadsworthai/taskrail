@@ -176,7 +176,7 @@ def default_config(mainline: str) -> str:
 [[backlog]]
 name = "main"
 prefix = "T"
-file = "TODO.md"
+file = "TASKRAIL.md"          # the default; taskrail never takes a name the repository already uses
 mainline = "{mainline}"
 artifacts = "docs"
 
@@ -208,7 +208,7 @@ scope = ""                   # default Conventional Commits scope of pull reques
 '''
 
 
-DEFAULT_TODO = """# TODO
+DEFAULT_BACKLOG = """# Backlog
 
 ## Epics
 
@@ -410,7 +410,7 @@ def install(
     installer.seed(".taskrail/config.toml", default_config(mainline))
     config = load_config(root)
     for backlog in config.backlogs:
-        installer.seed(backlog.file, DEFAULT_TODO)
+        installer.seed(backlog.file, DEFAULT_BACKLOG)
     installer.managed(WRAPPER, wrapper_script(), executable=True)
 
     left_out, kind_errors = unused_executor_skills(config)
