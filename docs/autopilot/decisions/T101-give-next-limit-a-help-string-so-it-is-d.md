@@ -27,6 +27,19 @@ it released and re-claimed with `--root <worktree>` before editing anything. Tha
 resolving its root from the working directory, and the handling was correct — the second lane in
 this run to hit it, which is worth remembering if it happens a third time.
 
+## implement gate
+
+Reviewed: the one-line change in `cli.py` read by commit range, the test, and `taskrail checks T101`
+re-run by the orchestrator, which passed. The test was observed failing with only `cli.py` reverted
+(`assert None`), so it pins the fix rather than the status quo — the right way to prove a test of
+this kind.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the change what was approved? | accept · amend | **accepted** | One line, the wording and metavar as ruled, and `next --help` now prints `--limit N  show at most N eligible tasks (default 5)`. |
+| 2 | The test's second assertion, on the metavar | keep it · assert the help string only | **keep it** | The metavar is half the point: `DESIGN.md` §7 writes the flag as `[--limit N]`, so pinning it is what stops `--help` drifting back to a third spelling. |
+| 3 | The enumeration of the 65 help-less arguments | keep it in the artifact · drop it | **keep it** | Recorded by command, it is the measurement anyone deciding the wider rule would otherwise have to redo. |
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T099 may change `config.py` and `install.py`; T100 is handed off and waiting to be
