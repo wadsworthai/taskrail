@@ -95,3 +95,4 @@
 | T108 | Add continuous integration that runs the test suite | [T108-add-continuous-integration-that-runs-the.md](T108-add-continuous-integration-that-runs-the.md) |
 | T111 | Record the orchestrator context budget where a run count is chosen | [T111-record-the-orchestrator-s-context-budget.md](T111-record-the-orchestrator-s-context-budget.md) |
 | T112 | Replace section 12.3 unverified note on old lane handles with the measured reason | [T112-replace-section-12-3-s-unverified-note-o.md](T112-replace-section-12-3-s-unverified-note-o.md) |
+| T116 | Pin a setup-uv tag that exists in the generated GitHub workflow | [T116-pin-a-setup-uv-tag-that-exists-in-the-ge.md](T116-pin-a-setup-uv-tag-that-exists-in-the-ge.md) |

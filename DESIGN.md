@@ -1329,9 +1329,12 @@ session starts.
   bad input never deletes a skill, and the next run after the fix removes what is not wanted.
 - **Extras** — `--github-workflow` is remembered in the manifest, and its workflow checks out full
   history (`fetch-depth: 0`): `validate`'s reopen check (§7) finds nothing past a shallow clone's
-  boundary; `--pre-commit` writes a marked block into this clone's git hook, keeping an existing
-  shell hook's contents; `--merge-driver` is remembered too, keeps a marked block of
-  `.gitattributes` current and defines the driver in this clone's git config (§7.4).
+  boundary. Every action it uses is pinned to an exact release tag, because not every action
+  publishes a floating major tag — a bare major that the action's repository never had leaves a
+  workflow that cannot even start. `--pre-commit` writes a marked block into this clone's git
+  hook, keeping an existing shell hook's contents; `--merge-driver` is remembered too, keeps a
+  marked block of `.gitattributes` current and defines the driver in this clone's git config
+  (§7.4).
 
 `taskrail upgrade` repeats the install with the recorded integrations and pins the config to
 the running CLI version. `taskrail self upgrade [--tag]` reinstalls the CLI from a release tag.
