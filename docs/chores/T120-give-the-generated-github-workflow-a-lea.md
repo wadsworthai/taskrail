@@ -154,4 +154,32 @@ Evidence gathered before any edit:
   recorded for that path in `.taskrail/installed.json`: the managed copy is unedited, so
   `upgrade` will rewrite it without `--force`.
 
-Results: recorded in the implement stage.
+Results:
+
+- **The test was observed failing first.** With the test added and the template untouched,
+  `uv run pytest tests/test_install.py -k grants_the_job_only_read_access` failed:
+  `AssertionError: assert '\npermissions:\n  contents: read\n' in '# Managed by taskrail: …'`
+  — `1 failed, 61 deselected`. After the four template lines, the whole module passes:
+  `62 passed in 3.83s`.
+- **`init --github-workflow` run for real** into a scratch repository, with this branch's source
+  through the worktree's `local:.` wrapper: it created `.taskrail/config.toml`, `TASKRAIL.md`,
+  `.taskrail/bin/taskrail`, `.github/workflows/taskrail.yml` and `.gitignore`, with `updated`,
+  `skipped` and `removed` empty. The file it wrote carries the block at workflow level, between
+  `on:` and `jobs:`, and the rest of the file is unchanged. A YAML parser reads it as
+  `permissions: {contents: read}` at the top level, with `jobs.validate` keeping its three steps
+  — `actions/checkout@v7.0.1` with `fetch-depth: 0`, `astral-sh/setup-uv@v10.1.0` and
+  `run: .taskrail/bin/taskrail validate` — and **no job-level `permissions`**, so the workflow's
+  grant is the job's grant and every unnamed scope is `none`.
+- **This repository's own copy regenerated** with `.taskrail/bin/taskrail upgrade --json` in the
+  worktree: `updated` was `.github/workflows/taskrail.yml` alone; `.taskrail/bin/taskrail`, the
+  config, `TODO.md` and all eight skill files came back `unchanged`, and `created`, `skipped`,
+  `removed` and `notes` were empty — nothing outside the change set was touched. The tracked diff
+  is the three added lines in the workflow and the one digest line in `.taskrail/installed.json`.
+  The regenerated file's sha256 is
+  `eb05606eb7db2398f1b09a1ac4da2d8d540b599ce035b6b707559bea2181d70f`, equal to the digest
+  `upgrade` recorded, so the committed copy is the template's output unmodified.
+- `.taskrail/bin/taskrail validate` from the worktree — the job's only `run` step — printed
+  `109 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)` and exited 0.
+- `taskrail checks T120 --stage implement`: `test` (`uv run pytest -q`) passed, `1252 passed in
+  184.86s`; `lint` is not configured in this repository, reported as `== lint: not configured`.
+  Overall `passed`, exit 0.

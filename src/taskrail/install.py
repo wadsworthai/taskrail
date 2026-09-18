@@ -272,6 +272,9 @@ on:
   push:
     branches: [{branches}]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest

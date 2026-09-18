@@ -171,6 +171,16 @@ def test_github_workflow_pins_every_action_to_an_exact_release_tag(empty_repo, c
     assert not loose, f"not pinned to an exact release tag: {loose}"
 
 
+def test_github_workflow_grants_the_job_only_read_access_to_contents(empty_repo, capsys):
+    # Without a permissions block the job runs with the repository's default GITHUB_TOKEN
+    # permissions, read-write in older repositories. Checkout plus validate need contents: read,
+    # and naming one scope makes every other one none. The block is asserted literally: a general
+    # "some permissions key" assertion would pass for contents: write, the failure this prevents.
+    init(empty_repo, "--github-workflow", capsys=capsys)
+    workflow = (empty_repo / install.WORKFLOW).read_text()
+    assert "\npermissions:\n  contents: read\n" in workflow
+
+
 def test_upgrade_rewrites_an_unedited_workflow_from_an_earlier_template(empty_repo, capsys):
     init(empty_repo, "--github-workflow", capsys=capsys)
     earlier = install.workflow(["main"]).replace("        with:\n          fetch-depth: 0\n", "")
