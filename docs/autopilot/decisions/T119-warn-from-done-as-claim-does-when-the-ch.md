@@ -21,3 +21,19 @@ the defect needs neither the wrapper nor T118; the probes of `discard` and `reop
 Given with the answers: the reproduction's most useful property is that it used no wrapper at all.
 That is what proves this is not a duplicate of T118 and that closing T118's route leaves this one
 open — which is the whole reason the human asked for both.
+
+## fix gate
+
+Reviewed: commit `05327e0` and the diff `0ea089b..HEAD` — `_closed_elsewhere` and its two call
+lines in `_change_status`, four tests, the `DESIGN.md` §7 sentences and command-table key, the
+changelog bullet and the artifact, with `install.py`, `DESIGN.md` §9 and the wrapper untouched; the
+recorded failure, which is `KeyError: 'warning'` — `done`'s result has no such key at all, because
+nothing computes one; `taskrail checks T119 --stage fix` (1,252 passed); and the live reproduction
+re-run on the fixed code, where the warning fires and the row still lands in the wrong checkout.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Computing the warning before the write and printing it after | **accept** | **accept** | `writer.set_status` mutates the task, so the resolution has to happen first; and the sentence claims the row *has* been written, so it must print only on `EXIT_OK`. On an invalid-backlog refusal nothing is written and nothing is claimed to be. |
+| 2 | Silence on a detached `HEAD`, where `claim` warns | **accept the narrower rule** · spend a second git call to tell it apart from "outside git" | **accept** | `gitutil.current_branch` returns `None` for both, and distinguishing them costs a `common_dir` call for a case `claim` already warns about at claim time and that was never the shape of the reproduction. Warning only when both branch names are known and differ is the rule that cannot produce a false positive. It is documented in §7, which is what keeps a deliberate narrowing from reading as an oversight. |
+| 3 | The `warning` key added to `done`/`discard`'s `--json` | **accept** | **accept** | It is `null` on correct use, the whole suite passes with it, and a consumer reading the result can act on it without parsing stderr. |
+| 4 | Pull request type and scope | **`fix` / `cli`** | **`fix` / `cli`** | The change is in `cmd_done`/`_change_status`. The body must say the change also covers `discard`, since the title names `done` alone. |
