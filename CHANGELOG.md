@@ -55,6 +55,13 @@ instead of `upgrade`. To install the CLI on your machine as well:
   reading the source. Both messages now name the key: `epic_prefix` for an epic ID and `prefix` for
   a task ID. Nothing else changes — the `epic-id` and `task-id` codes, the exit codes and the
   `--json` shape are as they were (T103).
+- **The core skill says plainly what `show --fetch` needs.** Step 3 tells every executor to run
+  `taskrail show <ID> --json --fetch` before it branches, and its condition sat mid-sentence, so the
+  flag read as unconditional. It now says that the fetch does nothing, and says nothing, unless the
+  repository sets `[git].branch_record_remote` — and that where it is set it brings in the branch
+  names other clones recorded, without which a task finished on a branch renamed elsewhere reads as
+  pending on a template name. README's command reference names the key too. No behaviour changed:
+  the flag, its guard and the key are untouched. Run `taskrail upgrade` to install it (T104).
 
 ## 0.3.0
 

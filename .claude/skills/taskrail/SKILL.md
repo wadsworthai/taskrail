@@ -62,11 +62,14 @@ of `taskrail show`) supplies what happens inside each stage.
    `taskrail branch` exit 5. Stop and ask only when `branch` is `null` (a detached `HEAD`) or when
    the task's live claim (`claim.branch`) names another branch than `branch`; otherwise go on to
    claiming, in the checkout you are in. Under `"task"`: run `git fetch <base.remote>` first, with
-   the mainline's own remote that `show` reported, then `taskrail show <ID> --json --fetch` —
-   which also brings in branch names other clones recorded, when the repository mirrors them: its
-   `base.onto` is the ref to branch from — the local or the remote mainline, whichever is further
-   ahead, or, when `base.dependency` names a dependency finished only on its unmerged branch, that
-   branch. If `base.diverged` is true, stop and ask which one to use; if `base.onto` is null, stop
+   the mainline's own remote that `show` reported, then `taskrail show <ID> --json --fetch`. The
+   `--fetch` does nothing, and says nothing, unless the repository sets
+   `[git].branch_record_remote`; where it is set, it brings in the branch names other clones
+   recorded, without which a task finished on a branch renamed in another clone reads here as
+   pending on a template name. Take `show`'s `base.onto` as the ref to branch from — the local or
+   the remote mainline, whichever is further ahead, or, when `base.dependency` names a dependency
+   finished only on its unmerged branch, that branch. If `base.diverged` is true, stop and ask
+   which one to use; if `base.onto` is null, stop
    and report `base.reason`. If `base.row` is `missing`, the task's row exists only in this
    checkout, and a workspace created from `base.onto` would not contain it: run
    `taskrail workspace <ID> --json` instead of the git commands below. It creates the branch and
