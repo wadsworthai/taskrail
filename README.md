@@ -65,6 +65,13 @@ installs the skills and the wrapper. Three optional flags:
   block of `.gitattributes` to commit, and defines the driver in this clone's git config, which
   each clone opts into by running `taskrail init --merge-driver` once.
 
+`init` does not configure the autopilot, and no flag does: the skill installs everywhere, but the
+`[autopilot]` section of `.taskrail/config.toml` is written by hand. A config `init` seeds carries
+that section commented out, with the keys most repositories set — uncomment `enabled = true` and
+the ones you need. A repository installed before this, or one whose config predates a key, writes
+it in itself; `upgrade` moves the version pin and never rewrites the config. See *Autopilot* below
+and DESIGN.md §12.
+
 Commit `.taskrail/`, `TASKRAIL.md` and the installed skills. Skills and managed files you edit are
 never overwritten silently; `--force` replaces them.
 

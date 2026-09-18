@@ -127,6 +127,16 @@ instead of `upgrade`. To install the CLI on your machine as well:
   names other clones recorded, without which a task finished on a branch renamed elsewhere reads as
   pending on a template name. README's command reference names the key too. No behaviour changed:
   the flag, its guard and the key are untouched. Run `taskrail upgrade` to install it (T104).
+- **The config `init` seeds now shows the autopilot's keys, commented out.** `init` configures no
+  autopilot and no flag does, so a repository that wanted one wrote the `[autopilot]` section from
+  scratch after finding the keys in DESIGN.md §12 — the only hand work a real install left. The
+  seeded `.taskrail/config.toml` now ends with a commented block carrying `enabled`, `max_lanes`,
+  `read_first`, `governing` and `escalate_gates`, next to the commented examples `[columns]` and
+  `[checks]` already had, so enabling the autopilot is uncommenting it. Every line is a comment:
+  the seeded config parses exactly as before, `[autopilot]` is still absent from it, and
+  `autopilot start` still refuses with exit 5 until a repository opts in. Nothing reaches an
+  existing repository — `upgrade` moves the version pin and never rewrites a config — so README's
+  install section now says the section is written by hand and where its keys are documented (T003).
 
 ## 0.3.0
 
