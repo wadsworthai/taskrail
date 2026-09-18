@@ -121,7 +121,13 @@ with
 The paragraph's first half — the procedure, `(T033 F2, *implemented, T055*)` — is unchanged, and so
 is every other sentence of §12.3.
 
-## Decisions needed
+## Decisions
+
+Both were answered at the `scope` gate on 2026-09-18
+([decision record](../autopilot/decisions/T112-replace-section-12-3-s-unverified-note-o.md)):
+**1 — the two-sentence form above, exactly as proposed**, keeping the order that makes T033's
+observation a consequence of the measurement rather than the evidence for it; **2 — no
+`CHANGELOG.md` entry**.
 
 1. **The exact replacement wording**, and how it stays scoped to the agent measured without becoming
    a paragraph. Recommended: the two-sentence form above. It names the agent first ("On Claude
@@ -161,9 +167,47 @@ is every other sentence of §12.3.
 
 ## Verification
 
-- `taskrail checks T112 --stage implement` — the suite (`uv run pytest -q`); `lint` is not
-  configured for this repository, which will be reported as such.
-- `git diff` on the branch shows one file changed and one sentence replaced: no other line of
-  `DESIGN.md`, and no other file but this artifact, its index row and the `TODO.md` status cell.
-- `grep -n "not verified" DESIGN.md` returns nothing in §12.
-- `.taskrail/bin/taskrail validate` passes.
+The change was applied as approved. What §12.3 now says:
+
+```
+$ git diff
+-stopped at a gate or `silent` (T033 F2, *implemented, T055*). In the T033 trial a new Claude
+-Code session restarted a lane rather than resuming it; whether an earlier session's handle
+-still reaches a lane is not verified.
++stopped at a gate or `silent` (T033 F2, *implemented, T055*). On Claude Code a handle reaches a
++lane only from the session that launched it: the lane's conversation is stored under that
++session, keyed by the handle the run file records, and across nine runs all 38 recorded handles
++resolved under exactly one session each, none shared and none stored outside a session (T057 E4).
++A new session there restarts the lane from its branch, as the T033 trial did; another agent may
++store lane conversations differently.
+```
+
+One file, one hunk, three lines removed and six added; no other line of `DESIGN.md` and no other
+file changed by this stage. The longest new line is 97 characters, inside the file's existing wrap.
+
+The suite, run in this worktree through the task's own checks:
+
+```
+$ .taskrail/bin/taskrail checks T112 --stage implement
+[…]
+1221 passed in 167.93s (0:02:47)
+== lint: not configured
+passed test
+not configured lint
+T112 in /thezone/shared/repositories/utils/taskrail/.worktrees/T112-replace-section-12-3-s-unverified-note-o: passed
+```
+
+`lint` is not configured for this repository, as predicted at the scope gate; `test` is the only
+check the stage has, and it passes. The two tests that read the repository's own `DESIGN.md`
+(`test_config_unknown_keys.py`, `test_autopilot_parked.py`) are among those 1221 and are unaffected,
+as the scope evidence showed.
+
+The phrase this task exists to remove is gone from the whole file, and the backlog still validates:
+
+```
+$ grep -n "not verified" DESIGN.md
+$ echo $?
+1
+$ .taskrail/bin/taskrail validate
+101 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
+```
