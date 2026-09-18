@@ -40,3 +40,18 @@ Given with the answers: the lane's own finding decides how much the README sente
 when it is missing, so **a seeded block reaches new installs only**. Every repository that has
 already run `init`, including the consumer this task came from, is served by the README line and by
 nothing else. Say so in the artifact.
+
+## implement gate
+
+Reviewed: commit `83df476` and the diff `afcd71c..HEAD` — seven commented lines in
+`default_config()`, one test, the artifact, and nothing else; the seeded block read in full from the
+source; the lane's run against a scratch repository, where the block is inert (`validate` exits 0
+with no `config-unknown-key` warning and `autopilot start` still exits 5 with its own message) and
+correct (uncommenting those six lines and nothing else makes `autopilot start` exit 0);
+`taskrail checks T003 --stage implement` (1,248 passed).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Anything to decide at this gate? | **no** | **no** | (B) was built with both sub-choices as approved, and the change stayed inside the four files the scope named. |
+| 2 | The test asserting both halves — that the block stays a comment, and that uncommenting it works | **accept** | **accept** | Pinning only the first would let the block rot into keys taskrail no longer takes while still passing. The second half is what makes it a comment someone can rely on rather than decoration. |
+| 3 | Leaving `README.md` and `CHANGELOG.md` uncommitted for the `docs` stage | **accept** | **accept** | The kind puts documentation in its own stage, and both files are shared append-only ones; keeping them out of the implement commit makes the code review read as code. |
