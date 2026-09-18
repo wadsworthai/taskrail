@@ -1,6 +1,6 @@
 # T091 — Tell every executor to read the repository's agent instruction files before it plans
 
-Kind: chore · Epic: E08 · Status: implemented
+Kind: chore · Epic: E08 · Status: implemented and documented
 
 ## Goal
 
@@ -263,3 +263,30 @@ The change set was applied as approved. `<wt>` is this worktree.
 
 6. **Validation.** `.taskrail/bin/taskrail validate` on this branch:
    `82 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+
+### Docs stage
+
+Nothing further needs to change. The documentation the change could have touched was read and left
+as it is:
+
+- **`DESIGN.md` §8** lists the core skill's procedure as "identify, inspect, workspace, claim,
+  stages, scope, artifact, close, hand off" (line 1113). The sentence sits inside step 5, so the
+  list stays true and §8 needs no edit — which is why a tenth step or a new section was refused at
+  the scope gate. §8's rule that "the portable text names no agent" also stays satisfied, and the
+  new test now asserts it for this line in the source and in both integrations' copies.
+- **`README.md`** never enumerates the procedure's steps: it describes the kinds, the installed
+  skills and the workflow settings, and none of those statements change.
+- **`src/taskrail/integrations/`** carries only agent-specific notes; the pointer is portable, so it
+  belongs to neither integration.
+- **The lane brief** (`src/taskrail/skills/taskrail-autopilot/references/lane-brief.md:19-20`)
+  already says "Read and follow the `taskrail` skill, the `<SKILL>` executor skill and the
+  repository's own agent instructions literally". The core skill now says the same thing outside an
+  autopilot run; the two agree and neither needs rewording.
+- **`taskrail-chore/SKILL.md:24-25`** keeps its line, by decision 3 at the scope gate.
+- **`taskrail-feature/SKILL.md:12`** says "say so at the plan gate". Read and left alone on purpose:
+  `plan` is that kind's own first stage, so the phrase is correct there. The defect T087 E6 found is
+  in the repository's own instructions, which name "the plan gate" for tasks of every kind, and that
+  is T090's to fix, not this task's.
+
+`CHANGELOG.md` gained its bullet under `## Unreleased` in the implement commit, so the
+documentation the change affects is already in line. No follow-up tasks were opened.
