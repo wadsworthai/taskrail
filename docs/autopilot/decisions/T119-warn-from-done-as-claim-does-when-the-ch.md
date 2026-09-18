@@ -37,3 +37,20 @@ re-run on the fixed code, where the warning fires and the row still lands in the
 | 2 | Silence on a detached `HEAD`, where `claim` warns | **accept the narrower rule** · spend a second git call to tell it apart from "outside git" | **accept** | `gitutil.current_branch` returns `None` for both, and distinguishing them costs a `common_dir` call for a case `claim` already warns about at claim time and that was never the shape of the reproduction. Warning only when both branch names are known and differ is the rule that cannot produce a false positive. It is documented in §7, which is what keeps a deliberate narrowing from reading as an oversight. |
 | 3 | The `warning` key added to `done`/`discard`'s `--json` | **accept** | **accept** | It is `null` on correct use, the whole suite passes with it, and a consumer reading the result can act on it without parsing stderr. |
 | 4 | Pull request type and scope | **`fix` / `cli`** | **`fix` / `cli`** | The change is in `cmd_done`/`_change_status`. The body must say the change also covers `discard`, since the title names `done` alone. |
+
+## close
+
+Reviewed: the whole diff against the merge base — `_closed_elsewhere` and its two call lines, four
+tests, `DESIGN.md` §7's *Writing* bullet and command-table row, one changelog bullet, the artifact
+and its index row, with §9 and `install.py` untouched; the `impact` stage's grep showing the only
+other `set_status` caller is `cmd_reopen`, ruled out with a probe; and `taskrail validate`
+(108 tasks, 0 errors).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The `impact` stage opened nothing | **accept** | **accept** | It closed the last open question by grep rather than by assertion: two `set_status` callers, one now covered and one ruled out with a reproduction. |
+| 2 | Pull request type and scope | **`fix` / `cli`** | **`fix` / `cli`** | The change is in `cmd_done`/`_change_status`. The body must say it covers `discard` too, since the title names `done` alone. |
+
+Worth keeping where a later reader will find it: `taskrail done T119 --json` returned
+`"warning": null` — the new key, computed by the new code, run correctly inside the task's own
+worktree, silent. The fix closed its own task and demonstrated its quiet case doing it.
