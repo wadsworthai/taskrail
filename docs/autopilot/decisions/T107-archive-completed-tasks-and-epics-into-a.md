@@ -44,3 +44,24 @@ Given with the answers:
 |---|---|---|---|---|
 | 1 | Which lane edits what, with T106 and T107 live | split by area · first come first served | **T107: the archive module, its `cli.py`/`config.py`/`ids.py`/`mergedriver.py`/`writer.py` wiring, its own tests, `DESIGN.md` §§3.1/4/7 and a new §7.6, `README.md`. T106: `tests/` (its own new file) and, only on a proven defect, `src/taskrail/install.py` or the wrapper template.** | The two tasks meet only in `tests/` and `install.py`; separate files and an ask-at-the-gate rule keep them apart. |
 | 2 | The files both lanes append to | resolve at hand-off as known classes · forbid | **resolve at hand-off**: `TODO.md` rows united by ID, `CHANGELOG.md` bullets, `docs/*/README.md` index rows | They are the known conflict classes of the autopilot skill; every lane appends its own entry and none rewrites another's. |
+
+## implement gate
+
+Reviewed: commit `88e894e` and the diff `d3ca1a4..HEAD` (13 files, +885/-32); `src/taskrail/writer.py`
+and the new `cmd_archive` read in full by the orchestrator rather than summarized; the sections of
+`DESIGN.md` the diff touches, confirmed to be §4's config example, §7's command table, §7.4's driver
+paths and the new §7.6, with `src/taskrail/install.py` and `tests/test_install.py` untouched as the
+touch map required; the lane's failing-first run (22 failed, 80 passed), its
+`taskrail checks T107 --stage implement` (1243 passed) and `taskrail validate` (102 tasks, 0 errors).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| A | The refusal of decision 2a was built in `cmd_archive` instead of at config load | **accept the command-level refusal as built** · the config-load refusal with a `{artifacts}/{backlog}-archive.md` default | **accept the command-level refusal** | The default is `{artifacts}/archive.md` and the artifacts root is repository-wide, so at config load every two-backlog repository — including `DESIGN.md` §4's own example and four test fixtures — would exit 2 on every command, archiving or not. The decision's intent was that two backlogs never mix in one file; writing is the only operation that could mix them, so the check belongs where the writing is. Changing the default instead would make every single-backlog repository, which is the common case, carry a backlog name in its archive's file name for a clash it cannot have. |
+| B | Does `archive` belong in the core skill's CLI list? | **leave the skills untouched, as the lane recommends** · add one line | **leave the skills untouched** | Archiving is a maintainer's periodic cleanup, never a step of a task's procedure, and the skills describe what an agent working a task does. It would also churn the installed copies under `.claude/`, which are a known conflict class, for a line no lane would act on. `DESIGN.md` §7.6 and `README.md` are where a human looks for it. |
+
+Given with the answers: the plan's estimate of three held-back rows was wrong and the code is right —
+the approved fixed point holds back nine on this repository's own backlog, because a held row is
+itself a dependency further up the chain. Correct the number in the artifact where the plan stated
+it, so the record does not carry a figure the implementation disproved. At `verify`, also exercise
+the archive whose parent directory does not exist yet, and the second run that appends to an archive
+already holding an epic section.
