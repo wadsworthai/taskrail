@@ -612,6 +612,7 @@ def known_conflict_paths(project) -> dict[str, str]:
     templates = [kind.artifact_index for kind in project.kinds.values()] + [config.autopilot.decisions_index]
     for backlog in project.backlogs:
         add(backlog.config.file, "backlog")
+        add(backlog.config.archive_path, "backlog")  # two lanes archiving at once append to it (T107)
         for epic in backlog.epics:
             if epic.file:
                 add(epic.file, "backlog")

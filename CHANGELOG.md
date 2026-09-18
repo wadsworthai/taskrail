@@ -12,6 +12,19 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **`taskrail archive` moves closed tasks and closed epics out of the backlog.** A backlog kept
+  every row it ever had, so a long-lived one grew without bound and a reader met years of finished
+  work before the open rows. The new command — run by the human, never automatic on `done` — moves
+  every `✅` and `❌` row into the document `[[backlog]].archive` names (default
+  `{artifacts}/archive.md`), and an epic whose rows all move goes whole: its `## Epics` row, its
+  section, its own file where it has one, and its objective and `Done when:` carried across. A
+  closed row that a row staying behind depends on is held back and named in the output, which is
+  what keeps the backlog valid: `validate` never reads the archive. The archive is the same
+  Markdown as the backlog, so `grep` still finds a task, `ids` counts archived IDs as used — an
+  archived ID is never allocated again — and the merge driver merges two branches' archives row by
+  row, its `.gitattributes` block naming the archive from `init --merge-driver` and `upgrade`. An
+  archived task is not reopened: `taskrail reopen` exits 3 naming the archive file the ID sits in.
+
 - **A task waiting for the human no longer holds an autopilot lane, and the answer puts it back in
   the queue.** A lane stopped at an escalated gate kept its lane until the human replied, so a run
   with `max_lanes = 3` and two escalations had one lane working while `autopilot next` reported

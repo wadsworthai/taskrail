@@ -224,6 +224,20 @@ def test_a_row_moved_to_another_table_is_not_duplicated():
     assert text == backlog([BASE_ROWS[0], BASE_ROWS[1], row("⬜", "T010")], e02=[row("⬜", "T009"), BASE_ROWS[2]])
 
 
+def test_two_branches_archiving_at_once_merge_row_by_row():
+    """The archive is an ordinary backlog table to the driver: both sides' rows, a shared row once."""
+    archive = "# Archive — main\n\n## E01 — Billing\n\n" + HEADER + row("✅", "T001", "Price table")
+    current = archive + row("✅", "T004", "Mine")
+    other = archive + row("✅", "T005", "Theirs")
+    text, conflicted = merge(archive, current, other)
+    assert not conflicted
+    assert text == archive + row("✅", "T004", "Mine") + row("✅", "T005", "Theirs")
+
+    # Both lanes archiving the same row: it appears once, with no base to merge against.
+    text, conflicted = merge("", current, current)
+    assert not conflicted and text.count("| ✅ | T004") == 1
+
+
 def test_the_epics_table_and_an_artifact_index_merge_by_their_first_key():
     epic = "| E03 | Search  | Find things     | —    |\n"
     other_epic = "| E04 | Export  | Ship data       | —    |\n"
@@ -514,6 +528,7 @@ def test_init_merge_driver_writes_attributes_config_and_the_extra(plain, capsys)
     assert (plain / ".gitattributes").read_text().startswith("*.png binary\n")
     assert block(plain) == [
         "/TASKRAIL.md merge=taskrail",
+        "/docs/archive.md merge=taskrail",
         "/docs/autopilot/decisions/README.md merge=taskrail",
         "/docs/bugs/README.md merge=taskrail",
         "/docs/chores/README.md merge=taskrail",

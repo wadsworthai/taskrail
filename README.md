@@ -91,6 +91,8 @@ taskrail done T012                     # needs your claim; releases it
 taskrail review T012                   # fetch the mainline's remote and pick the rebase base (a report only under task_branch = "current")
 taskrail review T012 --publish --scope billing   # push and print the PR/MR title and link
 taskrail reopen T012 --reason "…"       # back to pending; prints a commit message to use
+taskrail archive                       # move closed rows, and epics whose rows are all closed, into docs/archive.md
+taskrail archive --dry-run             # …report what would move, and what a remaining row holds back
 taskrail epic add --name Auth --objective "Sign in without passwords" --own-file
 taskrail epic split E01                # move an inline epic to todo/E01-<slug>.md
 taskrail autopilot start --count 3     # start an autopilot run; refused until [autopilot].enabled = true

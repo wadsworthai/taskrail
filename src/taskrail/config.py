@@ -14,6 +14,9 @@ from taskrail.predicates import ColumnPredicate, parse_column_predicate, resolve
 
 CONFIG_PATH = Path(".taskrail") / "config.toml"
 DEFAULT_BACKLOG_FILE = "TASKRAIL.md"  # [[backlog]].file when the key is absent (DESIGN.md §4, T099)
+DEFAULT_ARCHIVE = "{artifacts}/archive.md"  # [[backlog]].archive: where `taskrail archive` moves closed rows (§7.6)
+ARCHIVE_PLACEHOLDERS = ("artifacts", "backlog")
+_PLACEHOLDER_RE = re.compile(r"\{([^{}]*)\}")
 PREFIX_RE = re.compile(r"^[A-Z]{1,4}$")
 NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 CORE_TASK_COLUMNS = ("✓", "ID", "Kind", "Depends On", "Title", "Pts", "Description")
@@ -30,6 +33,12 @@ class BacklogConfig:
     may_depend_on: tuple[str, ...] = ()
     epic_prefix: str = "E"
     id_digits: int = 3
+    archive: str = DEFAULT_ARCHIVE  # a template over {artifacts} and {backlog}; `archive_path` renders it
+
+    @property
+    def archive_path(self) -> str:
+        """The backlog's archive file, relative to the repository root (DESIGN.md §7.6)."""
+        return self.archive.format(artifacts=self.artifacts, backlog=self.name)
 
 
 PROVIDERS = ("auto", "github", "gitlab", "gitea", "forgejo", "none")
@@ -126,7 +135,7 @@ class Config:
 # a config written for another version still loads.
 TOP_LEVEL_KEYS = ("version",)
 TABLE_KEYS: dict[str, tuple[str, ...] | None] = {  # None: free-form, the repository names its own
-    "backlog": ("name", "prefix", "file", "mainline", "artifacts", "may_depend_on", "epic_prefix", "id_digits"),
+    "backlog": ("name", "prefix", "file", "mainline", "artifacts", "may_depend_on", "epic_prefix", "id_digits", "archive"),
     "columns": ("custom", "aliases"),  # the keys under `aliases` are core column names, checked in _column_aliases
     "points": ("scale",),
     "git": ("push_task_branch", "commit", "claim_remote", "branch_record_remote", "claim_grace_minutes", "worktree", "worktree_dir", "task_branch"),
@@ -257,6 +266,16 @@ def load_config(root: Path) -> Config:
         if not all(isinstance(item, str) for item in may_depend_on):
             problems.append(f"{label}: may_depend_on must be a list of backlog names")
             may_depend_on = []
+        archive = expect(raw, "archive", str, DEFAULT_ARCHIVE)
+        if not archive.strip():
+            problems.append(f"{label}: archive must not be empty; a repository that does not archive never runs the command")
+            archive = DEFAULT_ARCHIVE
+        else:
+            unknown = [p for p in _PLACEHOLDER_RE.findall(archive) if p not in ARCHIVE_PLACEHOLDERS]
+            if unknown:
+                placeholders = ", ".join(f"{{{p}}}" for p in ARCHIVE_PLACEHOLDERS)
+                problems.append(f"{label}: archive: invalid template (unknown `{{{unknown[0]}}}`); placeholders are {placeholders}")
+                archive = DEFAULT_ARCHIVE
         backlogs.append(
             BacklogConfig(
                 name=name,
@@ -267,6 +286,7 @@ def load_config(root: Path) -> Config:
                 may_depend_on=tuple(may_depend_on),
                 epic_prefix=epic_prefix,
                 id_digits=id_digits,
+                archive=archive,
             )
         )
 
