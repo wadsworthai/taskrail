@@ -281,3 +281,29 @@ $ git diff --stat        # the implement hunks
 Six hunks in `DESIGN.md`, all inside §4's example, the paragraph after it, and four rows of §7's
 table. The reading map at the top of the file, the paragraphs T094 and T096 added to §4 and §12.10,
 and every other section are untouched.
+
+## Documentation sync (the `docs` stage)
+
+Nothing to change: the change *is* documentation, and no other document in the repository repeats
+what it corrects.
+
+```
+$ grep -rn -- "kind add\|--eligible" README.md src/ .claude/ .taskrail/ examples/
+(no output, exit 1)
+
+$ grep -rln "epic_prefix\|id_digits" README.md src/taskrail/skills src/taskrail/integrations examples/ .claude/
+(no output, exit 1)
+```
+
+The only other occurrences anywhere are in finished task write-ups under `docs/` — T079's chore and
+T088's spike and decision record — which are accounts of what was true when they were written and
+are deliberately left alone.
+
+**No `CHANGELOG.md` entry.** Its `Unreleased` section records user-facing behaviour and skill
+changes; `DESIGN.md` is a repository document, not shipped. T093 (the reading map) and T096 (§4's
+`handoff` line) are the precedent: both changed `DESIGN.md` only and added no entry.
+
+**No follow-up tasks opened here.** The three code items this task uncovered or confirmed — the
+`epic-id` message at `backlog.py:240` that never names the key, `next --limit`'s missing argparse
+`help=` string, and `--owner`'s sentence, which belongs in §6.2 — are all owned by T095, which is
+opening its own chores for them.
