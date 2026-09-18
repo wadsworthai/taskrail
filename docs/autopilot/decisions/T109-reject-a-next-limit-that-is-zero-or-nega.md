@@ -39,3 +39,16 @@ Noted from the lane, and not a side effect of the change: `next --limit 2` now l
 than the diagnose baseline did, because other lanes of this run claimed T003 and T110 in between and
 `eligible()` excludes claimed tasks. The lane recorded that in the artifact so a later reader does
 not read it as a consequence of the fix.
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — one line of `src/taskrail/cli.py`, 20 lines of test,
+one `CHANGELOG.md` bullet, the artifact, two index rows and T109's `✅`, with nothing else in
+`cli.py` touched; the lane's `taskrail checks T109 --stage fix` (1224 passed) and
+`taskrail validate` (101 tasks, 0 errors); `git status` clean and the claim released.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The `impact` stage opened nothing — accept? | **accept** · ask for a follow-up | **accept** | Its only candidate was settled at the diagnose gate by a probe of every other `type=int` argument in the real CLI, and that table is in the artifact's *Affected areas*, so the reasoning survives the task. |
+| 2 | Pull request type and scope | **`fix` / `cli`** · `feat` · `fix!` | **`fix` / `cli`** | It repairs a command that answered a bad value instead of refusing it. Not breaking in the semantic-versioning sense: the accepted range of values is unchanged for every value that was ever meaningful, and the changelog bullet flags in bold that a script passing `0` or a negative now exits 2. |
+| 3 | Publish now? | **wait** · publish out of order | **wait** | Hand-off is sequential and the queue is T107 then T109, behind T106 in review. T107 also lands in `cli.py`, so publishing T109 first would only move the rebase from one branch to the other. |
