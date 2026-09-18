@@ -61,6 +61,23 @@ particular agent:
 - **Prefer plain contracts for the CLI** — arguments, stdin/stdout, `--json`, exit codes — over
   agent-specific integrations, so any agent can call it through a shell.
 
+## Design principles
+
+These govern the CLI, the skills and the work planned in the backlog. When two of them pull in
+different directions, the simpler outcome wins; when one argues against what a task's description
+asks for, say so at the plan gate rather than building around it.
+
+- **KISS.** Prefer the plain solution: a flag over a subsystem, a function over a class hierarchy,
+  a documented convention over a mechanism that enforces it.
+- **YAGNI.** Build what the task asks for. An option, a hook or an abstraction with no caller today
+  is not written because it might have one later.
+- **Rule of three.** Duplicate twice; extract on the third use. Two similar blocks usually read
+  better than the abstraction that would unify them.
+- **Occam's razor.** When a behaviour has several explanations, check the one with the fewest
+  assumptions first, before designing around a theory.
+- **Premature optimization is the root of all evil.** Write for clarity, and optimize only what a
+  measurement shows is slow — naming, in the change itself, what was measured.
+
 ## Backlog
 
 This repository tracks its own work with taskrail: `TODO.md` holds the epics and tasks, and

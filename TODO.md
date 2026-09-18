@@ -9,6 +9,7 @@
 | E05 | Adoption | Let a consumer project replace its own task system with taskrail | —    |
 | E06 | Repository tooling | How this repository runs its own backlog with taskrail while it is worked on | —    |
 | E07 | Current-branch workflow | Let a single maintainer work tasks on the checked-out branch, commit when a task is done and stop only for decisions | —    |
+| E08 | Design principles | Decide what the design principles in CLAUDE.md mean for what the repository already has | —    |
 
 ## E01 — taskrail release
 
@@ -119,3 +120,11 @@ Done when: a repository configured for the current branch works a task from clai
 | ✅ | T082 | feature | —   | T079       | Add a decisions gate that stops for each decision instead of each stage | DESIGN.md §13.4: accept gate = "decisions" in kind descriptors and overrides: never a stop to approve a stage, but a stop as soon as a decision appears; show, kind list and the autopilot's gate states and escalate_gates handle it; verified by pytest on kind loading, overrides and autopilot lane --gate. |
 | ✅ | T083 | feature | —   | T080, T081 | Close a current-branch task without fetch, rebase or publish | DESIGN.md §13.5: with task_branch = "current", review fetches, rebases and pushes nothing and reports the task's commits, its upstream with the ahead count and a reference pull request title; --publish exits 5 naming the setting; show's close.review reads task_branch; verified by pytest with a fixture repository and a remote. |
 | ✅ | T084 | chore   | —   | T080, T081, T082, T083 | Teach the skills the current-branch workflow, on-done commits and decisions gates | The taskrail skill skips the workspace step, commits after done and asks before any push when the repository says so, and describes the decisions gate; executor skills and integration notes follow; README documents a single-maintainer configuration; verified by tests asserting the rules in the skill sources and installed copies. |
+
+## E08 — Design principles
+
+| ✓  | ID   | Kind    | Pts | Depends On | Title                          | Description                    |
+|----|------|---------|-----|------------|--------------------------------|--------------------------------|
+| ⬜ | T087 | spike   | 2   | —          | Decide whether the design principles govern new work only or also what exists | CLAUDE.md now states KISS, YAGNI, the rule of three, Occam's razor and premature optimization, but not whether they are prospective or also retroactive, so an agent applying them to a base built before them may propose removals nobody asked for. Decide the scope, say where an executor reads them (the executor skills do not mention them today, only the always-loaded root file), and record whether they can refuse a task's described design at the plan gate. |
+| ⬜ | T088 | spike   | 3   | T087       | Measure the CLI and configuration surface against YAGNI and report what has no consumer | 18 subcommands, about 66 distinct flags and 19 first-level config keys exist, some for a single or hypothetical consumer (claim_remote, branch_record_remote, resource pools and groups, notify). No function is unreachable, so the question is not dead code but options nobody sets. Report each option with its known consumers, what removing or defaulting it would cost a repository that installed 0.3.0, and a recommendation; change nothing in this task. |
+| ⬜ | T089 | spike   | 2   | T087       | Decide whether to split DESIGN.md by topic for what the orchestrator reads first | DESIGN.md is 1844 lines and is listed in [autopilot].read_first, so the orchestrator reads it whole at every gate; sections 7 (CLI, 505 lines) and 12 (autopilot, 464) dominate it. Measure what a gate actually needs, and decide whether to split it into topic documents with one-line pointers, weighing the cost of rewriting the cross-references (sections 4, 5.6, 7.1, 12.8) cited by README, DESIGN itself and 76 historical artifacts that are not rewritten. |
