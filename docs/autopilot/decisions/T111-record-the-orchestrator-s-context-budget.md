@@ -48,3 +48,16 @@ grepped for both new texts and diffed against its source; `taskrail checks T111 
 | 1 | The one sentence added beyond what was approved, telling a `DESIGN.md` reader where the figures went and why the skill carries none | **keep it** · remove it | **keep it** | Without it the absence of numbers from the skill reads as an omission a later task would "fix", putting them back in the portable file. Documenting the split is what makes it survive. |
 | 2 | Replacing the four numbers in the skill with the method that produces them, rather than deleting the sentence | **accept** | **accept** | "The context you are served per dispatched task, over what a session costs before any task starts, against the context window you have" is the rule the figures were an instance of. It needs no disclaimer because there is nothing left in it to disclaim — which is the test of whether the split was the right call. |
 | 3 | Stop again at `docs`, whose only content was the changelog bullet already in the change set? | **fold it into the close** · stop twice | **fold it into the close** | Documentation is this change, and the bullet is committed. |
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — 11 files, no code, no test, no configuration;
+`DESIGN.md` §12.1's single insertion, the portable skill's rule, the integration note's figures, one
+`CHANGELOG.md` bullet, the regenerated installed copy and manifest, the artifact and three index
+rows; the lane's `taskrail checks T111 --stage implement` (1221 passed) and `taskrail validate`
+(101 tasks, 0 errors); the claim released by `done`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | **`chore` / `skills`**, as the lane recommends · `docs` / `repo` | **`chore` / `skills`** | The shipped skill and its integration note are the user-facing part of the change; `DESIGN.md` records the reasoning behind them. |
+| 2 | The lane's report of a stale claim on T003 | **leave it; it is the orchestrator's hold and it still works** · release it | **leave it** | The claim is the orchestrator's deliberate hold on a task escalated to the human before any lane claimed it, and it reads `stale` only because no branch was ever created for it — there is no worktree to go stale. It still does its job: `autopilot next` offers nothing while it stands, which is the whole point. It is released when the human answers. |
