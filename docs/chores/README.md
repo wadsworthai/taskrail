@@ -26,3 +26,4 @@
 | T092 | Correct T088's row with the measured CLI and configuration surface | [T092-correct-t088-s-row-with-the-measured-cli.md](T092-correct-t088-s-row-with-the-measured-cli.md) |
 | T093 | Add a reading map to the top of DESIGN.md so a gate can read only what it needs | [T093-add-a-reading-map-to-the-top-of-design-m.md](T093-add-a-reading-map-to-the-top-of-design-m.md) |
 | T096 | Settle whether autopilot.handoff is a placeholder or a setting with no settings | [T096-settle-whether-autopilot-handoff-is-a-pl.md](T096-settle-whether-autopilot-handoff-is-a-pl.md) |
+| T098 | Fix the configuration and CLI documentation defects DESIGN.md carries | [T098-fix-the-configuration-and-cli-documentat.md](T098-fix-the-configuration-and-cli-documentat.md) |
