@@ -32,6 +32,19 @@ argparse `help=` (`release`, `reserve-id`, `new`, `done`, `discard`). It is the 
 T101's `next --limit` and T101's measurement of 65 such arguments — the second lane to hit it, which
 is what turns a curiosity into a question worth putting to the human.
 
+## implement gate
+
+Reviewed: the diff against the lane's true base (5d605ca) — **8 insertions, 0 deletions**, one hunk
+inside §6.1; the `--help` re-runs against the built parser; and `taskrail checks T102` re-run by the
+orchestrator, which passed. A diff against today's `origin/main` looks larger only because the base
+predates T100's §9 rewrite; the rebase at hand-off resolves that, and the lane's own change is the
+pure insertion.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the applied paragraph what was approved? | accept · amend | **accepted** | Verbatim, in §6.1, with nothing modified or deleted. §6.1 now runs 481-526 and every line below 512 shifted by a clean offset, which is why it will rebase past T099 without a textual overlap. |
+| 2 | The evidence standard | accept · ask for more | **accepted, and worth naming** | Each of the paragraph's three claims was exercised in a throwaway repository rather than asserted: the default owner, `TASKRAIL_OWNER` covering a command with no flag on the call, and `--owner` overriding the variable for one command — with the exit 4 refusals that prove the claim was really held by someone else. The list of ten was re-run against the built parser after the edit, and the exclusions checked too. |
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T099 edits `DESIGN.md` §1, §3.1, §4 and §7.3; T101 one line of `cli.py`.
