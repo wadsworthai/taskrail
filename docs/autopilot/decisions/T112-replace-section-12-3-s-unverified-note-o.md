@@ -25,3 +25,16 @@ the reason to doubt it.
 | # | Question | Options | Decision | Reason |
 |---|---|---|---|---|
 | 1 | `DESIGN.md` §12 with two lanes in it | **split by subsection** · serialize the lanes | **T112 takes §12.3 and nothing else; T111 takes §12.1 and the count-choosing text, plus the autopilot skill** | The two changes are about different things and sit in different subsections, so both can be written at once and git rebases them without meeting. The skill's restart procedure at `SKILL.md:163` stays correct under this measurement and belongs to T111. |
+
+## implement gate
+
+Reviewed: commit `6757a6c` and the diff `b236700..HEAD` — `DESIGN.md` in one hunk, three lines out
+and six in, and the artifact; no `CHANGELOG.md` entry, nothing in the autopilot skill or its
+installed copy, no other part of §12; the lane's `taskrail checks T112 --stage implement`
+(1221 passed) and `taskrail validate`; and `grep -n "not verified" DESIGN.md`, which now returns
+nothing.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Anything to decide at this gate? | **no** | **no** | The wording was settled at the scope gate and applied word for word, with the approved order kept: mechanism first, T033 demoted to a consequence, portability clause last. |
+| 2 | Stop again at `docs`? | **fold it into the close** · stop twice | **fold it into the close** | The change is the documentation, the restart procedure it describes is unchanged, and no follow-up is open. |
