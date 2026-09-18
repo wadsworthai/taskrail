@@ -32,6 +32,20 @@ rewritten README verbatim, with `taskrail` absent from `PATH`, so the documentat
 written rather than as intended; keep the global-install route fully supported; and touch neither
 `DESIGN.md` §4 nor §7, which T098 owns.
 
+## implement gate
+
+Reviewed: the diff read by commit range in the lane's worktree — `DESIGN.md` confined to §9 (two
+hunks, 1204-1213 and 1253-1268, with §4 and §7 byte-identical to the base, so nothing for T098 to
+sequence), the rewritten README *Install*, the one sentence added to *Use*, the two corrected
+comments, `CHANGELOG.md`'s header and entry; `grep -n "optional flags"` confirming the pre-existing
+defect the lane reported; and `taskrail checks T100` re-run by the orchestrator, which passed.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Is the applied change what was approved? | accept · amend | **accepted** | All six decisions applied and nothing else. No behaviour changed: `install.py`, the wrapper, the generated workflow and the shipped skills are untouched, and `tests/test_install.py:283`, which pins the `self upgrade` command string, still passes because no command changed. |
+| 2 | "Two optional flags:" above a list of three, pre-existing and unrelated to this task's subject | fix it here · leave it and open a task | **fix it here** | The `taskrail` skill allows fixing something on the way when it is small and inseparable; this is two characters inside the very section this task rewrites and leaves in its final form. Opening a one-point task for it would be the bureaucracy KISS exists to prevent, and shipping a freshly reviewed section with an obvious miscount would be worse. Reporting it rather than fixing it silently was still the right order. |
+| 3 | The evidence standard | accept · ask for more | **accepted, and worth naming** | The lane copied the commands out of the rewritten README verbatim, with `taskrail` absent from `PATH`, so the documentation was tested as written rather than as intended — including that `.taskrail/bin/taskrail validate` runs without a leading `./`. It also ran the upgrade forward from `v0.2.0` to `v0.3.0` to show one command moving the pin, and deliberately did **not** run `self upgrade`, which would have installed a CLI on this machine — the exact side effect the new text attributes to it. |
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T098 is editing `DESIGN.md` §4 and §7; T100 edits §9 only.
