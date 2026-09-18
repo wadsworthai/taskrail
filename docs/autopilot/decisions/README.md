@@ -87,3 +87,4 @@
 | T101 | Give next --limit a help string so it is discoverable from --help | [T101-give-next-limit-a-help-string-so-it-is-d.md](T101-give-next-limit-a-help-string-so-it-is-d.md) |
 | T104 | State in the core skill that show --fetch needs branch_record_remote | [T104-state-in-the-core-skill-that-show-fetch.md](T104-state-in-the-core-skill-that-show-fetch.md) |
 | T057 | Check autopilot compaction and old-lane messaging with a scripted probe | [T057-check-autopilot-compaction-and-old-lane.md](T057-check-autopilot-compaction-and-old-lane.md) |
+| T105 | Free a lane while a task waits for the human and requeue it when they answer | [T105-free-a-lane-while-a-task-waits-for-the-h.md](T105-free-a-lane-while-a-task-waits-for-the-h.md) |
