@@ -445,6 +445,53 @@ def test_outside_git_the_template_applies(repo, capsys):
     assert run(repo.root, "branch", "T002", "x", capsys=capsys)[0] == 2
 
 
+# T119
+
+
+def close_from_the_mainline(lanes, command, task_id, branch, capsys):
+    """Claim `task_id` inside its own worktree, then close it with the cwd in the mainline checkout."""
+    lane = lanes.open_lane(branch)
+    assert run(lane, "claim", task_id, "--owner", "lane", capsys=capsys)[0] == 0
+    code, out, err = run(lanes.root, command, task_id, "--owner", "lane", "--json", capsys=capsys)
+    return lane, code, json.loads(out), err
+
+
+def test_done_on_another_branch_warns(lanes, capsys):
+    lane, code, result, err = close_from_the_mainline(lanes, "done", "T001", T001, capsys=capsys)
+    assert code == 0
+    assert result["status"] == "done"
+    assert "main" in result["warning"] and T001 in result["warning"]
+    assert "taskrail branch" in result["warning"]
+    assert str(lanes.root) in result["warning"]
+    assert re.search(r"^taskrail: warning: .*taskrail branch", err, re.MULTILINE)
+    assert result["warning"] in err
+    # The damage the warning is about: the row is ticked here and untouched on the task's branch.
+    assert "| ✅ | T001 " in (lanes.root / "TODO.md").read_text()
+    assert "| ⬜ | T001 " in (lane / "TODO.md").read_text()
+
+
+def test_discard_on_another_branch_warns(lanes, capsys):
+    _, code, result, err = close_from_the_mainline(lanes, "discard", "T003", T003, capsys=capsys)
+    assert code == 0
+    assert result["status"] == "discarded"
+    assert "discarded" in result["warning"] and T003 in result["warning"]
+    assert result["warning"] in err
+
+
+def test_done_on_the_task_branch_warns_about_nothing(lanes, capsys):
+    lane = lanes.open_lane(T001)
+    assert run(lane, "claim", "T001", "--owner", "lane", capsys=capsys)[0] == 0
+    code, out, err = run(lane, "done", "T001", "--owner", "lane", "--json", capsys=capsys)
+    assert (code, json.loads(out)["warning"]) == (0, None)
+    assert "warning" not in err
+
+
+def test_outside_git_closing_a_task_warns_about_nothing(repo, capsys):
+    code, out, err = run(repo.root, "done", "T003", "--owner", "solo", "--force", "--json", capsys=capsys)
+    assert (code, json.loads(out)["warning"]) == (0, None)
+    assert "warning" not in err
+
+
 def test_only_the_resolver_renders_the_branch_template():
     source = Path(branches.__file__).parent
     renders = [

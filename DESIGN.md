@@ -682,7 +682,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail new --epic E01 --kind bug --title … [--workspace [--branch NAME]]` | Allocate an ID and append a row; with `--workspace`, first create the task's branch — without an upstream (`--no-track`) — and worktree from the base and append the row there — the worktree at `<worktree_dir>/<branch>` under `show`'s `worktree_base`, the path `show` reports, whichever checkout runs the command (T073, T075); `--branch` names that branch instead of the template and records it (§6.4), validated before an ID is reserved; without `--workspace`, on a checkout of the backlog's mainline, it warns on stderr, naming `taskrail workspace`, and returns the text in `warning` (`null` otherwise); under `task_branch = "current"`, `--workspace` exits 5 and there is no warning (§6.4) |
 | `taskrail workspace <ID> [--branch NAME]` | Create the branch and worktree of a task whose row is missing from its base (`base.row`), from that base — the worktree where `new --workspace` puts it — and move the row there with its ID, keeping it reserved (see *A row missing from its base*); exit 5 under `task_branch = "current"` (§6.4) |
 | `taskrail edit <ID> [--title] [--pts] [--depends-on] [--description] [--kind] [--column NAME=VALUE]… [--force] [--local-only]` | Change cells of an existing task row (see the rules below) |
-| `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below); `--json` reports `commit`, the task's effective commit policy, and under `"on-done"` the text adds `commit everything <ID> changed now, the status change included` (§5.1; T081) |
+| `taskrail done <ID>` / `taskrail discard <ID>` | Change status (see the rules below); `--json` reports `commit`, the task's effective commit policy, and under `"on-done"` the text adds `commit everything <ID> changed now, the status change included` (§5.1; T081); `warning` holds the stderr warning for a checkout that is not on the task's branch, `null` otherwise (T119) |
 | `taskrail reopen <ID> --reason …` | Move a done or discarded task back to pending |
 | `taskrail review <ID> [--publish] [--type] [--scope] [--breaking]` | Hand a closed task off for review (§7.1); under `task_branch = "current"` a report only, with `--publish` refused (§7.1, *On the current branch*; T083) |
 | `taskrail checks <ID> [--stage STAGE] [--check NAME]… [--resource NAME=VALUE]…` | Run a task's configured checks in its worktree with its autopilot lane's resources, or chosen ones, from anywhere in the clone (§7.5) |
@@ -781,6 +781,13 @@ Write commands follow these rules:
 - **`done` requires the caller's claim** and releases it; it also refuses a task whose
   dependencies are not done. `discard` needs no claim, since discarding is usually a decision
   about a task nobody took, but refuses one claimed by someone else. `--force` overrides both.
+  Both warn on stderr, and return the text in `--json` as `warning` (`null` when there is none),
+  when the checkout they wrote to is not on the task's branch (§6.4) — the row there has changed
+  while the task's branch keeps its old status. Unlike `claim`'s warning, which comes before the
+  work, this one comes after the write and says so; the exit code stays 0. It is silent when there
+  is no branch to compare: under `task_branch = "current"`, outside git, and on a detached `HEAD`,
+  which `claim` already warns about. It is the only cover for a checkout resolved from a cwd and a
+  wrapper that agree and are both wrong (*T115 §E7, T119*).
 - **`reopen` records its reason in git, not in the backlog.** The backlog holds state, not
   history, so `reopen` changes only the status cell. It requires `--reason` and returns a
   suggested commit message: the reason as the body and a `Reopens: <ID>` trailer. It needs no

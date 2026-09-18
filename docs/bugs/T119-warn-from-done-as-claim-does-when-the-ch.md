@@ -1,6 +1,6 @@
 # T119 — Warn from done, as claim does, when the checked-out branch is not the task's
 
-Kind: bug · Epic: E05 · Status: diagnosed
+Kind: bug · Epic: E05 · Status: fixed
 
 ## Symptom
 
@@ -191,3 +191,145 @@ task for `discard`; the `DESIGN.md` sentence; the `CHANGELOG.md` bullet.
 The regression test goes in `tests/test_task_branch.py`, beside the `claim` warning tests, using
 the existing `lanes` fixture: claim in the lane, `done` against `lanes.root`, and assert the
 warning on stderr and in `--json`. It must be observed failing first.
+
+## Decisions taken at the diagnose gate
+
+1. **Warn, exit 0** — not refuse. The human settled it at T115's `decide` gate in those words: no
+   new disagreement warning, and `done` warns *as `claim` does*. The case for refusing (`--force`
+   is already `done`'s escape hatch; exit 5 is what the skills stop on) is recorded in
+   `docs/autopilot/decisions/T119-warn-from-done-as-claim-does-when-the-ch.md` for whoever revisits
+   it. Against it today: it changes a command every skill, the autopilot and every consuming
+   repository calls, and `--force` is blunt — it waives the claim and dependency guards too, so an
+   override of the branch check alone is not expressible.
+2. **Retrospective wording, two messages, no shared builder, and the checkout named.** Second use;
+   `claim`'s sentence is prospective and this one is not, so unifying them would force one to say
+   something slightly wrong. Naming the checkout is the point of a retrospective warning: it tells
+   the reader where the damage is.
+3. **The check sits in the shared `_change_status`, so `discard` gets it too.** `discard` is not a
+   second site, it is the same function; scoping to `done` would mean an extra condition written to
+   leave a reproduced, identical defect in place, plus a follow-up task to delete that condition.
+   The widening is smaller than the narrowing. The task's title names `done` alone, so the pull
+   request says so.
+4. **`CHANGELOG.md`: yes**, one bullet covering both commands.
+5. **`DESIGN.md` §7: yes**, the sentence goes on the *Writing* bullet where `done` and `discard`
+   live, since `claim`'s equivalent warning is documented at §6.1. §9 is T118's and is untouched.
+
+## Fix
+
+`src/taskrail/cli.py`. A new `_closed_elsewhere` beside the status commands, and two lines in
+`_change_status`:
+
+```python
+def _closed_elsewhere(task, project: Project, status: Status) -> str | None:
+    """Why the checkout a status was just written in is not the task's branch, or None (T119)."""
+    resolved, source = branches.resolve(task, project)
+    if source == branches.CURRENT:  # the checked-out branch is the task's (DESIGN.md §6.4)
+        return None
+    current = gitutil.current_branch(project.config.root)
+    if not current or not resolved or current == resolved:
+        return None
+    return (
+        f"{task.id} was marked {status.label} in {project.config.root} on branch {current}, but its branch is "
+        f"{resolved}; the row on that branch is unchanged — undo this change and run the command there, "
+        f"or run `taskrail branch {task.id} <NAME>` to name the branch the task is worked on"
+    )
+```
+
+```python
+    warning = _closed_elsewhere(task, project, status)
+    ...
+    code = _write(edits, args.json, {..., "warning": warning}, text)
+    if code == EXIT_OK and warning:  # after the write: the warning says the row has already been written here
+        print(f"taskrail: warning: {warning}", file=sys.stderr)
+```
+
+The warning is computed before the write, because `writer.set_status` changes the in-memory task,
+and printed after it, because it asserts the row *has* been written. It never changes the exit code
+and never stops the release of the claim. `not current` keeps it silent where there is no branch to
+compare — outside git, and on a detached `HEAD`, which `claim` warns about at claim time.
+
+Also `DESIGN.md` §7 (the `done`/`discard` command row and the *Writing* bullet) and a
+`CHANGELOG.md` bullet under *Unreleased*.
+
+## Verification
+
+**The regression test, observed failing first.** `tests/test_task_branch.py`, section `# T119`,
+four tests against the unfixed code — the failure is the root cause itself, `done` having no
+`warning` in its result because nothing computes one:
+
+```
+$ uv run pytest tests/test_task_branch.py -k "done_on_another_branch_warns" -q
+    def test_done_on_another_branch_warns(lanes, capsys):
+        lane, code, result, err = close_from_the_mainline(lanes, "done", "T001", T001, capsys=capsys)
+        assert code == 0
+        assert result["status"] == "done"
+>       assert "main" in result["warning"] and T001 in result["warning"]
+                         ^^^^^^^^^^^^^^^^^
+E       KeyError: 'warning'
+
+tests/test_task_branch.py:463: KeyError
+1 failed, 39 deselected in 0.20s
+```
+
+```
+$ uv run pytest tests/test_task_branch.py -k "T119 or warns_about_nothing or on_another_branch_warns" -q
+FAILED tests/test_task_branch.py::test_done_on_another_branch_warns - KeyErro...
+FAILED tests/test_task_branch.py::test_discard_on_another_branch_warns - KeyE...
+FAILED tests/test_task_branch.py::test_done_on_the_task_branch_warns_about_nothing
+FAILED tests/test_task_branch.py::test_outside_git_closing_a_task_warns_about_nothing
+4 failed, 1 passed, 35 deselected in 1.58s
+```
+
+**After the fix:**
+
+```
+$ uv run pytest tests/test_task_branch.py -q
+40 passed in 5.65s
+```
+
+**The stage's checks** (`taskrail checks T119 --stage fix`):
+
+```
+1252 passed in 154.90s (0:02:34)
+== lint: not configured
+passed test
+not configured lint
+T119 in /thezone/…/.worktrees/T119-…: passed
+```
+
+`lint` is a check the `bug` kind's `fix` stage names and this repository does not define; `checks`
+reports it as not configured and the stage passes on `test` alone.
+
+**The reproduction, rerun end to end on a fresh scratch repository with the fixed code:**
+
+```
+=== 2. done T001 with the cwd in the primary checkout (on main) ===
+taskrail: warning: T001 was marked done in $SB/primary on branch main, but its branch is T001-base-task; the row on that branch is unchanged — undo this change and run the command there, or run `taskrail branch T001 <NAME>` to name the branch the task is worked on
+T001 done
+exit=0
+```
+
+**Correct use stays silent**, claim and `done` both inside the lane:
+
+```
+$ cd $SB/lane && uv run --project $W taskrail done T001 --json
+{
+  "id": "T001",
+  "status": "done",
+  "commit": "stages",
+  "warning": null,
+  "files": [
+    "TODO.md"
+  ]
+}
+exit=0
+```
+
+**`discard` is covered by the same line:**
+
+```
+$ cd $SB/primary && uv run --project $W taskrail discard T002
+taskrail: warning: T002 was marked discarded in $SB/primary on branch main, but its branch is T002-second-task; the row on that branch is unchanged — undo this change and run the command there, or run `taskrail branch T002 <NAME>` to name the branch the task is worked on
+T002 discarded
+exit=0
+```
