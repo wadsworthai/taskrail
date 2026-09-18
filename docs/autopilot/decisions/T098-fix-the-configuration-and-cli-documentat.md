@@ -38,6 +38,14 @@ T098` re-run by the orchestrator, which passed.
 | 2 | Is the applied text what was approved? | accept · amend | **accepted** | (a)-(d) verbatim, and the new §4 sentence was exercised in throwaway repositories rather than reasoned about: with `epic_prefix = "EP"` the refusal quotes `EP` and never the key, and with `id_digits = 4` a new task came out `T0001`. Both halves of the sentence are tested. |
 | 3 | A `CHANGELOG.md` entry? | yes · no | **no** | It records user-facing behaviour, and this changes none. The precedent is T093 and T096, both `DESIGN.md`-only and both without an entry. |
 
+## rebase at hand-off
+
+Rebased onto `origin/main` while the lane was stopped at the `close` gate, over T095 and T097. Two
+conflicts, both known classes: `docs/autopilot/decisions/README.md` (appended index rows, both kept)
+and `TODO.md` (rows united by ID, a closed cell winning). `DESIGN.md` did not conflict, as the lane
+predicted — neither T095 nor T097 touched it. After the rebase: no markers, `taskrail checks T098`
+passed, `taskrail validate` reports 93 tasks and 0 errors.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T095 and T097 are closing after the human answered their questionnaires; neither
