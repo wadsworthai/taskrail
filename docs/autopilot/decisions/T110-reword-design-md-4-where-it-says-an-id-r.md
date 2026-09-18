@@ -35,3 +35,15 @@ branch; `taskrail checks T110` (1221 passed) and `taskrail validate` (102 tasks,
 | 1 | Anything to decide at this gate? | **no** | **no** | The wording, the changelog, the row's line numbers and the follow-up were settled at the scope gate and applied as answered. |
 | 2 | T115's kind | **accept `spike`** · `bug` | **accept `spike`** | Its contract is a documented decision, not code under a regression test, which is what the answer to D4 asked for; `spike` is the kind T095 and T097 used for the same shape of question. Note for whoever runs it: this repository sets `escalate_gates = ["spike:decide"]`, so its decision gate reaches the human by configuration. |
 | 3 | Stop again at the `docs` stage, which changes nothing? | **fold it into the close** · stop twice | **fold it into the close** | The change *is* the documentation, and the scope-gate grep already showed no other copy of the stale claim anywhere in the repository. A gate whose only content is "nothing to do" is a stop for its own sake. |
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — one hunk of `DESIGN.md` at line 225, T115's row and
+T110's `✅` in `TODO.md`, the artifact and two index rows, and nothing else; the `docs` stage's
+no-op with the grep that justifies it; `taskrail checks T110` (1221 passed) and `taskrail validate`
+(102 tasks, 0 errors); the working tree clean and the claim released.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | **`docs` / `repo`**, as the lane recommends · the kind's default `chore` | **`docs` / `repo`** | CLAUDE.md asks for the type of the most significant change, and the only substantive change is one sentence of a design document. It also matches the `docs(repo):` commits on the branch. |
+| 2 | The title | **`docs(repo): reword DESIGN.md §4 where it says an ID refusal names the key (T110)`** · the generated title, which repeats the old false claim | **the lane's** | The generated title ends on "quotes the prefix rather than the key", which is the sentence this task removed; keeping it would put the error into the one commit that lands on `main`. |
