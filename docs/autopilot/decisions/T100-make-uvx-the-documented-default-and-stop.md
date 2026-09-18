@@ -46,6 +46,15 @@ defect the lane reported; and `taskrail checks T100` re-run by the orchestrator,
 | 2 | "Two optional flags:" above a list of three, pre-existing and unrelated to this task's subject | fix it here · leave it and open a task | **fix it here** | The `taskrail` skill allows fixing something on the way when it is small and inseparable; this is two characters inside the very section this task rewrites and leaves in its final form. Opening a one-point task for it would be the bureaucracy KISS exists to prevent, and shipping a freshly reviewed section with an obvious miscount would be worse. Reporting it rather than fixing it silently was still the right order. |
 | 3 | The evidence standard | accept · ask for more | **accepted, and worth naming** | The lane copied the commands out of the rewritten README verbatim, with `taskrail` absent from `PATH`, so the documentation was tested as written rather than as intended — including that `.taskrail/bin/taskrail validate` runs without a leading `./`. It also ran the upgrade forward from `v0.2.0` to `v0.3.0` to show one command moving the pin, and deliberately did **not** run `self upgrade`, which would have installed a CLI on this machine — the exact side effect the new text attributes to it. |
 
+## rebase at hand-off
+
+Rebased onto `origin/main` while the lane was stopped at the `close` gate, over T097 and T098. Two
+conflicts, both known classes: the two artifact indexes (appended rows, both sides kept). **`README.md`
+and `DESIGN.md` did not conflict** — T098 wrote §4 and §7, this lane §9 only, which is the split the
+`scope` gate agreed and the reason a file that is not a known conflict class could be edited by two
+lanes in one run without escalating. After the rebase: no markers, `taskrail checks T100` passed,
+`taskrail validate` reports 94 tasks and 0 errors.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T098 is editing `DESIGN.md` §4 and §7; T100 edits §9 only.
