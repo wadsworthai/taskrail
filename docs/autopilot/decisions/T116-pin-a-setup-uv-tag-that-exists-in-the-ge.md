@@ -38,3 +38,15 @@ resolved against the real remotes; and `taskrail checks T116 --stage fix` (1,248
 | 1 | Anything to decide at this gate? | **no** | **no** | The three diagnose answers were applied as given and nothing else surfaced. |
 | 2 | The judgement the lane made inside the stage — collecting every offending ref and asserting once, instead of asserting per ref in the loop | **accept** | **accept** | The first form stopped at `actions/checkout@v7` and never reached the ref in the root cause, so its failure message would have pointed at the wrong line. The version that names both is what makes the test readable when it fires years from now. |
 | 3 | The changelog quoting `edited locally; --force replaces it` verbatim from `Installer.managed` | **accept** | **accept** | A consumer reading the entry can match the string against what their own `upgrade` prints, which is the difference between an announcement and an instruction. |
+
+## close
+
+Reviewed: the whole diff `origin/main..HEAD` — two refs in `install.py`, 15 lines of test, the
+`DESIGN.md` §9 clause, the `CHANGELOG.md` entry, the artifact, two index rows and T116's `✅`;
+`taskrail checks T116 --stage fix` (1,248 passed) and `taskrail validate` (106 tasks, 0 errors);
+working tree clean and the claim released.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The `impact` sweep opened nothing — accept? | **accept** | **accept** | It was a real sweep, not an assertion: every `uses:` in the repository was listed, leaving two live sites (the template and this repository's `ci.yml`, already pinned by T108) and some frozen quotations in past tasks' write-ups, which are records and not code. |
+| 2 | Pull request type and scope | **`fix` / `install`** · `fix` / `cli` | **`fix` / `install`** | The generated workflow is written by `src/taskrail/install.py`, and CLAUDE.md asks for the affected area as the scope. |
