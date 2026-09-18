@@ -51,3 +51,21 @@ on a reading; `taskrail checks T113 --stage fix` (1,247 passed) and `taskrail va
 | 1 | The `impact` stage opened nothing — accept? | **accept** | **accept** | Each of the three candidates was closed by evidence already in hand: the shim log showing no other test in the file spawns `uv`, the same log showing the wrapper passes the pin correctly, and the rule now written in `CLAUDE.md`. |
 | 2 | The row's incomplete description, left unedited | **accept; the artifact carries the correction** | **accept** | The row belongs to a closed task and the artifact states the correction against it, which is where a reader meets both. Editing a closed row would also add conflict surface in `TODO.md` for nothing that outlives the task. |
 | 3 | Pull request type and scope | **`fix` / `tests`** · the generated scope-less `fix:` | **`fix` / `tests`** | The change is a test that proved nothing; `tests` is the affected area, and CLAUDE.md asks for the area as the scope. |
+
+## rebase after eight branches merged
+
+`main` advanced to `122cd25` (T116). This branch was rebased onto `origin/main`, with two conflicts,
+both known classes.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Conflicts in `docs/bugs/README.md` and `docs/autopilot/decisions/README.md` | **keep both** · stop | **keep both** | Appended index rows, known conflict class 2; united by ID, no duplicate. |
+
+The two-line conflict in `tests/test_install.py`'s import block that this lane and T116 both flagged
+**did not happen**: T116 needed no new import, because `re` was already there. The warning cost
+nothing and the prediction was sound; it simply did not come due.
+
+After the rebase: `import shutil` and
+`from test_install_without_path import path_with_uv_but_no_taskrail` are in place and the test uses
+the helper (`tests/test_install.py:318`), `taskrail checks T113` passed with 1,248 tests, and
+`taskrail validate` reports 106 tasks, 0 errors.
