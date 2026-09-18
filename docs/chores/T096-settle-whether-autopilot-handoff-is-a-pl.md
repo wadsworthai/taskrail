@@ -1,6 +1,6 @@
 # T096 — Settle whether `autopilot.handoff` is a placeholder or a setting with no settings
 
-Kind: chore · Epic: E08 · Status: scope proposed
+Kind: chore · Epic: E08 · Status: implemented
 
 ## Goal
 
@@ -62,7 +62,14 @@ Conditional on decision 2 below:
 |---|---|
 | `src/taskrail/config.py`, above line 48 | One comment line: `# "batch" is the foreseen second mode, deferred by the T033 trial (DESIGN.md §12.10).` Nothing else in the file changes. |
 
-## Decisions needed
+## Decisions taken
+
+All three were approved as recommended at the `scope` gate; the decision record is
+[`docs/autopilot/decisions/T096-settle-whether-autopilot-handoff-is-a-pl.md`](../autopilot/decisions/T096-settle-whether-autopilot-handoff-is-a-pl.md).
+Decision 3 widened this lane's touch map to the §12.10 entry, which is kept **live for a future
+trial** rather than deleted.
+
+## Decisions needed (at the scope gate)
 
 1. **Is documenting the recorded intent the right settlement, rather than escalating to the human?**
    Recommended: **yes, document it**. The task offered escalation as an option because T088 could
@@ -114,4 +121,55 @@ moved and the text is right:
 
 ## Verification results
 
-To be filled at implement.
+**The change set, and nothing else** (`git diff --stat` before the artifact and index row):
+
+```
+$ git diff --stat
+ DESIGN.md              | 5 +++--
+ src/taskrail/config.py | 1 +
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+```
+
+The three lines, as approved:
+
+```diff
+-handoff = "sequential"           # the only value
++handoff = "sequential"           # the only value; §12.10 on batch
+```
+```diff
+-- the trial (T033) shows sequential hand-off costs more than it catches: add `batch`;
++- a trial shows sequential hand-off costs more than it catches: add `batch`; T033 measured it and
++  the condition was not met, so `sequential` stays the only mode and `handoff` reserves the name;
+```
+```diff
+ NOTIFY_EVENTS = ("escalation", "lane-done", "lane-failed")
++# "batch" is the foreseen second mode, deferred by the T033 trial (DESIGN.md §12.10).
+ HANDOFF_MODES = ("sequential",)
+```
+
+**The behaviour the comment describes is unchanged**, exercised against the real parser:
+
+```
+$ uv run python -c "…from taskrail.config import HANDOFF_MODES, _autopilot…"
+HANDOFF_MODES = ('sequential',)
+'sequential' -> accepted, mode 'sequential'
+'batch' -> ['autopilot.handoff must be one of sequential']
+```
+
+`batch` is still refused with the same message, which is what §12.10 and the new comment say: the
+name is reserved, not implemented.
+
+**Checks** — `taskrail checks T096 --stage implement`:
+
+```
+== test: uv run pytest -q
+1186 passed in 157.81s (0:02:37)
+== lint: not configured
+passed test
+not configured lint
+T096 in …/.worktrees/T096-settle-whether-autopilot-handoff-is-a-pl: passed
+```
+
+`lint` is reported as not configured: the task's `checks` map defines only `test`. No test asserts
+the §4 comment text or the §12.10 wording, so nothing needed updating; `tests/test_autopilot.py:172`
+(`handoff = "batch"` refused) still passes and now reads as the record of the reserved name.

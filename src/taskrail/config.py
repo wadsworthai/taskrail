@@ -45,6 +45,7 @@ class ReviewConfig:
 
 
 NOTIFY_EVENTS = ("escalation", "lane-done", "lane-failed")
+# "batch" is the foreseen second mode, deferred by the T033 trial (DESIGN.md §12.10).
 HANDOFF_MODES = ("sequential",)
 GATE_RE = re.compile(r"^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$")
 TEMPLATE_VALUES = {"id": "T001", "slug": "slug", "artifacts": "docs", "backlog": "main", "epic": "E01"}

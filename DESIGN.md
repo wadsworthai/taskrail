@@ -191,7 +191,7 @@ escalate_gates = []              # "kind:stage" always taken to the human; flagg
 decisions = "{artifacts}/autopilot/decisions/{id}-{slug}.md"
 decisions_index = "{artifacts}/autopilot/decisions/README.md"
 silent_minutes = 20              # a running lane idle longer is `silent` in `autopilot status`
-handoff = "sequential"           # the only value
+handoff = "sequential"           # the only value; §12.10 on batch
 notify = ""                      # command run by `autopilot notify` (T032)
 notify_on = ["escalation", "lane-done"]   # any of escalation, lane-done, lane-failed
 
@@ -1731,7 +1731,8 @@ The design changes if:
   `claim_remote`;
 - hosts squash with a rebase that alters content: tree and patch-id could miss, and detection
   would need the host's pull-request state, currently a non-goal (§1);
-- the trial (T033) shows sequential hand-off costs more than it catches: add `batch`;
+- a trial shows sequential hand-off costs more than it catches: add `batch`; T033 measured it and
+  the condition was not met, so `sequential` stays the only mode and `handoff` reserves the name;
 - consumers object to being offered an autopilot skill they have not enabled: install it only
   where enabled, reusing the kind filter of §9.
 
