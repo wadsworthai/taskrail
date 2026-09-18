@@ -225,9 +225,8 @@ writes `file = "TODO.md"` or converts it with `taskrail import TODO.md --write` 
 An entry's `epic_prefix` (default `E`) and `id_digits` (default 3) shape that backlog's IDs: an
 epic ID is `epic_prefix` plus two or more digits, a task ID is `prefix` plus `id_digits` or more
 digits, and `taskrail new` pads the number it allocates to `id_digits`. `validate` refuses an ID
-that does not match, naming the key — `epic_prefix` or `prefix` — and the value it expected, so
-a repository whose epics are numbered `EP01` sets `epic_prefix = "EP"` here instead of
-renumbering them.
+that does not match, quoting the prefix it expected rather than the key, so a repository whose
+epics are numbered `EP01` sets `epic_prefix = "EP"` here instead of renumbering them.
 
 `[autopilot]` is checked when the config loads: a value of the wrong type, `max_lanes` below 1, a
 negative `silent_minutes`, a `kinds` entry that is not a kind name, an `escalate_gates` entry not
