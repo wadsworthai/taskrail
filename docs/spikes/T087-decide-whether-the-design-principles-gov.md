@@ -1,6 +1,7 @@
 # T087 — Decide whether the design principles govern new work only or also what exists
 
-**Verdict.** The design principles are **prospective**: they judge the change a task makes, not
+**Verdict** — accepted by the human at the `decide` gate on 2026-09-18, in full and as
+recommended; see *Outcome* below. The design principles are **prospective**: they judge the change a task makes, not
 the code that already exists. They reach an executor through `CLAUDE.md` alone — no principle is
 stated in the shipped skills — and they let an executor **object, not refuse**: at the task's
 first gate it names the principle and proposes the simpler alternative, and then builds what the
@@ -32,7 +33,7 @@ up the decision:
 All commands were run in this task's worktree, on branch
 `T087-decide-whether-the-design-principles-gov` at base `origin/main` = 5476c00.
 
-### E1. The introducing commit states the intent: the principles are for new work
+### E1. The introducing commit records the drafter's intent: the principles are for new work
 
 ```
 $ git show --stat 5476c00 | head -20
@@ -57,6 +58,15 @@ The commit that introduced the section says in as many words that **"the princip
 for new work, but the repository was built before them"**, and that E08 exists to decide the rest.
 A retroactive default would make E08 redundant: the epic would already be answered by the section
 it was created to interpret.
+
+**What this evidences, and what it does not.** That message was written by an agent in the session
+that produced the section, not by the human, so it records the *drafter's* intent, not a decision
+already taken — and a spike that cited it as the human's answer would be citing itself. It is
+offered here as the reading the section was written under; the human's own confirmation of that
+reading is the answer to this spike's `decide` gate, recorded in
+[`docs/autopilot/decisions/T087-decide-whether-the-design-principles-gov.md`](../autopilot/decisions/T087-decide-whether-the-design-principles-gov.md)
+and summarised under *Outcome* below. The verdict rests on E4 and E5, which are independent of
+either intent; E1 corroborates them.
 
 ### E2. The section is ambiguous exactly where the task says it is
 
@@ -211,7 +221,13 @@ distinct long flags: 72
 
 Top-level commands: `validate list show next claim release claims reserve-id unreserve-id init
 upgrade integration self new workspace done discard reopen edit branch review checks epic kind
-autopilot import merge-driver`. The 72 long flags include `--help`; 71 are taskrail's own.
+autopilot import merge-driver`.
+
+**How the flags were counted:** every distinct long option string (`--…`) on every parser in the
+tree, the root parser and all 42 commands, de-duplicated across commands, `--help` included — so
+71 are taskrail's own. The count is sensitive to method: an independent count at this task's gate,
+taken from the same parser tree, came to 70. Read the figure as **about 70 distinct long flags**;
+the command counts (27 and 42) are exact and were reproduced independently.
 
 Configuration, from `src/taskrail/config.py`: **9 first-level names** in `.taskrail/config.toml`
 — `version`, `[[backlog]]`, `[columns]`, `[points]`, `[git]`, `[review]`, `[kinds]`, `[checks]`,
@@ -295,8 +311,10 @@ the dangerous failure, and the current sentence forbids only silent *elaboration
   license removal. T088 remains what its row says — measure, report each option with its known
   consumers and the cost of removing or defaulting it, change nothing. Its findings become tasks,
   and each such task is then a prospective change, judged on its own. Its headline numbers should
-  be corrected first (E9): 27 top-level commands, 42 including subcommands, 71 of taskrail's own
-  long flags, 9 first-level config names holding 42 documented keys. It should also record that
+  be corrected first (E9): 27 top-level commands, 42 including subcommands, about 70 distinct long
+  flags, 9 first-level config names holding 42 documented keys. It should say how it counts flags,
+  as E9 now does: that figure moves by a unit or two with the method, and a reader who recounts
+  differently should not conclude the write-up is wrong. It should also record that
   `claim_remote`, `branch_record_remote`, `notify`, groups and resources have no consumer visible
   in this repository and that, by the publishing constraint, a private consumer cannot be cited in
   the write-up — so "no known consumer" is the strongest claim available, not "no consumer".
@@ -361,16 +379,41 @@ walk(build_parser(), [], cmds, flags)
 print(len(cmds), len([c for c in cmds if " " not in c]), len(flags))
 ```
 
-`uv run python <script>` prints `42 27 72`. The configuration counts are read from the key lists in
+`uv run python <script>` prints `42 27 72` — commands at all levels, top-level commands, and
+distinct long option strings including `--help` (see *How the flags were counted* in E9; a count
+by another method gave 70, hence "about 70" in the write-up). The configuration counts are read from the key lists in
 `src/taskrail/config.py` (`_config` for the first-level tables, `_autopilot` for `[autopilot]`).
+
+## Outcome
+
+The `decide` gate of this spike is escalated to the human by
+`[autopilot].escalate_gates = ["spike:decide"]`. On 2026-09-18 the human accepted the verdict in
+full, each sub-question as recommended; the answers are recorded in
+[`docs/autopilot/decisions/T087-decide-whether-the-design-principles-gov.md`](../autopilot/decisions/T087-decide-whether-the-design-principles-gov.md).
+
+- **Scope — prospective.** Accepted. What already exists is reopened only by a task that asks for
+  it, and the sentence proposed above is the wording to adopt.
+- **Reach — the root file, plus one generic pointer.** Accepted as recommended; the fallback of
+  changing nothing was not taken. No principle is named in any shipped skill, and the core
+  `taskrail` skill gains the agent-agnostic, repository-agnostic pointer.
+- **Refusal — object, not refuse.** Accepted, with both wording fixes: the task's first gate
+  (`plan`, `scope`, `diagnose` or `frame`) rather than "the plan gate", and an explicit rule
+  against silently substituting a simpler design.
+
+Two corrections were made to this write-up at that gate: E1 is marked as evidence of the
+*drafter's* intent rather than the human's, so the verdict does not rest on a circular citation,
+and E9 now says how its flags were counted, since an independent count by another method came to
+70 rather than 72.
 
 ## Follow-ups
 
-Proposed, not opened: the decision is escalated to the human, and these tasks only make sense once
-it is accepted.
+Opened on this task's branch, so the verdict and its adoption are reviewed together:
 
-| Kind | Title | What it does |
-|---|---|---|
-| `chore` | Record the scope, reach and refusal rules for the design principles in CLAUDE.md | Adds the prospective sentence, replaces "the plan gate" with the four first-gate stage names, and states that an executor objects rather than refusing and never substitutes a design silently. `CLAUDE.md` only. |
-| `chore` | Tell every executor to read the repository's agent instruction files before it plans | Generalises `taskrail-chore`'s existing line into the core `taskrail` skill, names no principle and no agent, and runs `upgrade` for the installed copies. Skip this task if option 2C is preferred. |
-| `chore` | Correct T088's row with the measured CLI and configuration surface | Replaces "18 subcommands, about 66 distinct flags and 19 first-level config keys" with the figures of E9, through `taskrail edit`. |
+| ID | Kind | Title | What it does |
+|---|---|---|---|
+| T090 | `chore` | Record the scope, reach and refusal rules for the design principles in CLAUDE.md | Adds the prospective sentence, replaces "the plan gate" with the four first-gate stage names, and states that an executor objects rather than refusing and never substitutes a design silently. `CLAUDE.md` only. |
+| T091 | `chore` | Tell every executor to read the repository's agent instruction files before it plans | Generalises `taskrail-chore`'s existing line into the core `taskrail` skill, names no principle and no agent, and runs `upgrade` for the installed copies. |
+| T092 | `chore` | Correct T088's row with the measured CLI and configuration surface | Replaces "18 subcommands, about 66 distinct flags and 19 first-level config keys" with the figures of E9, through `taskrail edit`. Best done before T088 is worked. |
+
+T088's row was deliberately **not** edited from this task: it belongs to another lane, and the
+correction is reviewed as T092 rather than slipped in here.
