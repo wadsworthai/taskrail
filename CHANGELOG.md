@@ -1,12 +1,26 @@
 # Changelog
 
-Releases are tagged `vX.Y.Z`. Install one with:
+Releases are tagged `vX.Y.Z`. Use one in a repository without installing anything:
 
 ```bash
-uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@vX.Y.Z"
+uvx --from "git+https://github.com/wadsworthai/taskrail.git@vX.Y.Z" taskrail upgrade
 ```
 
+In a repository that has no `.taskrail/` yet, that is `taskrail init --integration <agent>`
+instead of `upgrade`. To install the CLI on your machine as well:
+`uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@vX.Y.Z"`.
+
 ## Unreleased
+
+- **uvx is the documented default, and nothing has to be installed on the machine.** The
+  no-global-install route already worked — the committed wrapper runs the pinned version through
+  `uvx`, and the generated GitHub workflow installs only `uv` — but the documentation taught
+  `uv tool install` alone. README's *Install* and *Use* and DESIGN.md §9 now lead with bootstrapping
+  through `uvx --from "git+<repo>@<tag>" taskrail init` and calling `.taskrail/bin/taskrail`
+  afterwards, since `init` pins the version it ran as and the wrapper reproduces it. They also say
+  what upgrading means with no CLI installed: `uvx --from "git+<repo>@<tag>" taskrail upgrade`
+  moves the pin, where `self upgrade` only replaces a global CLI. Installing globally stays
+  supported and documented, and no behaviour changed (T100).
 
 - **`validate` warns about a name in `.taskrail/config.toml` that taskrail does not define.** A key
   taskrail does not know was ignored in silence, so a typo did nothing and no configuration key

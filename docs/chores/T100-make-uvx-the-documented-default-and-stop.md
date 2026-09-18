@@ -1,6 +1,6 @@
 # T100 — Make uvx the documented default and stop assuming a global install
 
-Kind: chore · Epic: E05 · Status: scoped
+Kind: chore · Epic: E05 · Status: implemented
 
 ## Goal
 
@@ -82,13 +82,23 @@ installs taskrail, which is the uvx route already in use and undocumented.
 | `DESIGN.md` §9, lines 1207–1213 | The opening and its code block lead with the uvx bootstrap and keep `uv tool install` as the alternative. §9 only; §4 and §7 are untouched. |
 | `DESIGN.md` §9, line 1246 | The `self upgrade` sentence gains what it means for a repository with no global install: upgrading there is changing the pin, which `upgrade` writes. |
 | `DESIGN.md` §9, lines 1248–1250 | "Unlike Spec Kit…" reworded so the uvx fallback reads as the normal path rather than the exception. The `local:` pin, `TASKRAIL_BIN` and `TASKRAIL_SOURCE` sentences are unchanged. |
+| `README.md` *Releasing*, step 3 | "Verify a clean install from the tag, **on both routes**". (Decision 5, approved.) |
+| `CHANGELOG.md`, header block (above `## Unreleased`) | Leads with `uvx … taskrail upgrade` and keeps `uv tool install` as the alternative, so the changelog does not contradict the README beside it. (Decision 4, approved; it widened the touch map.) |
 | `CHANGELOG.md`, under `## Unreleased` | One entry: the documented default is now uvx with no global install. |
 | `docs/chores/T100-make-uvx-the-documented-default-and-stop.md` | This artifact. |
 | `docs/chores/README.md` | Index row for T100, added at implement. |
-| `TODO.md` | Only the row's `✅` at close, through `taskrail done`. |
+| `TODO.md` | T106's new row, written by `taskrail new` (decision 6, approved), and this task's own `✅` at close, through `taskrail done`. No other row changes. |
 
 **Not changed**: `src/taskrail/install.py` (decision 3), `.taskrail/bin/taskrail` and the wrapper
 template, the generated workflow, the shipped skills, `CLAUDE.md`, `DESIGN.md` §4 and §7.
+
+## Decisions taken
+
+All six were approved as recommended at the `scope` gate; the decision record is
+[`docs/autopilot/decisions/T100-make-uvx-the-documented-default-and-stop.md`](../autopilot/decisions/T100-make-uvx-the-documented-default-and-stop.md).
+Decision 4 widened this task's touch map to `CHANGELOG.md`'s header block, above `## Unreleased`.
+Decision 6 opened **T106** — *Test `init` and the wrapper with taskrail absent from `PATH`* (chore,
+E05, 2 points, no dependencies).
 
 ## Decisions needed (at the scope gate)
 
@@ -178,3 +188,120 @@ and that nothing outside the change set moved:
   expected to report as not configured, since the task's `checks` map defines only `test`.
 - `git diff --stat` on the branch, to show the change set and nothing else.
 - `.taskrail/bin/taskrail validate` at the close.
+
+## Verification results
+
+### The documentation was tested as written, not as meant
+
+A clean scratch repository, `PATH=<scratch>/nobin:/usr/bin:/bin` holding only symlinks to `uv` and
+`uvx`, and the three commands **copied out of the rewritten README's *Install* section verbatim**,
+public URL and all:
+
+```
+$ echo "taskrail on PATH? $(command -v taskrail || echo NO)"
+taskrail on PATH? NO
+$ uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0" \
+>   taskrail init --integration claude
+created   .taskrail/config.toml
+created   TODO.md
+created   .taskrail/bin/taskrail
+created   .claude/skills/taskrail/SKILL.md
+created   .claude/skills/taskrail-autopilot/SKILL.md
+created   .claude/skills/taskrail-autopilot/references/decision-record.md
+created   .claude/skills/taskrail-autopilot/references/gate-review.md
+created   .claude/skills/taskrail-autopilot/references/lane-brief.md
+created   .claude/skills/taskrail-bug/SKILL.md
+created   .claude/skills/taskrail-chore/SKILL.md
+created   .claude/skills/taskrail-feature/SKILL.md
+created   .claude/skills/taskrail-spike/SKILL.md
+created   .gitignore
+note      skills changed: restart the agent session so it loads them
+0 file(s) already up to date
+$ .taskrail/bin/taskrail validate
+history: not checked (no commits)
+0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)
+$ head -1 .taskrail/config.toml
+version = "v0.3.0"
+$ .taskrail/bin/taskrail --version
+taskrail 0.3.0
+```
+
+Every claim the new text makes holds: `uv` is the only prerequisite; **the bootstrap tag becomes
+the pin**, so the wrapper afterwards reproduces the taskrail that wrote the repository; and the
+README's bare `.taskrail/bin/taskrail validate`, written without a leading `./`, runs as typed
+(the shell takes a word containing a slash as a path).
+
+### The one-command upgrade moves the pin
+
+The claim in *Install* → *Upgrading* and in §9, tested as a real forward upgrade — bootstrap at
+`v0.2.0`, upgrade with the documented command, `taskrail` still absent from `PATH`:
+
+```
+$ uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.2.0" taskrail init --integration claude
+…
+$ head -1 .taskrail/config.toml
+version = "v0.2.0"
+$ .taskrail/bin/taskrail --version
+taskrail 0.2.0
+$ uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0" taskrail upgrade
+updated   .claude/skills/taskrail/SKILL.md
+updated   .claude/skills/taskrail-autopilot/SKILL.md
+updated   .claude/skills/taskrail-autopilot/references/gate-review.md
+updated   .claude/skills/taskrail-autopilot/references/lane-brief.md
+updated   .claude/skills/taskrail-bug/SKILL.md
+updated   .claude/skills/taskrail-chore/SKILL.md
+updated   .claude/skills/taskrail-feature/SKILL.md
+updated   .claude/skills/taskrail-spike/SKILL.md
+updated   .taskrail/config.toml (version pin → v0.3.0)
+note      skills changed: restart the agent session so it loads them
+4 file(s) already up to date
+$ head -1 .taskrail/config.toml
+version = "v0.3.0"
+$ .taskrail/bin/taskrail --version
+taskrail 0.3.0
+```
+
+One command re-installed the skills for the release **and** wrote the new pin, and the wrapper
+switched to it — with nothing installed on the machine. `taskrail self upgrade` was deliberately
+**not** run: it would install a CLI on this machine, which is exactly the side effect the new text
+says it has (`src/taskrail/install.py:497`,
+`["uv", "tool", "install", "--force", "taskrail", "--from", f"git+{source}@{tag}"]`).
+
+### The change set, and nothing else
+
+```
+$ git diff --stat
+ CHANGELOG.md          | 18 ++++++++++++++++--
+ DESIGN.md             | 32 +++++++++++++++++++++++---------
+ README.md             | 50 +++++++++++++++++++++++++++++++++++++++++---------
+ TODO.md               |  1 +
+ docs/chores/README.md |  1 +
+ 5 files changed, 82 insertions(+), 20 deletions(-)
+```
+
+`DESIGN.md` is §9 only (lines 1207–1213 and 1245–1254 as they stood on `d6fc5f7`); §4 and §7 are
+untouched. `TODO.md`'s one line is T106's new row, written by `taskrail new` (decision 6); no
+existing row changed. `src/taskrail/install.py` was not touched (decision 3), so **no behaviour
+changed** and the global-install route works exactly as before.
+
+### Checks
+
+`taskrail checks T100 --stage implement`:
+
+```
+1196 passed in 150.26s (0:02:30)
+== lint: not configured
+passed test
+not configured lint
+T100 in …/.worktrees/T100-make-uvx-the-documented-default-and-stop: passed
+```
+
+`lint` reports as not configured: the task's `checks` map defines only `test`. No test reads
+`README.md` or `DESIGN.md` §9, and `tests/test_install.py:283` — which asserts the `self upgrade`
+command string — is untouched and passing, since this task changed no command.
+
+## Noted, not changed
+
+`README.md`'s *Install* says "Two optional flags:" above a list of **three** (`--github-workflow`,
+`--pre-commit`, `--merge-driver`). Pre-existing, unrelated to this task's subject, and separable
+from it, so it was left alone and reported at the `implement` gate rather than fixed in passing.
