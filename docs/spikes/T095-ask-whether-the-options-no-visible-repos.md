@@ -10,6 +10,12 @@ its removal* — a recommendation and a default. **Nothing here removes anything
 [T087](T087-decide-whether-the-design-principles-gov.md)'s verdict, now in `CLAUDE.md`, nothing here
 licenses a removal: the design principles judge the change a task makes, not the code already there.
 
+**The human answered on 2026-09-18: route A, document it, for all seven — and nothing is proposed
+for removal.** They also accepted the one thing this spike found that was not on the list: the
+refusal for a foreign epic ID names the prefix's value but never `epic_prefix`, the key that would
+accept it. Four of the seven answers are carried out by T098, which was already editing exactly the
+right two regions; the rest are T101, T102 and T103. The full result is in *Outcome*.
+
 Two results change how the questions must be asked. **First, four of the seven answers cost no new
 task at all**: T098 already edits exactly the two regions of `DESIGN.md` — §4's example and §7's
 command table — where a *document it* answer for questions 1-6 lands, so those answers extend a task
@@ -515,5 +521,51 @@ uv run taskrail --root "$Q" validate                                            
 
 ## Outcome
 
-*To be completed after the `decide` gate, with the human's seven answers and the follow-up tasks
-each one opens.*
+The `decide` gate of this spike is escalated to the human by
+`[autopilot].escalate_gates = ["spike:decide"]`. On 2026-09-18 the human answered all seven
+questions, and **every answer is route A: document it. Nothing is proposed for removal.**
+
+| # | Option | Answer | Where it is carried out |
+|---|---|---|---|
+| 1 | `[[backlog]].epic_prefix` | **A** — document it | T098, §4's example |
+| 2 | `[[backlog]].id_digits` | **A** — document it | T098, §4's example |
+| 3 | `epic add --id` | **A** — document it | T098, §7's command table |
+| 4 | `epic add --file` | **A** — document it | T098, §7's command table |
+| 5 | `epic split --file` | **A** — document it | T098, §7's command table |
+| 6 | `next --limit` | **A** — document it | T098 for §7; **T101** for the `help=` string |
+| 7 | `--owner` | **A** — document it | **T102**, §6.2 |
+
+They also answered **yes** to the optional extra under question 1: the refusal for an epic ID that
+does not match the prefix should name `epic_prefix` rather than only quote its value (*V9*). That is
+**T103**. It was not on the list the task was opened with; it came out of running the tool instead of
+grepping it, and it is the only outcome that repairs the cause of a key being undiscoverable rather
+than documenting around it.
+
+**Questions 1-5 opened no task.** T098 was already live and already edits exactly the two regions of
+`DESIGN.md` where those answers land — §4's example and §7's command table — and it had deliberately
+held back the §7 entries for `epic add --id`, both `--file` flags and `next --limit` because this
+questionnaire might have retired them. The orchestrator passed the answers to T098 instead of opening
+duplicates. **This task did not edit T098's row.**
+
+**No route-B task exists, so T094 gates nothing here.** The dependency recorded under *Options
+considered* — that a proposed removal of either configuration key would have to wait for T094's
+unknown-key warning — never came into force, because neither key was proposed for removal. It stands
+as the condition to apply if either question is ever re-asked.
+
+**The strongest thing this spike can now say** is not that the seven options are used, and not that
+they are unused. It is that a question which looked like an inventory of dead weight was answered
+"keep all of it, and write it down" by the one person who can see the consumers, and that the real
+defect it turned up was not an unused option at all but an error message that hides the option that
+would fix it. Every count in T088 and every count here remains a fact about this repository's own
+use, never about taskrail's users.
+
+## Follow-ups
+
+Opened on this task's branch after the `decide` gate, so the questionnaire and its routing are
+reviewed together. Each is a small documentation or message change; none removes anything.
+
+| ID | Kind | Pts | Title | Answer it carries out |
+|---|---|---|---|---|
+| T101 | `chore` | 1 | Give `next --limit` a help string so it is discoverable from `--help` | Question 6's code half: §7 is T098's, the `help=` string is not |
+| T102 | `chore` | 1 | Document `--owner` and `TASKRAIL_OWNER` in the claims section of `DESIGN.md` | Question 7; §6.2 only, so it does not overlap T098 |
+| T103 | `chore` | 1 | Name `epic_prefix` in the refusal for an epic ID that does not match it | The optional extra under question 1 (*V9*) |
