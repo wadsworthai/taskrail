@@ -52,7 +52,7 @@ Restart the agent session after `init` or `upgrade`: agents load skills when a s
 so one already running does not see new or changed skills.
 
 `init` is safe to run again. It creates `.taskrail/config.toml` and `TODO.md` when missing, and
-installs the skills and the wrapper. Two optional flags:
+installs the skills and the wrapper. Three optional flags:
 
 - `--github-workflow` adds `.github/workflows/taskrail.yml`, running `taskrail validate` on
   pull requests and pushes to the mainlines, with full git history so its check for reopens

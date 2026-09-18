@@ -300,8 +300,31 @@ T100 in …/.worktrees/T100-make-uvx-the-documented-default-and-stop: passed
 `README.md` or `DESIGN.md` §9, and `tests/test_install.py:283` — which asserts the `self upgrade`
 command string — is untouched and passing, since this task changed no command.
 
-## Noted, not changed
+## Fixed on the way
 
-`README.md`'s *Install* says "Two optional flags:" above a list of **three** (`--github-workflow`,
-`--pre-commit`, `--merge-driver`). Pre-existing, unrelated to this task's subject, and separable
-from it, so it was left alone and reported at the `implement` gate rather than fixed in passing.
+`README.md`'s *Install* said "Two optional flags:" above a list of **three**
+(`--github-workflow`, `--pre-commit`, `--merge-driver`) — pre-existing on `d6fc5f7` and unrelated to
+this task's subject. It was reported at the `implement` gate rather than fixed silently, and the
+gate's answer was to fix it here: two characters, inside the very section this task rewrites and
+leaves in its final form, where opening a task for it would be the bureaucracy KISS exists to
+prevent and shipping a freshly reviewed *Install* section with an obvious miscount would be worse.
+
+```diff
+-installs the skills and the wrapper. Two optional flags:
++installs the skills and the wrapper. Three optional flags:
+```
+
+## Documentation (`docs` stage)
+
+Nothing to do, and nothing to open. This task's change set *is* the documentation: README's
+*Install*, *Use* and *Releasing*, `DESIGN.md` §9 and `CHANGELOG.md` were brought in line at
+`implement` and re-read afterwards. Checked for anything left behind:
+
+- **The shipped skills and integration notes** — `grep -rn "uv tool install\|uvx"` over
+  `src/taskrail/skills/` and `src/taskrail/integrations/` matches nothing; they already say
+  `.taskrail/bin/taskrail`. Nothing to align.
+- **`CLAUDE.md`** — describes this repository's own `local:.` development setup, which this task
+  does not touch.
+- **The generated GitHub workflow** — already the uvx route (`astral-sh/setup-uv` plus the
+  wrapper); §9 now says so explicitly.
+- **Follow-up** — T106 was opened at `implement` (decision 6); no further one was found.
