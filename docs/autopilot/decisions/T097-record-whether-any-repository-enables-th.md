@@ -20,6 +20,28 @@ Instructions given with the answers: measure route B's blast radius exactly, inc
 `autopilot status --fetch` is an unrelated flag sharing the name; and open no follow-up task before
 the human answers.
 
+## escalated to the human
+
+`spike:decide` is in this repository's `[autopilot].escalate_gates`, so the three questions went to
+the human. Answered on 2026-09-18. The orchestrator verified the two load-bearing measurements
+before escalating: `cli.py:67` returns before touching git when `branch_record_remote` is unset, and
+`DESIGN.md:588` already states the flag "does nothing while the setting is off".
+
+| # | Question | Answer | Consequence |
+|---|---|---|---|
+| 1 | Does any repository set `[git].claim_remote`? | **B — none visible to the human either** | Recorded; nothing retired. The key, its flag and the code it guards stay as they are. |
+| 2 | Does any repository set `[git].branch_record_remote`? | **B — none visible either** | Recorded; nothing retired. Route B stayed available for question 3 and was not taken. |
+| 3 | The core skill's `--fetch` step | **C — keep the flag and say the condition plainly** | One small chore rewriting that clause so the skill states that the fetch does nothing unless the repository sets `branch_record_remote`, and what it resolves when it does. No behaviour change. |
+
+Answered by the human (the repository's maintainer), through the orchestrator. The task row's own
+proposal — dropping `--fetch` — was put to the human with the lane's recommendation against it, and
+was not taken: with the key off the flag costs nothing (0.224s against 1.561s for a real fetch,
+byte-identical output), and with the key on it is load-bearing.
+
+One task to open: the route-C chore on the core skill's step 3. It ships to every consumer, so it
+edits `src/taskrail/skills/taskrail/SKILL.md` and needs `taskrail upgrade` for the installed copies;
+`README.md:50` teaches the same command and should be checked while there.
+
 ## Conflict handling agreed for all lanes
 
 Run 20260918-1. T094 is live in `config.py`, `project.py`, `tests/`, `DESIGN.md` and `CHANGELOG.md`;
