@@ -66,3 +66,9 @@ T121's archive tests and this branch's together — and `taskrail validate` repo
 `CHANGELOG.md`, `TODO.md`). `DESIGN.md` §7.6 merged cleanly even though T124 and this branch both
 edited the `epic add` bullet — T124 its first sentence, this branch its last — and the bullet reads
 correctly with both. `taskrail checks T125` passed with 1,271 tests. Re-published with a lease.
+
+## rebase after T126 merged
+
+`main` advanced to `881ae6f` (T126). Rebased with known-class conflicts only (index rows and
+`TODO.md`); T126 changed `src/taskrail/autopilot/merged.py`, which this branch does not touch.
+`taskrail checks` passed afterwards. Re-published with a lease.
