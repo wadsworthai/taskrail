@@ -36,3 +36,16 @@ generated `taskrail` — completing with `success` on `main` at `a0994e3`, the r
 T123's concurrency block in place. It goes through this repository's `local:.` pin and is labelled
 supporting only, but it is the first confirmation from GitHub itself that the generated workflow T116
 fixed now runs.
+
+## close
+
+Reviewed: the `docs` stage commit, touching only the artifact, which records that no other file names
+the development version; `taskrail done T128` on its own commit, changing only T128's status cell;
+`taskrail validate`. No rebase is needed: `main` is still at `a0994e3`, this branch's base.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request title | **`chore(release): bump main to 0.5.0.dev0 after the v0.4.0 tag (T128)`** | **as decided at scope** | The form T078 and T086 used. |
+
+With this merged, E10's first release is complete: `v0.4.0` is tagged from a squash-merged release
+pull request and was shown to install cleanly from its tag, over the network, on both routes.
