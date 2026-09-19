@@ -198,3 +198,12 @@ $ taskrail --root repro epic add --id E07 --name "taskrail phase 3" --objective 
 taskrail: epic `E07` is archived in docs/archive.md; an archived ID is never reused
 exit 5
 ```
+
+## Impact
+
+Both things outside this fix that the root cause exposed are open as follow-ups under E09:
+
+- **T124**: epic IDs are not scanned across branches or reserved (evidence 4).
+- **T125**: `archive` merges a different epic into an archived section with the same ID (evidence 3).
+
+Nothing else needs opening, and nothing in `never_edit` was touched.
