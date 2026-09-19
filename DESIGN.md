@@ -1,6 +1,6 @@
 # taskrail — design
 
-Status: **released as `v0.3.0`.** See CHANGELOG.md.
+Status: **released as `v0.4.0`.** See CHANGELOG.md.
 
 An agent-agnostic backlog tool: a deterministic CLI that owns the backlog files, plus thin
 skills that execute tasks by kind. Derived from the task systems of two existing projects,
@@ -135,7 +135,7 @@ to the `## Epics` table.
 ## 4. Configuration — `.taskrail/config.toml`
 
 ```toml
-version = "v0.3.0"          # CLI version the repository is pinned to
+version = "v0.4.0"          # CLI version the repository is pinned to
 
 [[backlog]]
 name = "template"
@@ -1319,7 +1319,7 @@ recommended route installs nothing on the machine — `uvx` runs the release onc
 repository, and the wrapper `init` commits runs it from then on:
 
 ```bash
-uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0" taskrail init --integration claude
+uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.4.0" taskrail init --integration claude
 .taskrail/bin/taskrail validate
 ```
 
@@ -1328,7 +1328,7 @@ reproduces the taskrail that wrote the repository. Installing the CLI globally i
 and is equally supported — the wrapper takes an installed CLI when its version matches the pin:
 
 ```bash
-uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0"
+uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.4.0"
 ```
 
 Tags are the plain version, `vX.Y.Z`.

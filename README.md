@@ -19,7 +19,7 @@ through the wrapper `init` commits:
 
 ```bash
 cd your-repository
-uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0" \
+uvx --from "git+https://github.com/wadsworthai/taskrail.git@v0.4.0" \
   taskrail init --integration claude          # or --integration opencode; repeatable
 .taskrail/bin/taskrail validate
 ```
@@ -32,7 +32,7 @@ taskrail that wrote the repository.
 **Or install the CLI on your machine**, to type `taskrail` instead of the wrapper's path:
 
 ```bash
-uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.3.0"
+uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@v0.4.0"
 ```
 
 Both routes are supported, and they agree: the wrapper uses an installed CLI when its version
