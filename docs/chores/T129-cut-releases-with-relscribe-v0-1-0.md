@@ -1,6 +1,6 @@
 # T129 — Cut releases with relscribe v0.1.0
 
-Kind: chore · Epic: E10 · Status: implemented
+Kind: chore · Epic: E10 · Status: implemented and documented
 
 ## Goal
 
@@ -179,3 +179,12 @@ and `uv run --locked pytest -q` on that release commit: `1273 passed`.
 Checks: `taskrail checks T129 --stage implement` — `test` passed (`1273 passed in 186.41s`),
 `lint` not configured. `taskrail validate`: 0 errors, 0 warnings. `actionlint` is not installed;
 `pr-title.yml` is checked by its own run on this pull request.
+
+## Docs
+
+- `README.md` *Releasing* rewritten around `relscribe status`, `release` and the tag workflow; the
+  `.dev0` bump is gone.
+- `CLAUDE.md`: `CHANGELOG.md` is generated at release and never edited on a task branch;
+  `relscribe.toml` and `pr-title.yml` in the Layout; *Merging* says relscribe reads the title.
+- Follow-up **T130** (E10, depends on T129): cut the first release with relscribe and add
+  `release.yml` in the same pull request (decision A3).
