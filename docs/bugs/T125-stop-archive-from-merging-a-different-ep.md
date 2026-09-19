@@ -231,3 +231,9 @@ to E09. `archive` printed `main: archived 2 task(s) and 2 epic(s) into docs/arch
 **A normal run is unaffected.** A fresh clone at `origin/main` (`245f484`), run with
 `taskrail --root mainclone archive --dry-run`, printed
 `main: would archive 2 task(s) and 1 epic(s) into docs/archive.md` and exited 0.
+
+## Impact
+
+Nothing outside this fix needs a follow-up. The root cause lived entirely in `archive`'s choice of
+section. T122 covers the `epic add` route. T124 tracks the cross-branch allocation race.
+`validate` stays out of the archive by design (§7.6). Nothing in `never_edit` was touched.
