@@ -145,9 +145,9 @@ only when it runs `taskrail upgrade` after moving its pin. Read the entries mark
   rest as a complete answer. It now uses the same converter as `validate --history-limit`:
   `--limit 0` and `--limit=-1` exit 2 with
   `argument --limit: expected a whole number of at least 1, got \`0\``, printing nothing to
-  stdout, and a non-numeric value gets that message too instead of `invalid int value`. Behaviour
-  change: a script passing 0 or a negative `--limit` now fails where it used to exit 0; every value
-  of 1 or more behaves exactly as before (T109).
+  stdout, and a non-numeric value gets that message too instead of `invalid int value`.
+  Behaviour change: a script passing 0 or a negative `--limit` now fails where it used to exit 0;
+  every value of 1 or more behaves exactly as before (T109).
 - **`next --help` describes `--limit N`**, which it listed as a bare `--limit LIMIT` (T101).
 - **`taskrail archive` moves closed tasks and closed epics out of the backlog.** A backlog kept
   every row it ever had, so a long-lived one grew without bound and a reader met years of finished

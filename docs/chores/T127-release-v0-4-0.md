@@ -347,3 +347,13 @@ fetch a tag.
    In `CHANGELOG.md`, `0.4.0` appears only as the `## 0.4.0` heading.
 8. `git diff --check` reported nothing, and `taskrail validate` on this branch printed
    `9 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+
+At the implement gate, the change set was approved as committed, the extra `(T121)` was kept, and
+T109's marker was rewrapped so `Behaviour change:` sits on one source line, as every other marker
+does: a reader searching for the phrase the lead paragraph names must find all nine. After the
+rewrap:
+
+```
+$ awk '/^## 0.4.0/,/^## 0.3.0/' CHANGELOG.md | grep -c 'Behaviour change:'
+9
+```
