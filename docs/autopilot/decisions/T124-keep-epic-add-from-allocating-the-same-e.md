@@ -19,3 +19,17 @@ in `cmd_epic_add` and `ids.archived_epic_ids`, both reading the working tree onl
 | D3 | Tests | **branch-held epic moves the counter; archive-only heading on a branch counts; negative control deleting the branch; `--id` of a branch-held epic refused** | **as recommended** | The control — delete the branch and the next ID drops back — proves the branch is what moved the counter. |
 | D4 | `--id` for an ID held only on another branch | **refuse with exit 5, naming the reason** · allow as an escape hatch | **refuse** | Accepting it would create exactly the duplicate this task removes. |
 | D5 | Documentation | **rewrite §6.3's *Epic IDs* paragraph, the §7.6 bullet and the §7 table row; one changelog bullet** | **as recommended** | T122's §6.3 sentence saying epic IDs are not scanned on other branches becomes false with this fix; the new text must still say they are not *reserved*, so the remaining window stays documented. |
+
+## fix gate
+
+Reviewed: commit `651ab40` — `used_epic_ids` replacing `archived_epic_ids` in `ids.py`, the
+allocation and three refusals in `cmd_epic_add`, four tests, the §6.3, §7 and §7.6 lines and the
+changelog bullet, with `archive.py`, `src/taskrail/autopilot/` and `validate` untouched; the recorded
+failures before the fix — E02 reissued from a branch's Epics table and from a branch's archive, and
+`--id E02` accepted — with the negative control passing; the probe re-run giving E11 after a branch
+took E10; T122's reproduction still holding; and `taskrail checks T124 --stage fix` (1,263 passed).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Outside a git repository `used_epic_ids` reads only the working tree | **accept** | **accept** | `epic add` has always worked outside git and existing tests depend on it, T122's among them. Adding a git requirement to fix a git-only race would break more than it mends. |
+| 2 | The refusal says "on another branch" even when the ref it names is the checked-out branch | **reword to "is already used in `<ref>:<file>`"** · leave it | **reword** | The ref it prints is right and the sentence around it is wrong in that case. A message that misstates where an ID was found sends the reader to look in the wrong place; the fix is one line and costs nothing. |
