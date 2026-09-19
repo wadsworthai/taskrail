@@ -205,10 +205,12 @@ passed, so the fixture reads the run complete before the archive. The passing te
     1.69, 1.73, 1.71, 1.63, 1.67 s;
   - this branch, after the archive (members resolved): 1.90, 2.23, 2.69, 2.11, 2.48 s.
 
-  Timed in-process: parsing the archive in the checkout takes 2.8–3.0 ms, and reading it at the
-  two mainline refs 12.0–14.2 ms. So the archive reads add about 15 ms. The rest of the
-  rise is the per-member work that resolving the members costs, the same work `status` did
-  before the archive. A profile of the fixed `status --all` puts 1.18 s of 2.93 s in
-  `recorded_merges`, 0.73 s of it in `merged._mainline_refs`, which runs `rev-parse` on both
-  mainline refs once per task (54 calls). That existed before T121 and is outside this fix.
-  The machine was also running other lanes' test suites, so the spread between runs is wide.
+  These wall times were taken under load, with other lanes' test suites running on the same
+  machine, and are not evidence of a slowdown from this change: the gap between the second and
+  third lists is not attributable to it, and the profile below puts the time elsewhere.
+
+  What was measured directly, in-process: parsing the archive in the checkout takes 2.8–3.0 ms,
+  and reading it at the two mainline refs 12.0–14.2 ms, so the archive reads add about 15 ms.
+  A profile of the fixed `status --all` puts 1.18 s of 2.93 s in `recorded_merges`, 0.73 s of it
+  in `merged._mainline_refs`, which runs `rev-parse` on both mainline refs once per task (54
+  calls). That per-task cost predates T121 and is outside this fix; it is a follow-up task.
