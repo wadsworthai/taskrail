@@ -72,3 +72,8 @@ correctly with both. `taskrail checks T125` passed with 1,271 tests. Re-publishe
 `main` advanced to `881ae6f` (T126). Rebased with known-class conflicts only (index rows and
 `TODO.md`); T126 changed `src/taskrail/autopilot/merged.py`, which this branch does not touch.
 `taskrail checks` passed afterwards. Re-published with a lease.
+
+## rebase after T123 merged
+
+`main` advanced to `6429e18` (T123). Rebased with two known-class conflicts (the decisions index and
+`CHANGELOG.md`). `taskrail checks T125` passed with 1,273 tests. Re-published with a lease.
