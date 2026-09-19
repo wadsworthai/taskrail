@@ -114,7 +114,17 @@ IDs. `epic add` never calls it, and nothing else reads epic IDs from a revision.
 - Not affected: task-ID allocation, `archive`, `validate`, and the autopilot, which does not
   create epics.
 
-## Proposed fix (subject to the diagnose gate)
+## Proposed fix
+
+All five decisions below were approved at the diagnose gate as recommended
+(`docs/autopilot/decisions/T124-keep-epic-add-from-allocating-the-same-e.md`).
+
+**This narrows the task row in two places, deliberately.** The row asks for "a reservation under
+`id_lock`" and for "every local and remote-tracking branch". There is no reservation (D1): the
+ledger covers concurrent allocation by lanes before either commits, and epics are not created that
+way. Remote-tracking branches are read only when `claim_remote` is set (D2a), the same rule task
+IDs follow (§6.3), because nothing gives a reason to make epics stricter than tasks.
+
 
 Rename `ids.archived_epic_ids` to `used_epic_ids`, keeping the same signature. It reads, on the
 working tree and on the same revisions `used_ids` scans (`refs/heads`, plus
@@ -173,3 +183,85 @@ call reads every revision's main file and archive.
    `claim_remote`, including archive headings) but not reserved, so two uncommitted `epic add`
    runs in two worktrees can still collide. Update T122's §7.6 bullet if it says "working tree".
    Add one `CHANGELOG.md` bullet under Unreleased.
+
+## Fix
+
+- `src/taskrail/ids.py`: `archived_epic_ids` is replaced by
+  `used_epic_ids(config, backlog) -> dict[str, str]`. It reads epic IDs from the `## Epics` table
+  of the backlog's main file and from the archive's `## E## — Name` headings. It reads them first
+  on the working tree, then on the revisions `used_ids` scans: `refs/heads`, plus
+  `refs/remotes/<claim_remote>` when that is set. Each revision's main file and archive come from
+  one `git cat-file --batch` call. Each ID maps to the first place it was seen: the file for the
+  working tree, `<ref>:<file>` for a revision. That lets `epic add` say where a refused ID is.
+  Outside a git repository, only the working tree is read, as before.
+  `epic add` has always worked in a directory that is not a git repository. The existing tests
+  that call it through the non-git `repo` fixture, T122's three among them, depend on that.
+  `used_ids` itself is unchanged (D2).
+- `src/taskrail/cli.py`, `cmd_epic_add`: allocates one above the highest of the live epics and
+  `used_epic_ids`. `--id` is refused with exit 5 in three cases:
+  - the epic is live, with the existing message;
+  - the working-tree archive holds the ID, with T122's message;
+  - any other place holds it, with
+    ``taskrail: epic `E10` is already used in refs/heads/lane-a:TODO.md, on another branch; pick another ID``.
+- There is no ledger and no `id_lock` (D1).
+- `DESIGN.md` §6.3: the **Epic IDs** paragraph now says epic IDs are read in the same places as
+  task IDs, and that they are **not reserved**, which leaves one collision window: two uncommitted
+  `epic add` runs in two worktrees of one clone. It says why, and how to avoid it. The §7 CLI
+  table row for `epic add` and the §7.6 archive bullet now say the same. `CHANGELOG.md` has one
+  bullet under Unreleased.
+
+## Verification
+
+**Before the fix.** The four tests were added to `tests/test_ids.py` and run against the
+unfixed code with
+`uv run pytest -q tests/test_ids.py -k "epic_committed or epic_archived or without_the_branch or epic_id_on_another"`:
+
+```
+>       assert (code, out.strip()) == (0, "E03"), err
+E       AssertionError: 
+E       assert (0, 'E02') == (0, 'E03')
+tests/test_ids.py:99: AssertionError
+>       assert (code, out.strip()) == (0, "E03"), err
+E       AssertionError: 
+E       assert (0, 'E02') == (0, 'E03')
+tests/test_ids.py:110: AssertionError
+_____ test_an_epic_id_on_another_branch_is_refused_when_passed_explicitly ______
+>       assert code == 5
+E       assert 0 == 5
+tests/test_ids.py:125: AssertionError
+FAILED tests/test_ids.py::test_an_epic_committed_on_another_branch_is_not_allocated_again
+FAILED tests/test_ids.py::test_an_epic_archived_on_another_branch_is_not_allocated_again
+FAILED tests/test_ids.py::test_an_epic_id_on_another_branch_is_refused_when_passed_explicitly
+3 failed, 1 passed, 8 deselected in 1.10s
+```
+
+Each failure matches the root cause:
+- E02, which is committed on `lane-a`, was reissued.
+- E02, which is archived on `lane-a` only, was reissued.
+- `--id E02` was accepted with exit 0.
+
+The negative control, `test_without_the_branch_the_same_clone_would_allocate_the_epic_id`,
+passed, as it must: once `lane-a` is deleted, E02 is free.
+
+**After the fix.** `uv run pytest -q tests/test_ids.py tests/test_archive.py` printed
+`36 passed in 1.81s`, which includes T122's three archive tests, unchanged.
+`uv run pytest -q -k epic` printed `39 passed, 1224 deselected in 3.80s`.
+
+**The reproduction, rerun with the fixed source** in a fresh scratch clone at `245f484`:
+
+```
+$ epic add (lane-a)          ->  "id": "E10",
+$ git commit -qam "lane-a epic"; git switch -q main
+$ epic add (main)            ->  "id": "E11",     exit 0
+$ git checkout -q -- TODO.md
+$ epic add --id E10 (main)
+taskrail: epic `E10` is already used in refs/heads/lane-a:TODO.md, on another branch; pick another ID
+exit 5
+```
+
+T122's reproduction, in a fresh clone reset to `5215682` with every other local branch deleted,
+still gives `"id": "E09"`. `--id E07` still prints
+``taskrail: epic `E07` is archived in docs/archive.md; an archived ID is never reused`` and exits 5.
+
+`taskrail checks T124 --stage fix` printed `1263 passed in 141.60s (0:02:21)`, `passed test`,
+`not configured lint` and `T124 in <worktree>: passed`.

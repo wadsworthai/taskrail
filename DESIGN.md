@@ -567,9 +567,12 @@ Only IDs in the `ID` column of task tables count, so a description that mentions
 not move the counter.
 
 **Epic IDs** are allocated by `epic add` as one above the highest epic in the backlog's `## Epics`
-table or with a section in its archive (§7.6), both on the working tree only. They are **not**
-scanned on other branches and not reserved, so two branches adding an epic at once get the same ID;
-`--id` refuses an ID either source already holds.
+table or with a section in its archive (§7.6), read on the same places as task IDs: the working
+tree, every local branch and — with a remote configured — its remote-tracking branches (T124).
+`--id` refuses an ID any of them already holds, with exit 5. Epic IDs are **not reserved**: epics
+are added rarely and one at a time, by a person or an orchestrator, not allocated by concurrent
+lanes, so two `epic add` runs in two worktrees of one clone that both stay uncommitted still get
+the same ID; commit an added epic before adding another elsewhere.
 
 ### 6.4 Task branches
 
@@ -693,7 +696,7 @@ a remote branch; after `--force`, `remote_copies` names the remote branch left b
 | `taskrail checks <ID> [--stage STAGE] [--check NAME]… [--resource NAME=VALUE]…` | Run a task's configured checks in its worktree with its autopilot lane's resources, or chosen ones, from anywhere in the clone (§7.5) |
 | `taskrail import <FILE> [--write] [--column CORE=HEADER]… [--status VALUE=STATUS]… [--kind VALUE=KIND]… [--default-kind KIND] [--epic-level N] [--epic-name NAME]` | Convert a table-based Markdown backlog without epics into this backlog; a dry run unless `--write` (§7.3) |
 | `taskrail archive [--backlog NAME] [--dry-run]` | Move closed tasks, and epics whose tasks are all closed, into the backlog's archive document (§7.6); never automatic |
-| `taskrail epic add [--id E##] [--own-file \| --file PATH]` / `taskrail epic split <E##> [--file PATH]` | Add an epic inline or in a file of its own; move an inline epic to its own file. `add` allocates `epic_prefix` plus two digits, one above the backlog's highest, unless `--id` names one (exit 5 if that epic exists); `--own-file` writes `todo/<id>-<slug>.md` and `--file` the path it names. `split` writes `todo/<id>-<slug>.md` unless `--file` names another |
+| `taskrail epic add [--id E##] [--own-file \| --file PATH]` / `taskrail epic split <E##> [--file PATH]` | Add an epic inline or in a file of its own; move an inline epic to its own file. `add` allocates `epic_prefix` plus two digits, one above the highest epic ID on any scanned branch or in the archive (§6.3), unless `--id` names one (exit 5 if that ID is already used); `--own-file` writes `todo/<id>-<slug>.md` and `--file` the path it names. `split` writes `todo/<id>-<slug>.md` unless `--file` names another |
 | `taskrail kind list` | Inspect resolved kinds, each `--json` entry with its effective `commit` policy, `commit_source` and effective stage `commit` (§5.1). There is no command that installs a kind: copy its descriptor into `.taskrail/types/<kind>/`, or an override into `.taskrail/overrides/<kind>/` (§5.2) |
 | `taskrail autopilot start` / `extend` / `next` / `lane` / `decision` / `status` / `merged` / `notify` | Autopilot runs, count-only or named, dispatch and their lanes, and merge follow-through (§12.1, §12.8) |
 | `taskrail merge-driver <base> <current> <other> […]` | The git merge driver for backlog tables (§7.4); run by git, not by hand |
@@ -1217,8 +1220,9 @@ was archived, and neither the ID scan nor the merge driver needs anything new fr
 - `ids.used_ids` reads the archive too, on the working tree and on every scanned revision, so an
   archived ID is still used and is never allocated again (§6.3). Without it, `new` would reissue an
   archived ID once the branches carrying the row are gone.
-- `epic add` reads the archive's `## E## — Name` headings on the working tree, so an epic archived
-  whole keeps its ID used: it is never allocated again, and `--id` refuses it with exit 5 (T122).
+- `epic add` reads the archive's `## E## — Name` headings on the working tree and on every scanned
+  revision (§6.3), so an epic archived whole keeps its ID used: it is never allocated again, and
+  `--id` refuses it with exit 5 (T122, T124).
   Without it, the next epic after an archived highest-numbered one reissues that ID, and a later
   `archive` files the new epic's rows in the old epic's section.
 - The archive is one of the merge driver's paths (§7.4), class `backlog`, so two lanes archiving at
