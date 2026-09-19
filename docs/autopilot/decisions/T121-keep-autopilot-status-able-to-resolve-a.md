@@ -47,3 +47,25 @@ mainline refs. The wall-time comparison against the pre-archive checkout (≈1.7
 is **not** evidence of a slowdown from this change: it was taken while other lanes' suites were
 running on the same machine, and the profile attributes the time to per-member work that predates
 T121. That is why the bullet does not quote it, and it should not be quoted later as if it were.
+
+## close
+
+Reviewed: the whole diff against the merge base; the `impact` stage opening T126 from the profile,
+stated as older than this task; the cost wording, which quotes only the directly measured ~15 ms and
+marks the wall-time comparison as taken under load; `taskrail validate`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | **`fix` / `autopilot`** | **`fix` / `autopilot`** | The change is in `src/taskrail/autopilot/`; `archive.py` gains only the reader it needs. |
+
+## rebase after T122 merged
+
+`main` advanced to `245f484` (T122). This branch was rebased onto `origin/main` with five
+conflicts, all known classes: two index files, `CHANGELOG.md` (both bullets kept), and `TODO.md`
+twice (united by ID, `✅` wins, T126's row kept). `DESIGN.md` §7.6 merged without conflict — T122
+added a bullet about `epic add`, this branch a paragraph about the autopilot — and both read
+correctly side by side. No conflict markers anywhere.
+
+After the rebase: `autopilot status --run 20260918-1` from the rebased branch reads
+`complete: true` with 35 `done-merged`, `taskrail checks T121` passed with 1,265 tests, and
+`taskrail validate` reports 7 tasks, 0 errors.
