@@ -35,3 +35,16 @@ regenerated workflow's sha256 matching its recorded digest (`9877e739…`).
 | 1 | Anything to decide at this gate? | **no** | **no** | The four scope answers were applied as given. |
 | 2 | The three-line comment above the block, in both workflows | **keep it** · drop it | **keep it** | It carries the pending-run fact into every consumer's generated file, which is exactly where someone is most likely to "simplify" the key back to the plain ref. The scope gate required that fact wherever the key is written down; a comment next to the key is the most direct place. The test asserting the block and not the comment is right: the comment's wording can change, the block's cannot. |
 | 3 | The `trunk` scratch repository | **accept** | **accept** | `branches: [trunk]` alongside an unchanged concurrency block is the proof, on real output, that the block names no branch. |
+
+## close
+
+Reviewed: the whole diff against the merge base — the block and its comment in both workflows, one
+test, the regenerated managed workflow and digest, the §9 sentence carrying the key and the
+pending-run fact, one changelog bullet printing the block for locally edited workflows, the artifact,
+two index rows and T123's `✅`; `taskrail validate` (4 tasks, 0 errors). No rebase needed: `main`
+has not moved since `df31678`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | **`ci` / `install`** · `chore` / `install` · `ci` / `repo` | **`ci` / `install`** | The change is continuous-integration behaviour, and the part that matters beyond this repository is the template every consumer installs, which lives in `src/taskrail/install.py`. T120 was `chore` because it hardened a permission; this changes when runs execute. |
+| 2 | What the pull request itself must be watched for | **its own runs** | **recorded** | GitHub's cancellation cannot be tested offline. A second push to this pull request should cancel the first push's `ci` and `taskrail` runs, and each run on `main` after the merge should complete. |
