@@ -146,3 +146,46 @@ never cancelled is to give each push its own group.
   validate`.
 - GitHub's runtime cancellation cannot be exercised from a lane (no push). The pull request's own
   runs are the first real exercise. This is stated in the hand-off, not claimed.
+
+The scope gate approved all four decisions as recommended, and added one requirement: the §9
+sentence, and any comment above the block, must state the pending-run fact, not only the key.
+Without that fact, a later reader could "simplify" the key back to `github.ref`.
+A three-line comment above the block in `ci.yml` and in the template states it.
+
+Results:
+
+- **The test was observed failing first.** With
+  `test_github_workflow_cancels_a_pull_request_s_superseded_run_but_never_a_mainline_one` added
+  and the template untouched, `uv run pytest tests/test_install.py -q -k never_a_mainline_one`
+  failed with `AssertionError: assert "\nconcurrency:\n  group: ${{ github.workflow }}-${{
+  github.event_name == 'pull_request' && github.ref || github.run_id }}\n  cancel-in-progress:
+  true\n" in '# Managed by taskrail: …'` and reported `1 failed, 62 deselected`. After the
+  template change, the whole module reported `63 passed in 2.94s`.
+- **`init --github-workflow` run for real** into a scratch repository whose branch is `trunk`,
+  with this branch's source.
+  - `created` listed `.taskrail/config.toml`, `TASKRAIL.md`, `.taskrail/bin/taskrail`,
+    `.github/workflows/taskrail.yml` and `.gitignore`.
+  - The workflow says `branches: [trunk]`.
+  - Parsed with PyYAML, both that file and this repository's `ci.yml` have the top-level
+    `concurrency: {"group": "${{ github.workflow }}-${{ github.event_name == 'pull_request' &&
+    github.ref || github.run_id }}", "cancel-in-progress": true}` beside
+    `permissions: {"contents": "read"}`.
+  - Their jobs are unchanged (`['validate']` and `['test']`).
+- **This repository's copy was regenerated** with the worktree's `.taskrail/bin/taskrail upgrade
+  --json`.
+  - `updated` was `.github/workflows/taskrail.yml` alone.
+  - The config, `TODO.md`, the wrapper and all nine skill files came back `unchanged`.
+  - `created`, `skipped`, `removed` and `notes` were empty.
+  - `git status --short` shows only the change set: `ci.yml`, `taskrail.yml`,
+    `.taskrail/installed.json`, `install.py` and `test_install.py`.
+  - The regenerated file's sha256 `9877e739bc3cf5c43c0dd6a5ad9f67a54c846ebd6d203d85e599f03b2b97a7a9`
+    equals the digest `upgrade` recorded.
+- `taskrail checks T123 --stage implement`:
+  - `test` (`uv run pytest -q`) passed with `1257 passed in 158.73s`.
+  - `lint` is not configured.
+  - Overall: `passed`.
+- `.taskrail/bin/taskrail validate` printed `4 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+- **Not tested, and not claimed:** whether GitHub actually cancels the right runs at runtime. That
+  cannot be tested offline or from a lane, which never pushes. This pull request's own runs are
+  its first real exercise: a second push to it should cancel the first push's `ci` and `taskrail`
+  runs, and the runs on `main` after the merge should each complete.
