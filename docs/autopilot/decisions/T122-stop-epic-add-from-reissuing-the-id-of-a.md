@@ -24,3 +24,18 @@ declaring the bug gone, is what this correction needed.
 | D2 | Should `validate` refuse an epic ID that also exists in the archive? | **no; refuse at the write instead — `epic add --id` of an archived ID exits 5** · (b) `validate` reads archive epic headings · (c) `archive` refuses to append into an existing section whose name differs · (d) leave `--id` alone | **refuse at the write**, and **open (c) as a follow-up** | §7.6's rule that `validate` never reads the archive was a deliberate T107 decision, and reversing it would cost every consumer's CI a second file on every run. What makes epics genuinely different is not that duplicates are bad but **evidence 3**: once a reissued epic is itself archived, `archive._ensure_section` merges it under the old epic's heading and name — two objectives stacked, a new task filed under *Current-branch workflow*. That is silent structural corruption of the history, and it can still arrive through a hand edit or a merge that this fix does not see. Guarding the place the damage happens — (c) — is the right second task. |
 | D3 | The regression test | **archive E02 and assert E03; negative control deleting the archive and asserting E02; `--id E02` refused while archived** | **as recommended** | The control is what proves the fixture exercises the gap rather than something else in it: without the archive the next ID is a genuine reissue, so the scan is what makes E03 correct. |
 | D4 | Documentation | **§6.3 on how epic IDs are allocated and that they are not scanned across branches or reserved; a §7.6 bullet that `epic add` reads the archive's epic headings; one changelog bullet** | **as recommended** | §6.3 stating plainly that epics are *not* race-free across branches is what keeps the follow-up from D1 honest until it is done. |
+
+## fix gate
+
+Reviewed: commit `29333f6` and the diff `5be733a..HEAD` — `archived_epic_ids` in `ids.py`, the two
+changes in `cmd_epic_add`, three tests, the §6.3 and §7.6 lines, the changelog bullet, the two
+follow-up rows (T124, T125) and the artifact, with `validate`, `src/taskrail/autopilot/`, the
+workflows and `install.py` untouched; the recorded failures before the fix, **`E02` reissued and an
+archived `--id` accepted**, with the negative control passing as it must; the end-to-end run at
+`5215682`, where the fixed source now returns E09 and refuses `--id E07` with exit 5; and
+`taskrail checks T122 --stage fix` (1,259 passed). The orchestrator read the §7.6 lead-in in place.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | The §7.6 lead-in, "neither the ID scan nor the merge driver needs anything new", now sits above a bullet describing new code | leave it · **reword to "needs nothing new from the format"** | **reword** | The sentence was true when T107 wrote it. With `archived_epic_ids` added, "needs anything new" overstates: the *format* needed nothing new, the *readers* did. A document that says "nothing new" directly above the new thing is the same kind of small inaccuracy this session has corrected several times — in T110's title, in §9's planned marker — and it costs one clause. |
+| 2 | T125's description edited to stop naming a scratch-copy task ID that the real T124 now collides with | **accept** | **accept** | Citing a scratch ID that later becomes a real task's ID would send a reader to the wrong row. Rewording it through `taskrail edit`, and marking the artifact's scratch IDs as such, is the right repair. |
