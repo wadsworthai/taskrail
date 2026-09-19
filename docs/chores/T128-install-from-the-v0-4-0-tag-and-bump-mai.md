@@ -1,6 +1,6 @@
 # T128 — Install from the v0.4.0 tag and bump main to 0.5.0.dev0
 
-Kind: chore · Epic: E10 · Status: implemented, awaiting review
+Kind: chore · Epic: E10 · Status: implemented and documented
 
 ## Goal
 
@@ -309,3 +309,15 @@ The bump:
     result was `passed`.
 12. `taskrail validate` on this branch printed `9 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`,
     and `git diff --check` printed nothing.
+
+At the implement gate, the change set was approved as committed.
+
+### Docs stage
+
+No documentation needs to change. A grep for `dev0`, `0.5.0` and `0.4.0` in `README.md`,
+`CLAUDE.md`, `DESIGN.md`, `src/taskrail/skills/`, `src/taskrail/integrations/` and `examples/`
+finds only README's *Install* examples (`@v0.4.0`, lines 22 and 35), step 3 of README's
+*Releasing*, which describes this bump in general terms, and DESIGN.md's status line (3), pin
+example (138), note on the `file` key (221) and install examples (1322, 1331), all naming
+`v0.4.0`, still the latest release. CLAUDE.md, the skills, the integrations and the examples name
+no version. As decided at the scope gate, CHANGELOG gets no entry. No follow-up tasks were opened.
