@@ -37,6 +37,7 @@ from taskrail.review import _is_ancestor, _sha, choose_base, resolve_remote
 from taskrail.stack import _read_statuses
 
 CHECKS = ("ancestor", "tree", "patch-id", "merge-tree")
+MAINLINE_REFS_KEY = "autopilot_mainline_refs"  # names only: `_is_ancestor` still reads each ref's commit
 
 
 # Detection
@@ -150,10 +151,15 @@ CLOSED = {Status.DONE.value: Status.DONE.label, Status.DISCARDED.value: Status.D
 
 
 def _mainline_refs(project: Project, task: Task) -> list[str]:
-    config = project.config
-    mainline = config.backlog(task.backlog).mainline
-    remote = resolve_remote(config.root, mainline, config.review.remote).name
-    return [ref for ref in (f"refs/heads/{mainline}", f"refs/remotes/{remote}/{mainline}") if _sha(config.root, ref)]
+    """The task's backlog's mainline refs that exist, resolved once per backlog per project: four git processes
+    per merge record were 26 % of `autopilot status --all` under cProfile (T126)."""
+    known = project.cache.setdefault(MAINLINE_REFS_KEY, {})
+    if task.backlog not in known:
+        config = project.config
+        mainline = config.backlog(task.backlog).mainline
+        remote = resolve_remote(config.root, mainline, config.review.remote).name
+        known[task.backlog] = [ref for ref in (f"refs/heads/{mainline}", f"refs/remotes/{remote}/{mainline}") if _sha(config.root, ref)]
+    return known[task.backlog]
 
 
 def _still_on_mainline(project: Project, task: Task, record) -> bool:

@@ -107,3 +107,4 @@
 | T122 | Stop epic add from reissuing the ID of an archived epic | [T122-stop-epic-add-from-reissuing-the-id-of-a.md](T122-stop-epic-add-from-reissuing-the-id-of-a.md) |
 | T121 | Keep autopilot status able to resolve a run whose tasks have been archived | [T121-keep-autopilot-status-able-to-resolve-a.md](T121-keep-autopilot-status-able-to-resolve-a.md) |
 | T124 | Keep epic add from allocating the same epic ID on two branches | [T124-keep-epic-add-from-allocating-the-same-e.md](T124-keep-epic-add-from-allocating-the-same-e.md) |
+| T126 | Resolve the mainline refs once per backlog when checking recorded merges | [T126-resolve-the-mainline-refs-once-per-backl.md](T126-resolve-the-mainline-refs-once-per-backl.md) |

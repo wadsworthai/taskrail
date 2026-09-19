@@ -9,6 +9,7 @@ import pytest
 from conftest import BASE_CONFIG, git
 
 from taskrail import branches, claims
+from taskrail.autopilot import merged as merged_module
 from taskrail.autopilot import runs
 from taskrail.cli import main
 from taskrail.config import load_config
@@ -912,3 +913,23 @@ def test_the_text_form_names_a_discarded_merge(pilot, capsys):
     code, out, _ = run(pilot.root, "autopilot", "merged", "T003", capsys=capsys)
     assert code == 0
     assert out.splitlines()[0] == f"T003 merged into origin/main via tree at {squash[:7]} (discarded)"
+
+
+def test_recorded_merges_resolve_the_mainline_refs_once_per_backlog(pilot, capsys, monkeypatch):
+    run_id = start(pilot, capsys)
+    on_main = sha(pilot.root, "main")
+    stray = pilot.lane("T003", run_id)
+    pilot.work(stray, "stray.py")
+    records = {"T001": (on_main, "done"), "T002": (on_main, "done"), "T003": (sha(stray, "HEAD"), "done"), "T004": (on_main, "discarded")}
+    with runs.update(load_config(pilot.root), run_id) as stored:
+        for task_id, (commit, closed) in records.items():
+            runs.lane(stored, task_id)["merged"] = {"via": "tree", "commit": commit, "head": commit, "mainline": "main", "detected": "x", "status": closed}
+    project, _ = pilot.load()
+    resolved = []
+    original = merged_module.resolve_remote
+    monkeypatch.setattr(merged_module, "resolve_remote", lambda *args: resolved.append(args) or original(*args))
+
+    found = merged_module.recorded_merges(project)
+
+    assert found == {"T001": "done", "T002": "done", "T004": "discarded"}  # T003's commit is on no mainline
+    assert len(resolved) == 1  # one backlog, four records (T126)
