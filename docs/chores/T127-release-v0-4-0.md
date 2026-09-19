@@ -91,9 +91,9 @@ unchanged:
   §13 and stays true.
 - `README.md` line 265 (*Releasing* step 3, `.dev0`) is the procedure, and line 277 (*History*)
   names 0.1.0 and 0.2.0 as history.
-- `CHANGELOG.md` lines 125 (T116: "installed the extra at `v0.1.0`, `v0.2.0` or `v0.3.0`") and 205
-  (T099: "will not load on v0.3.0 or earlier") name earlier releases on purpose, and the preamble's
-  `vX.Y.Z` is a placeholder.
+- `CHANGELOG.md` lines 120 (T116: "installed the extra at `v0.1.0`, `v0.2.0` or `v0.3.0`") and 199
+  (T099: "will not load on v0.3.0 or earlier"; lines 125 and 205 before this change) name earlier
+  releases on purpose, and the preamble's `vX.Y.Z` is a placeholder.
 - `.taskrail/installed.json` already records `"version": "v0.4.0"`: `upgrade` ran under
   `0.4.0.dev0`, whose `release_tag()` is `v0.4.0`. This repository pins `local:.` anyway.
 - `src/taskrail/cli.py` line 1623 (`--tag` help, `e.g. v0.2.0`) and `tests/test_install.py` lines
