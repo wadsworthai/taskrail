@@ -193,7 +193,8 @@ call reads every revision's main file and archive.
   `refs/remotes/<claim_remote>` when that is set. Each revision's main file and archive come from
   one `git cat-file --batch` call. Each ID maps to the first place it was seen: the file for the
   working tree, `<ref>:<file>` for a revision. That lets `epic add` say where a refused ID is.
-  Outside a git repository, only the working tree is read, as before.
+  Outside a git repository, only the working tree is read, as before. This makes `epic add` and
+  `new` differ there: `new` needs git to reserve an ID, while `epic add` keeps working without it.
   `epic add` has always worked in a directory that is not a git repository. The existing tests
   that call it through the non-git `repo` fixture, T122's three among them, depend on that.
   `used_ids` itself is unchanged (D2).
@@ -202,7 +203,7 @@ call reads every revision's main file and archive.
   - the epic is live, with the existing message;
   - the working-tree archive holds the ID, with T122's message;
   - any other place holds it, with
-    ``taskrail: epic `E10` is already used in refs/heads/lane-a:TODO.md, on another branch; pick another ID``.
+    ``taskrail: epic `E10` is already used in refs/heads/lane-a:TODO.md; pick another ID``.
 - There is no ledger and no `id_lock` (D1).
 - `DESIGN.md` §6.3: the **Epic IDs** paragraph now says epic IDs are read in the same places as
   task IDs, and that they are **not reserved**, which leaves one collision window: two uncommitted
@@ -255,7 +256,7 @@ $ git commit -qam "lane-a epic"; git switch -q main
 $ epic add (main)            ->  "id": "E11",     exit 0
 $ git checkout -q -- TODO.md
 $ epic add --id E10 (main)
-taskrail: epic `E10` is already used in refs/heads/lane-a:TODO.md, on another branch; pick another ID
+taskrail: epic `E10` is already used in refs/heads/lane-a:TODO.md; pick another ID
 exit 5
 ```
 
@@ -265,3 +266,9 @@ still gives `"id": "E09"`. `--id E07` still prints
 
 `taskrail checks T124 --stage fix` printed `1263 passed in 141.60s (0:02:21)`, `passed test`,
 `not configured lint` and `T124 in <worktree>: passed`.
+
+**Refusal wording, changed at the fix gate.** The message first ended "…, on another branch; pick
+another ID". That is false in one case: an epic deleted from the working tree but still committed
+on the checked-out branch is reported with that branch's own ref. The message now names the place
+alone, as ``taskrail: epic `E10` is already used in refs/heads/lane-a:TODO.md; pick another ID``.
+The test still asserts that the ref is named.

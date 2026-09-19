@@ -123,5 +123,5 @@ def test_an_epic_id_on_another_branch_is_refused_when_passed_explicitly(git_repo
     before = (git_repo.root / "TODO.md").read_text(encoding="utf-8")
     code, _, err = added_epic(git_repo.root, capsys, "--id", "E02")
     assert code == 5
-    assert "E02" in err and "refs/heads/lane-a" in err
+    assert "epic `E02` is already used in refs/heads/lane-a:TODO.md; pick another ID" in err
     assert (git_repo.root / "TODO.md").read_text(encoding="utf-8") == before

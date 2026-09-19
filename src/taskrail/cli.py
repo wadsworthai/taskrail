@@ -1416,7 +1416,7 @@ def cmd_epic_add(args) -> int:
         print(f"taskrail: epic `{epic_id}` is archived in {backlog_config.archive_path}; an archived ID is never reused", file=sys.stderr)
         return EXIT_REFUSED
     if epic_id in used:
-        print(f"taskrail: epic `{epic_id}` is already used in {used[epic_id]}, on another branch; pick another ID", file=sys.stderr)
+        print(f"taskrail: epic `{epic_id}` is already used in {used[epic_id]}; pick another ID", file=sys.stderr)
         return EXIT_REFUSED
     file = args.file
     if args.own_file and file is None:
