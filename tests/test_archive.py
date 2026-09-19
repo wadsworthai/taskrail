@@ -410,3 +410,47 @@ def test_an_archived_epic_id_is_refused_when_passed_explicitly(backlog, capsys):
     assert code == 5
     assert "E02" in err and "docs/archive.md" in err
     assert text(backlog.root, "TODO.md") == before
+
+
+def reissue_e02(root, name: str) -> None:
+    """Archive E02 `Auth` whole, then bring E02 back by hand edit under `name` with one closed row."""
+    todo = text(root, "TODO.md")
+    listing = "| E01 | Billing | Charge properly | —    |\n"
+    assert listing in todo
+    todo = todo.replace(listing, f"{listing}| E02 | {name} | Take money | —    |\n")
+    todo = todo.rstrip("\n") + f"""
+
+## E02 — {name}
+
+| ✓  | ID   | Kind  | Pts | Depends On | Title     | Description |
+|----|------|-------|-----|------------|-----------|-------------|
+| ✅ | T007 | chore | 1   | —          | Card form | Shipped     |
+"""
+    (root / "TODO.md").write_text(todo, encoding="utf-8")
+
+
+def test_a_different_epic_under_an_archived_id_is_refused_and_nothing_moves(backlog, capsys):
+    """A live E02 that is not the archived E02 must not be filed in its section (T125)."""
+    archived(backlog.root, capsys=capsys)  # E02 `Auth` is archived whole
+    reissue_e02(backlog.root, "Payments")
+    assert run(backlog.root, "validate", capsys=capsys)[0] == 0  # validate never reads the archive
+    todo, archive = text(backlog.root, "TODO.md"), text(backlog.root, "docs/archive.md")
+
+    for argv in (["--dry-run"], []):
+        code, out, err = run(backlog.root, "archive", *argv, capsys=capsys)
+        assert code == 5, out
+        assert "`E02` `Payments`" in err and "`E02 — Auth`" in err and "docs/archive.md" in err
+        assert "unused ID" in err and "rename that heading" in err
+        assert text(backlog.root, "TODO.md") == todo
+        assert text(backlog.root, "docs/archive.md") == archive
+
+
+def test_the_same_epic_under_its_archived_id_still_archives_into_its_section(backlog, capsys):
+    """The negative control: the name matches, so the refusal is keyed on the name, not the ID alone."""
+    archived(backlog.root, capsys=capsys)
+    reissue_e02(backlog.root, "Auth")
+    result = archived(backlog.root, capsys=capsys)
+    assert result["backlogs"][0]["archived"] == ["T007"]
+    archive = text(backlog.root, "docs/archive.md")
+    assert archive.count("## E02 — Auth") == 1
+    assert archive.index("| ❌ | T006") < archive.index("| ✅ | T007")

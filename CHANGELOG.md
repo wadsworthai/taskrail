@@ -12,6 +12,15 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **`archive` no longer files an epic's rows under a different epic's archived section.** It looked
+  the section up by ID alone, so a live epic whose ID the archive already held for another epic — a
+  reissue by hand edit, by a merge, or by `epic add` before T122 — was merged into that epic's
+  history: its objective stacked above the old one and its rows appended to the old table. When an
+  epic's archive section has its ID but another name, `archive` (and `--dry-run`) now moves nothing
+  in any backlog and exits 5, naming the epic, the heading and the file. Give the live epic an
+  unused ID, or, if it was only renamed, rename that heading to match. `validate` still never
+  reads the archive (T125).
+
 - **The generated GitHub workflow now cancels a pull request's superseded runs.** Every push to a
   pull request queued a fresh `validate` run while the previous push's run kept going. The
   workflow `init --github-workflow` writes now has a `concurrency` group: a pull request's runs
