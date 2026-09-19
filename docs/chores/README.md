@@ -43,3 +43,4 @@
 | T114 | Archive this repository's closed tasks and epics | [T114-archive-this-repository-s-closed-tasks-a.md](T114-archive-this-repository-s-closed-tasks-a.md) |
 | T126 | Resolve the mainline refs once per backlog when checking recorded merges | [T126-resolve-the-mainline-refs-once-per-backl.md](T126-resolve-the-mainline-refs-once-per-backl.md) |
 | T123 | Cancel a pull request's superseded workflow runs when a new one is queued | [T123-cancel-a-pull-request-s-superseded-workf.md](T123-cancel-a-pull-request-s-superseded-workf.md) |
+| T127 | Release v0.4.0 | [T127-release-v0-4-0.md](T127-release-v0-4-0.md) |
