@@ -46,3 +46,19 @@ The upgrade check is the strongest evidence in this release. On the published 0.
 from another directory exits 2, `next --limit 0` answers `no eligible tasks` with exit 0, and
 `epic add --id E02` accepts an ID another branch holds; after `upgrade` to 0.4.0 all three behave as
 the notes say, and the config's only change is its version pin.
+
+## close
+
+Reviewed: the rewrap on its own commit, with `grep -c 'Behaviour change:'` over `## 0.4.0` now
+returning 9 — re-run by the orchestrator; the `docs` stage finding nothing further; the artifact's
+line numbers corrected to the edited changelog; `taskrail done T127` on its own commit; `validate`.
+No rebase is needed and no tag exists.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request title | **`chore(release): release v0.4.0 (T127)`** | **as decided at scope** | The form T077, T085 and T086 used. |
+
+**After the merge — not the lane's and not automatic.** The tag is created only when the human
+approves it at that moment: `git tag -a v0.4.0 <squash commit> -m "taskrail 0.4.0"` and
+`git push origin v0.4.0`. T128 then records the install from the tag and bumps `main` to
+`0.5.0.dev0`.
