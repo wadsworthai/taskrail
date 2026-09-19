@@ -1,0 +1,11 @@
+# relscribe computes the next version from the Conventional Commits on main (README: Releasing).
+tag = "v{version}"
+
+# Every other place that states the released version; a release rewrites them all or none.
+sync = [
+  { file = "uv.lock", pattern = '^name = "taskrail"\nversion = "([^"]+)"' },
+  { file = "README.md", pattern = 'taskrail\.git@v(\d+\.\d+\.\d+)' },
+  { file = "DESIGN.md", pattern = 'taskrail\.git@v(\d+\.\d+\.\d+)' },
+  { file = "DESIGN.md", pattern = '^Status: \*\*released as `v([^`]+)`' },
+  { file = "DESIGN.md", pattern = '^version = "v([^"]+)" +# CLI version' },
+]

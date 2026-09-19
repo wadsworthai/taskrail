@@ -255,15 +255,26 @@ uses its own branch's code, and `taskrail upgrade` leaves the pin alone. Elsewhe
 
 Releases are tagged `vX.Y.Z`. See [CHANGELOG.md](CHANGELOG.md).
 
-`pyproject.toml` is the only place the version is written, and it must equal the tag without its
-`v`: the wrapper accepts an installed CLI only when `v$(taskrail --version)` matches
-the pin, so a mismatched build is never taken for the release.
+Releases are cut with [relscribe](https://github.com/wadsworthai/relscribe), pinned in every
+command below as `uvx --from git+https://github.com/wadsworthai/relscribe@v0.1.0 relscribe`
+(shortened to `relscribe` here). It computes the next version from the Conventional Commits on
+`main` — the squash-merged pull request titles, which CI lints — and writes it to
+`pyproject.toml`, the files `relscribe.toml` lists under `sync` (`uv.lock` and the version pins in
+README and DESIGN) and `CHANGELOG.md`, which is generated from those titles: task branches never
+edit it. The version is always a plain `X.Y.Z`, and between releases `main` carries the last one.
 
-1. In a pull request: set `version` in `pyproject.toml`, run `uv lock`, add the changelog entry.
-2. After it is squash-merged: `git tag -a vX.Y.Z <merge commit> -m "taskrail X.Y.Z"`
-   and `git push origin vX.Y.Z`. A published tag never moves.
-3. Verify a clean install from the tag, on both routes, then bump `main` to the next `.dev0`
-   version, so builds from `main` never claim to be the release.
+1. On an up-to-date `main` with a clean tree, `relscribe status` shows the next version and the
+   commits that count.
+2. `relscribe release --branch --commit` creates `release/<YYYY-MM-DD>` and commits the release as
+   `chore(release): taskrail <old> -> <new>`; on a release task's own branch, based on the current
+   `main`, run `relscribe release --commit` instead. Open a pull request with that subject as its
+   title and squash-merge it.
+3. On the push to `main`, `.github/workflows/release.yml` runs `relscribe tag <before>..<after>
+   --push origin`, which tags the squash commit `vX.Y.Z`. A published tag never moves.
+4. Verify a clean install from the tag, on both routes.
+
+The tag job needs workflow permissions that let a job request `contents: write`, and, if a ruleset
+protects `v*` tags, `github-actions[bot]` allowed to create them.
 
 ## History
 
