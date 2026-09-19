@@ -62,3 +62,9 @@ validate` reports 6 tasks, 0 errors. Re-published with a lease.
 
 `main` advanced to `0fb3fe0` (T121). Rebased again with two known-class conflicts (the decisions
 index and `CHANGELOG.md`); `taskrail checks T123` passed afterwards. Re-published with a lease.
+
+## rebase after T124 merged
+
+`main` advanced to `faad84e` (T124). Rebased with three known-class conflicts (the decisions index,
+`CHANGELOG.md`, `TODO.md`); `upgrade` reports every managed file up to date; `taskrail checks T123`
+passed with 1,270 tests. Re-published with a lease.
