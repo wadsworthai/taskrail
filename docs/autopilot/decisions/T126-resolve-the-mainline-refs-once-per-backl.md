@@ -39,3 +39,18 @@ and `taskrail checks T126 --stage implement` (1,266 passed).
 The measurement survives in the change itself (the docstring) and in the artifact (the full
 interleaved table and the caller breakdown for the other per-member git calls), so the next person
 can check it rather than trust it.
+
+## close
+
+Reviewed: the artifact's note on the frozen-clock comparison, stating that the not-merge rule was
+not relaxed; the `docs` stage finding nothing to update; `taskrail done T126` on its own commit.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | **`perf` / `autopilot`** · the kind's default `chore` | **`perf` / `autopilot`** | The only effect is fewer git processes with byte-identical output, and it is in `src/taskrail/autopilot/`. `perf` says that in the one line that reaches `main`. |
+
+## rebase after T124 merged
+
+`main` advanced to `faad84e` (T124). Rebased with one known-class conflict, the decisions index; T124
+touched `ids.py` and `cli.py`, which this branch does not. No conflict markers; `taskrail checks
+T126` passed with 1,270 tests and `taskrail validate` reports 7 tasks, 0 errors.
