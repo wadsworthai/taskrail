@@ -34,3 +34,28 @@ both ways out followed to a clean archive, and a dry run on a clone of `origin/m
 |---|---|---|---|---|
 | 1 | The guard as a pre-flight function rather than a raise inside `_ensure_section` | **accept the pre-flight only** · also raise in `_ensure_section` | **pre-flight only** | The approved dry-run refusal needs a check that runs without applying the plan, and a pre-flight covers both modes and every backlog before anything moves — which is also what makes "moves nothing in any backlog" true. A second copy in `_ensure_section` would duplicate the comparison for a path the pre-flight already closes. |
 | 2 | Following both ways out to completion | **accept** | **accept** | Showing that each remedy the message names actually unsticks the archive is what makes the message an instruction rather than a guess. |
+
+## rebase after T121 merged — one conflict escalated
+
+`main` advanced to `0fb3fe0` (T121). The rebase met the known classes (two index files,
+`CHANGELOG.md`, `TODO.md`) and **one conflict outside them, in `src/taskrail/archive.py`**: T121's
+archive reader (`ARCHIVED_KEY`, `archived_task`, `archived_tasks`, `_parse`) and this branch's
+`refusal` had both been inserted at the same point after `holding`. Neither side edited a line of
+the other — the lane had predicted exactly this textual collision at its diagnose gate.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Resolve the `archive.py` conflict | **keep both blocks, T121's then `refusal`, no line of either changed** · hand the rebase back to the lane | **keep both** | Two independent insertions at one point; nothing to merge. |
+
+Answered by the human (the repository's maintainer), 2026-09-19, when escalated as a conflict
+outside the known classes.
+
+After the resolution: `archive.py` parses, has no conflict markers and holds both T121's reader and
+this branch's `refusal`; `taskrail checks T125` passed with **1,267** tests — the suite now runs
+T121's archive tests and this branch's together — and `taskrail validate` reports 7 tasks, 0 errors.
+
+## close
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | **`fix` / `cli`** | **`fix` / `cli`** | `archive` wrote one epic's rows into another's history; the refusal lives in `archive.py` and `cmd_archive`. |
