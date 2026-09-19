@@ -33,3 +33,20 @@ took E10; T122's reproduction still holding; and `taskrail checks T124 --stage f
 |---|---|---|---|---|
 | 1 | Outside a git repository `used_epic_ids` reads only the working tree | **accept** | **accept** | `epic add` has always worked outside git and existing tests depend on it, T122's among them. Adding a git requirement to fix a git-only race would break more than it mends. |
 | 2 | The refusal says "on another branch" even when the ref it names is the checked-out branch | **reword to "is already used in `<ref>:<file>`"** · leave it | **reword** | The ref it prints is right and the sentence around it is wrong in that case. A message that misstates where an ID was found sends the reader to look in the wrong place; the fix is one line and costs nothing. |
+
+## close
+
+Reviewed: the reword committed on its own, the refusal now reading ``epic `E02` is already used in
+refs/heads/lane-a:TODO.md; pick another ID`` with the test asserting the whole string, the artifact
+noting that `new` and `epic add` differ outside git, and `taskrail done T124` on its own commit.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | **`fix` / `cli`** | **`fix` / `cli`** | `epic add` handed out an ID another branch already held. |
+
+## rebase after T121 merged
+
+`main` advanced to `0fb3fe0` (T121). Rebased with three known-class conflicts (two index files and
+`CHANGELOG.md`); `DESIGN.md` and `TODO.md` merged cleanly, and none of this branch's source files
+overlap T121's. No conflict markers; `taskrail checks T124` passed with 1,269 tests and `taskrail
+validate` reports 7 tasks, 0 errors.
