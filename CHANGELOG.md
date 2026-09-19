@@ -12,6 +12,15 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **`epic add` no longer reissues the ID of an archived epic.** It allocated one above the highest
+  epic in the `## Epics` table, and `taskrail archive` removes a whole epic from that table, so once
+  the highest-numbered epic was archived the next `epic add` handed its ID out again, beside the
+  archive's section of that ID, and a later `archive` filed the new epic's rows under the old one's
+  heading. It now also counts the epic sections in the backlog's archive on the working tree, and
+  `--id` refuses an archived epic's ID with exit 5, as it already refused a live one. `validate`
+  still never reads the archive. Epic IDs are still neither scanned across branches nor reserved,
+  unlike task IDs (T122).
+
 - **`done` and `discard` now warn when the checkout they wrote to is not on the task's branch.**
   Run against another checkout — the mainline, say — they ticked that checkout's row, released the
   claim, printed `<ID> done` and exited 0, while the branch that carries the pull request kept its

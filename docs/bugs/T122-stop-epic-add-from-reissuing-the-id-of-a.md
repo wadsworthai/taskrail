@@ -55,7 +55,7 @@ validate exit 0
 ## Evidence
 
 **What the reissue does later.** On a branch from `5215682`, the reissued epic got one task
-(T124). The task was marked done with `--force` and `taskrail archive` was run. Archive folds the
+(scratch ID `T124`, unrelated to this repository's later T124). The task was marked done with `--force` and `taskrail archive` was run. Archive folds the
 new epic into the old epic's section. The section keeps the old name, gets a second
 `Objective:` line from the new epic, and the new epic's row joins the old epic's table:
 
@@ -86,7 +86,7 @@ lane-a$ taskrail epic add --name "Lane A epic" --objective "A" --json   -> "id":
 main$   taskrail epic add --name "Main epic"   --objective "M" --json   -> "id": "E10"
 ```
 
-In the same scratch clone, `taskrail new` allocated `T125`, because it saw `T124` on another
+In the same scratch clone, `taskrail new` allocated scratch ID `T125`, because it saw `T124` on another
 local branch. Epic allocation reads only the working tree, and it has done so since before the
 archive existed.
 
@@ -136,15 +136,65 @@ safe once they could be removed.
 
 ## Proposed fix
 
-Awaiting answers at the diagnose gate. The recommendation:
+Approved at the diagnose gate (`docs/autopilot/decisions/T122-stop-epic-add-from-reissuing-the-id-of-a.md`):
 
-1. Add a function in `src/taskrail/ids.py` that returns the epic IDs in the backlog's archive on
-   the working tree: every `## <ID> — Name` heading that matches `EPIC_HEADING` and
-   `epic_prefix`. The archive already writes those headings. `cmd_epic_add` would take the union
-   of those IDs and `backlog.epics` as the used set, allocate one above its maximum, and refuse
-   `--id` for any ID in that set, as it does today for a live one. It would not scan revisions and
-   would not add a ledger (see the gate's question 1).
-2. `validate` still never opens the archive (question 2).
-3. Add a regression test with a negative control (question 3).
-4. Add a line to DESIGN.md §7.6's list of what reads the archive, a sentence in §6.3 on epic IDs,
-   and a `CHANGELOG.md` bullet under Unreleased / Fixed (question 4).
+1. **D1:** read the archive's epic headings on the working tree only. There is no revision scan
+   and no ledger. The cross-branch race (evidence 4) is follow-up **T124**.
+2. **D2:** no `validate` change. `epic add --id` of an archived ID exits 5. The archive merging a
+   reissued epic into the old section (evidence 3) is follow-up **T125**.
+3. **D3:** a regression test with a negative control.
+4. **D4:** one line each in DESIGN.md §6.3, DESIGN.md §7.6 and `CHANGELOG.md`.
+
+## Fix
+
+- `src/taskrail/ids.py`: new `archived_epic_ids(config, backlog)`. It returns the IDs in the
+  working-tree archive's `## <ID> — Name` headings (`EPIC_HEADING`) that match the backlog's
+  `epic_prefix`. A missing or undecodable archive yields an empty set.
+- `src/taskrail/cli.py`, `cmd_epic_add`: allocates one above the highest of the live epics and
+  `archived_epic_ids`. If `--id` names an archived epic, it prints
+  ``taskrail: epic `E02` is archived in docs/archive.md; an archived ID is never reused`` and exits 5.
+- DESIGN.md §6.3 has an **Epic IDs** paragraph, which states that they are not scanned across
+  branches and not reserved. DESIGN.md §7.6 has a new bullet under what reads the archive.
+  `CHANGELOG.md` has a bullet under Unreleased.
+
+## Verification
+
+Three tests were added to `tests/test_archive.py`. They use the file's `TODO` fixture, where
+`archive` moves E02 whole and E01 keeps T003 and T004:
+
+- `test_an_archived_epic_id_is_never_allocated_again`: after `archive`, `epic add` prints `E03`.
+- `test_without_the_archive_the_same_backlog_would_reissue_the_epic_id`: the negative control. The
+  archive is deleted, and `epic add` prints `E02`, which is genuinely free then.
+- `test_an_archived_epic_id_is_refused_when_passed_explicitly`: `--id E02` exits 5, names
+  `docs/archive.md`, and leaves `TODO.md` unchanged.
+
+**Before the fix**, `uv run pytest -q tests/test_archive.py -k "epic_id"`:
+
+```
+>       assert (code, out.strip()) == (0, "E03"), err
+E       AssertionError:
+E       assert (0, 'E02') == (0, 'E03')
+tests/test_archive.py:394: AssertionError
+...
+>       assert code == 5
+E       assert 0 == 5
+tests/test_archive.py:410: AssertionError
+FAILED tests/test_archive.py::test_an_archived_epic_id_is_never_allocated_again
+FAILED tests/test_archive.py::test_an_archived_epic_id_is_refused_when_passed_explicitly
+2 failed, 1 passed, 21 deselected in 0.17s
+```
+
+Both failures match the root cause: E02 was reissued, and an archived `--id` was accepted with
+exit 0. The control passed, as it must. Without the archive, E02 is the correct next ID.
+
+**After the fix**, the same command printed `3 passed, 21 deselected in 0.15s`. `taskrail checks T122 --stage fix` then printed `1259 passed in 161.77s (0:02:41)`, `passed test`, `not configured lint` and `T122 in <worktree>: passed`, exit 0.
+
+**The original reproduction, rerun with the fixed source** in the same scratch clone at `5215682`:
+
+```
+$ taskrail --root repro epic add --name "taskrail phase 3" --objective "Probe" --json
+{ "id": "E09", "backlog": "main", "file": null, "files": ["TODO.md"] }      exit 0
+$ taskrail --root repro epic add --id E07 --name "taskrail phase 3" --objective "Probe" --json
+taskrail: epic `E07` is archived in docs/archive.md; an archived ID is never reused
+exit 5
+```

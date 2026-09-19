@@ -381,3 +381,32 @@ def test_an_archived_id_counts_from_a_branch_that_no_longer_has_the_file(git_rep
     git(git_repo.root, "commit", "-q", "-m", "archive")
     (git_repo.root / "docs/archive.md").unlink()  # gone from the working tree, still on refs/heads/main
     assert allocated(git_repo.root, capsys) == "T007"
+
+
+def added_epic(root, capsys, *argv) -> tuple[int, str, str]:
+    return run(root, "epic", "add", "--name", "Payments", "--objective", "Take money", *argv, capsys=capsys)
+
+
+def test_an_archived_epic_id_is_never_allocated_again(backlog, capsys):
+    """`epic add` must read the archive's epic headings: E02 is archived whole, so E03 is next (T122)."""
+    archived(backlog.root, capsys=capsys)  # E02 leaves TODO.md whole; E01 stays with T003 and T004
+    code, out, err = added_epic(backlog.root, capsys)
+    assert (code, out.strip()) == (0, "E03"), err
+    assert "| E02 |" not in text(backlog.root, "TODO.md")
+
+
+def test_without_the_archive_the_same_backlog_would_reissue_the_epic_id(backlog, capsys):
+    """The negative control: with the archive gone, E02 is genuinely free, so the scan is what moves it."""
+    archived(backlog.root, capsys=capsys)
+    (backlog.root / "docs/archive.md").unlink()
+    code, out, err = added_epic(backlog.root, capsys)
+    assert (code, out.strip()) == (0, "E02"), err
+
+
+def test_an_archived_epic_id_is_refused_when_passed_explicitly(backlog, capsys):
+    archived(backlog.root, capsys=capsys)
+    before = text(backlog.root, "TODO.md")
+    code, _, err = added_epic(backlog.root, capsys, "--id", "E02")
+    assert code == 5
+    assert "E02" in err and "docs/archive.md" in err
+    assert text(backlog.root, "TODO.md") == before
