@@ -1,6 +1,6 @@
 # T129 — Cut releases with relscribe v0.1.0
 
-Kind: chore · Epic: E10 · Status: scope
+Kind: chore · Epic: E10 · Status: implemented
 
 ## Goal
 
@@ -126,3 +126,56 @@ approved as written.
 - `uv run pytest -q` passes; `.taskrail/bin/taskrail validate` passes.
 - The workflows are checked with `actionlint` if available; otherwise by their runs on this
   pull request (`pr-title`) and after the merge (`release`).
+
+### Results
+
+`R` below is `uvx --from git+https://github.com/wadsworthai/relscribe@v0.1.0 relscribe`, run on
+this branch at `b3f8e93`.
+
+```
+$ R status
+taskrail (.): 0.4.0, no release
+  base: tag v0.4.0 (a0994e3)
+  b3f8e93 chore(release): pin relscribe v0.1.0, plain version and PR title lint (T129)
+  da0f97b docs(backlog): scope T129 (T129)
+  7740947 docs(backlog): open T129 to cut releases with relscribe (T129)
+  62c7edf chore(release): install from the v0.4.0 tag and bump main to 0.5.0.dev0 (T128) (#71)
+(exit 0)
+
+$ R lint "chore(release): cut releases with relscribe v0.1.0 (T129)"
+1 subject valid                                   (exit 0)
+$ R lint "Cut releases with relscribe"
+invalid: Cut releases with relscribe
+1 of 1 subject invalid                            (exit 1)
+```
+
+A release, in a scratch clone of this branch with one `fix(cli)` commit on top:
+
+```
+$ R release --commit
+taskrail (.): 0.4.0 -> 0.4.1 (patch)
+wrote pyproject.toml
+wrote uv.lock
+wrote README.md
+wrote DESIGN.md
+wrote CHANGELOG.md
+commit 6ea296d chore(release): taskrail 0.4.0 -> 0.4.1
+```
+
+It rewrote the seven synced lines — the DESIGN status line and pin example, the two install lines
+in each of README and DESIGN, the `taskrail` version in `uv.lock` — and left DESIGN's historical
+mention of `v0.4.0` alone. It inserted under `## [Unreleased]`:
+
+```
+## [0.4.1] - 2026-09-19
+
+### Fixed
+
+- a real fix (392e591)
+```
+
+and `uv run --locked pytest -q` on that release commit: `1273 passed`.
+
+Checks: `taskrail checks T129 --stage implement` — `test` passed (`1273 passed in 186.41s`),
+`lint` not configured. `taskrail validate`: 0 errors, 0 warnings. `actionlint` is not installed;
+`pr-title.yml` is checked by its own run on this pull request.
