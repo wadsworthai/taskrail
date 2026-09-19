@@ -6,6 +6,7 @@
 |-----|------|-----------|------|
 | E06 | Repository tooling | How this repository runs its own backlog with taskrail while it is worked on | —    |
 | E09 | taskrail phase 3 | Keep the CLI and the autopilot correct as the backlog they manage changes shape | —    |
+| E10 | taskrail releases | Publish taskrail versions that consuming repositories can pin and install | —    |
 
 ## E06 — Repository tooling
 
@@ -27,3 +28,12 @@ Done when: the tool's own state and its identifiers survive the operations it of
 | ✅ | T124 | bug     | 3   | —          | Keep epic add from allocating the same epic ID on two branches | taskrail epic add allocates one above the highest epic in the working tree's Epics table and archive (T122) and scans no other branch and reserves nothing, unlike task IDs (DESIGN.md section 6.3): after epic add on a committed branch lane-a returned E10, epic add on main returned E10 again, while taskrail new in the same clone allocated T125 because it saw T124 on another local branch. Give epic IDs the task-ID guarantee: live epics and archive headings on every local and remote-tracking branch, and a reservation under id_lock; decide whether the ledger is needed for epics. |
 | ✅ | T125 | bug     | 2   | —          | Stop archive from merging a different epic into an archived epic's section | taskrail archive files an epic's rows under any archive section whose heading has the same ID (archive._ensure_section), so an epic whose ID was reissued, by a hand edit, a merge or epic add before T122, is merged into the old epic's history: archiving a reissued E07 on a scratch copy of commit 5215682 left '## E07 — Current-branch workflow' holding 'Objective: Probe objective' above the old epic's own Objective and Done when lines, and the scratch copy's new 'Probe task' row in the old epic's table after T079-T084 (see docs/bugs/T122-stop-epic-add-from-reissuing-the-id-of-a.md, Evidence). Refuse, or otherwise keep apart, an epic whose archived section has the same ID and a different name, without making validate read the archive (DESIGN.md section 7.6). |
 | ✅ | T126 | chore   | 2   | —          | Resolve the mainline refs once per backlog when checking recorded merges | Older than T121, which measured it: under cProfile autopilot status --all spent 1.18 s of 2.93 s in autopilot merged's recorded_merges, 0.73 s of it in _mainline_refs, which runs rev-parse on both mainline refs once per task (54 calls in a clone with eleven runs) although the refs depend only on the task's backlog; resolve them once per backlog per project, and measure status --all before and after. |
+
+## E10 — taskrail releases
+
+Done when: each version is tagged from a squash-merged release pull request and installs cleanly from its tag
+
+| ✓  | ID   | Kind    | Pts | Depends On | Title                          | Description                    |
+|----|------|---------|-----|------------|--------------------------------|--------------------------------|
+| ⬜ | T127 | chore   | 2   | —          | Release v0.4.0                 | Follow README's Releasing steps as T085 did for v0.3.0: in one pull request set pyproject's version from 0.4.0.dev0 to 0.4.0, run uv lock, turn CHANGELOG.md's Unreleased into 0.4.0 under a new empty Unreleased, and name v0.4.0 in DESIGN.md's status line and in the install and pin examples of README.md and DESIGN.md. Decide the version from the commits since v0.3.0 rather than assuming it, and say plainly which entries change behaviour for an existing user, since several do. The tag follows the squash merge and only with the human's explicit approval at that moment; T128 records the install from it and bumps main. |
+| ⬜ | T128 | chore   | 1   | T127       | Install from the v0.4.0 tag and bump main to 0.5.0.dev0 | After T127 merges and the human has approved and pushed the v0.4.0 tag, verify a clean install from the tag the way T086 did for v0.3.0 -- a fresh repository bootstrapped with uvx from the tag, then the committed wrapper -- and record the output; then bump pyproject to 0.5.0.dev0 and run uv lock. |
