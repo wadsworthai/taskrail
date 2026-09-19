@@ -1227,7 +1227,10 @@ was archived, and neither the ID scan nor the merge driver needs anything new fr
 Rows are appended, never reordered, and sections are created as they are first needed.
 
 **What does not read it.** `validate` does not, and neither do `show`, `list` or `next`: an
-archived task is gone from the backlog. **An archived task is not reopened** — `taskrail reopen`
+archived task is gone from the backlog. The autopilot does: `autopilot status` and
+`autopilot next` read a run member the backlog no longer holds from the archive, and the archive
+at the mainline refs where they derive `done-merged` and `discarded` (§12.4), so archiving a
+finished run's tasks never makes it read as unfinished (*T121*). **An archived task is not reopened** — `taskrail reopen`
 exits 3 for one, naming the archive file the ID sits in, and work that must come back is a new
 task. A branch that reopened a row before it was archived needs no special rule either: merging it
 leaves a modify/delete conflict on that row for the human (§7.4), while a branch carrying the row
@@ -1588,7 +1591,11 @@ lanes must not do, and answering gates needs an agent anyway.
     merge of its ❌ branch under the same rule as `done-merged` (*T067*), so a discarded run task
     stays visible.
 
-  Any session sees them, and with `claim_remote` any machine.
+  "✅" and "❌" above mean the row in the backlog **or its archive** (§7.6): on each mainline ref
+  the backlog's archive document is read with its file, and a run member the checkout's backlog
+  no longer holds is taken from the checkout's archive, so a run whose tasks were archived keeps
+  reading `done-merged` and `discarded`, and `next` keeps counting them toward the run's count
+  (*T121*). Any session sees them, and with `claim_remote` any machine.
 - **Claims** (§6) remain the only lock, so dispatch needs no new locking for tasks or IDs.
   They gain two fields:
   - `base.commit`, the dependency tip a stacked branch started from, written at claim time by

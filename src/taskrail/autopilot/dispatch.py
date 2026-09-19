@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 
 from taskrail import claims as claims_module
-from taskrail import branchrows, prior, stack
+from taskrail import archive, branchrows, prior, stack
 from taskrail.autopilot import runs
 from taskrail.autopilot.status import OCCUPYING, discarded_on_mainline, done_on_mainline, task_state
 from taskrail.claims import Claim
@@ -98,7 +98,7 @@ def next_lanes(project: Project, run_id: str | None, claimed: dict[str, Claim], 
         states: dict[tuple[str, str], str | None] = {}
         for record in every_run.values():
             for task_id in _members(record, claimed):
-                task = project.task(task_id)
+                task = project.task(task_id) or archive.archived_task(project, task_id)  # an archived member still counts (T121)
                 if task is not None:
                     states[record["id"], task_id] = task_state(task, project, record, claimed.get(task_id), now)
                 else:  # a claim in this run still uses a lane when its row cannot be found anywhere (T071)

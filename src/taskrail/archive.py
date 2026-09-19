@@ -4,6 +4,7 @@ The archive is the same Markdown as a backlog — epic sections holding task tab
 its exact line, `grep` finds a task wherever it lives, `ids.used_ids` reads it with the parser it
 already has, and the merge driver merges two branches' archives row by row. Nothing reads it back
 into a backlog: `validate` never opens it, and a row that leaves is gone from the backlog for good.
+Only the autopilot reads its rows, to resolve a run member the backlog no longer holds (T121).
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from taskrail import writer
-from taskrail.backlog import EPIC_HEADING, _index, _is_task_table
+from taskrail.backlog import EPIC_HEADING, _index, _is_task_table, _parse_tasks
 from taskrail.markdown import parse_sections, split_row
 from taskrail.model import Backlog, Epic, Project, Status, Task
 
@@ -105,6 +106,47 @@ def holding(config, task_id: str) -> str | None:
     return None
 
 
+ARCHIVED_KEY = "archived_tasks"
+
+
+def archived_task(project: Project, task_id: str) -> Task | None:
+    """A task the checkout's archive holds, for an autopilot run member its backlog no longer holds (T121).
+
+    Only the autopilot reads it: `show`, `list`, `next` and `validate` stay blind to the archive.
+    """
+    return archived_tasks(project).get(task_id)
+
+
+def archived_tasks(project: Project) -> dict[str, Task]:
+    """Every row in the checkout's archives by ID, read once per project."""
+    if ARCHIVED_KEY not in project.cache:
+        found: dict[str, Task] = {}
+        for backlog in project.backlogs:
+            relative = backlog.config.archive_path
+            try:
+                text = (project.config.root / relative).read_text(encoding="utf-8")
+            except (FileNotFoundError, UnicodeDecodeError, IsADirectoryError):
+                continue
+            for task in _parse(text, relative, backlog, project.config):
+                found.setdefault(task.id, task)
+        project.cache[ARCHIVED_KEY] = found
+    return project.cache[ARCHIVED_KEY]
+
+
+def _parse(text: str, relative: str, backlog: Backlog, config) -> list[Task]:
+    """The rows of an archive document, read with the backlog's own parser; its issues are not reported."""
+    counter = [0]
+    tasks: list[Task] = []
+    for section in parse_sections(text):
+        match = EPIC_HEADING.match(section.title or "")
+        if not match:
+            continue
+        epic = Epic(id=match.group(1), name=match.group(2), objective="", file=None, backlog=backlog.config.name, listing_line=0)
+        _parse_tasks(epic, section, relative, config, counter, [])
+        tasks += epic.tasks
+    return tasks
+
+
 def apply_plan(edits: writer.Edits, plan: Plan) -> None:
     """Append the moving rows to the archive and take them, and any archived epic, out of the backlog."""
     aliases = edits.config.column_aliases
@@ -159,7 +201,8 @@ def _write_archive(edits: writer.Edits, plan: Plan, rows: dict, aliases) -> None
             "\n",
             f"Closed tasks and epics moved out of `{plan.backlog.config.file}` by `taskrail archive`.\n",
             "taskrail does not validate this file and never reads a row back into the backlog; it\n",
-            "reads it only so an archived ID is never allocated again.\n",
+            "reads it so an archived ID is never allocated again and an autopilot run still\n",
+            "resolves its archived tasks.\n",
         ]
     whole = {epic.id for epic in plan.epics}
     for epic in plan.backlog.epics:

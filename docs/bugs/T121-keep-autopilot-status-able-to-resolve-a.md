@@ -130,3 +130,85 @@ Read the archive for a run member the backlog no longer holds; record nothing ne
 Recording a run's completion once in its run file is not proposed: every run in this clone was
 archived before any such record existed, so it would not repair one of them, and it adds a stored
 state that a later reopen or a reverted merge can make stale.
+
+## Decisions at the diagnose gate
+
+Recorded in `docs/autopilot/decisions/T121-keep-autopilot-status-able-to-resolve-a.md`: read the
+archive only; nothing more for a resumed run; no `--json` shape change; §7.6, §12.4 and one
+changelog bullet; the fixture covers members with and without a merge record, and `next`'s count.
+
+## Regression test
+
+`tests/test_autopilot_archived.py`: a count-2 run whose three lanes (T001 ✅, T002 ✅, T003 ❌) are
+closed and committed on `main`, parametrized with and without `autopilot merged` records, is read
+before and after `taskrail archive` is committed.
+
+Against the unfixed code (`uv run pytest tests/test_autopilot_archived.py -q`):
+
+```
+>       assert (after["complete"], after["done_merged"]) == (True, 2)
+E       assert (False, 0) == (True, 2)                                  # without-merge-record
+E       assert (False, 0) == (True, 2)                                  # with-merge-record
+>       assert status_module._recorded(project, Status.DONE) == {"T001", "T002"}
+E       AssertionError: assert set() == {'T001', 'T002'}
+>       assert result["dispatch"] == []
+E       Left contains one more item: {'id': 'T004', ... 'status': 'pending', ...}   # without-merge-record
+E       Left contains one more item: {'id': 'T004', ... 'status': 'pending', ...}   # with-merge-record
+PASSED tests/test_autopilot_archived.py::test_the_backlog_commands_stay_blind_to_the_archive
+5 failed, 1 passed in 1.12s
+```
+
+Each failure is one of the root cause's lookups: the member row (`complete`), `recorded_merges`,
+and `next`'s count dispatching T004 past a count of 2. The pre-archive assertions in the same tests
+passed, so the fixture reads the run complete before the archive. The passing test guards that
+`list` and `show` stay blind to the archive, which the fix must not change.
+
+## Fix
+
+- `src/taskrail/archive.py`: `archived_tasks(project)` parses each backlog's archive in the
+  checkout with the backlog's own `_parse_tasks`, once per project (cached), and
+  `archived_task(project, id)` looks one up. The header written into a new archive file now says
+  the autopilot reads it too.
+- `src/taskrail/autopilot/status.py`: `run_status` falls back to `archived_task` when
+  `project.task` returns `None`; `_on_mainline` reads the archive at the same mainline refs as the
+  backlog file (the backlog's row wins if both hold one), and, with no mainline refs, the archive
+  rows in the checkout.
+- `src/taskrail/autopilot/dispatch.py`: `next_lanes` derives an archived member's state the same
+  way, so it counts toward the run's count again.
+- `src/taskrail/autopilot/merged.py`: `recorded_merges` honours a record whose task is archived.
+- DESIGN.md §7.6 names the autopilot as the archive's one reader; §12.4 says ✅ and ❌ mean the
+  row in the backlog or its archive. CHANGELOG.md has one bullet.
+
+`src/taskrail/ids.py` is untouched; no run file is written.
+
+## Verification
+
+- `uv run pytest tests/test_autopilot_archived.py -q`: `6 passed in 0.90s`.
+- `taskrail checks T121 --stage fix`: `1262 passed in 167.42s`; `lint: not configured`; `passed`.
+- The live runs, `autopilot status --all --json` from this branch:
+
+  ```
+  20260918-2 count 1 complete True done_merged 1 {'done-merged': 1}
+  20260918-1 count 35 complete True done_merged 35 {'done-merged': 35, 'running': 1}
+  20260917-1 count 8 complete True done_merged 8 {'done-merged': 8}
+  20260915-7 … 20260915-1: complete True, every member done-merged
+  {"id": "T087", "title": "Decide whether the design principles govern new work only or also what exists", "kind": "spike", "state": "done-merged"}
+  ```
+
+  (The one `running` member of 20260918-1 is the stray T121 lane from the diagnose stage, left as
+  decided; it reads `done-merged` once T121 is merged and recorded.)
+
+- **Cost**, `status --all --json` on this clone (eleven open runs, 46,645-byte archive), wall time
+  of five runs each:
+  - main's code, after the archive (58 members unresolved): 0.98, 0.96, 1.13, 1.04, 1.16 s;
+  - main's code on a detached checkout of `5e8cd1c`, before the archive (members resolved):
+    1.69, 1.73, 1.71, 1.63, 1.67 s;
+  - this branch, after the archive (members resolved): 1.90, 2.23, 2.69, 2.11, 2.48 s.
+
+  Timed in-process: parsing the archive in the checkout takes 2.8–3.0 ms, and reading it at the
+  two mainline refs 12.0–14.2 ms. So the archive reads add about 15 ms. The rest of the
+  rise is the per-member work that resolving the members costs, the same work `status` did
+  before the archive. A profile of the fixed `status --all` puts 1.18 s of 2.93 s in
+  `recorded_merges`, 0.73 s of it in `merged._mainline_refs`, which runs `rev-parse` on both
+  mainline refs once per task (54 calls). That existed before T121 and is outside this fix.
+  The machine was also running other lanes' test suites, so the spread between runs is wide.
