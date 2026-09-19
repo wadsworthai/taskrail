@@ -59,3 +59,10 @@ T121's archive tests and this branch's together — and `taskrail validate` repo
 | # | Question | Options | Decision | Reason |
 |---|---|---|---|---|
 | 1 | Pull request type and scope | **`fix` / `cli`** | **`fix` / `cli`** | `archive` wrote one epic's rows into another's history; the refusal lives in `archive.py` and `cmd_archive`. |
+
+## rebase after T124 merged
+
+`main` advanced to `faad84e` (T124). Rebased with four known-class conflicts (two index files,
+`CHANGELOG.md`, `TODO.md`). `DESIGN.md` §7.6 merged cleanly even though T124 and this branch both
+edited the `epic add` bullet — T124 its first sentence, this branch its last — and the bullet reads
+correctly with both. `taskrail checks T125` passed with 1,271 tests. Re-published with a lease.
