@@ -57,3 +57,8 @@ has not moved since `df31678`.
 `upgrade` re-run in the rebased worktree reports every managed file up to date, so the workflow and
 its digest are still consistent. `taskrail checks T123` passed after the rebase and `taskrail
 validate` reports 6 tasks, 0 errors. Re-published with a lease.
+
+## rebase after T121 merged
+
+`main` advanced to `0fb3fe0` (T121). Rebased again with two known-class conflicts (the decisions
+index and `CHANGELOG.md`); `taskrail checks T123` passed afterwards. Re-published with a lease.
