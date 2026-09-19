@@ -20,3 +20,18 @@ recorded digest; and the three existing offline shape tests over the generated w
 Given with the answers: the sentence in §9 must carry the pending-run fact, not only the key. It is
 the reason the plain-ref idiom is wrong here, and without it a later reader will "simplify" the key
 back to `github.ref` and reintroduce the dropped mainline run.
+
+## implement gate
+
+Reviewed: commit `e128f30` and the diff `db43d45..HEAD` — the block and its comment in `ci.yml` and
+in `workflow()`, one test, the regenerated managed workflow and its digest, the artifact; the test's
+recorded failure before the template changed; the real `init` into a scratch repository whose
+mainline is `trunk`; the YAML parse of both files; the `upgrade` report touching only the workflow;
+`taskrail checks T123 --stage implement` (1,257 passed); and, recomputed by the orchestrator, the
+regenerated workflow's sha256 matching its recorded digest (`9877e739…`).
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Anything to decide at this gate? | **no** | **no** | The four scope answers were applied as given. |
+| 2 | The three-line comment above the block, in both workflows | **keep it** · drop it | **keep it** | It carries the pending-run fact into every consumer's generated file, which is exactly where someone is most likely to "simplify" the key back to the plain ref. The scope gate required that fact wherever the key is written down; a comment next to the key is the most direct place. The test asserting the block and not the comment is right: the comment's wording can change, the block's cannot. |
+| 3 | The `trunk` scratch repository | **accept** | **accept** | `branches: [trunk]` alongside an unchanged concurrency block is the proof, on real output, that the block names no branch. |
