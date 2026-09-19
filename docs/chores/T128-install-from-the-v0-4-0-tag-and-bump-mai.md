@@ -1,6 +1,6 @@
 # T128 — Install from the v0.4.0 tag and bump main to 0.5.0.dev0
 
-Kind: chore · Epic: E10 · Status: scoped, awaiting approval
+Kind: chore · Epic: E10 · Status: implemented, awaiting review
 
 ## Goal
 
@@ -117,10 +117,30 @@ Files checked and left unchanged:
    `chore(release): bump main to 0.5.0.dev0 after the v0.4.0 tag (T128)`, with
    `--type chore --scope release`, as T078, T085, T086 and T127. Alternative: `--scope repo`.
 
+## Decisions at the scope gate
+
+Recorded in `docs/autopilot/decisions/T128-install-from-the-v0-4-0-tag-and-bump-mai.md`. Every
+decision was taken as recommended:
+
+1. The twelve checks, on both routes, each from an empty uv cache under a `PATH` with `uv` and no
+   `taskrail`, showing that `import taskrail` resolves inside the scratch cache; `uv pip install`
+   into a scratch virtual environment stands in for `uv tool install`.
+2. The workflow checks, plus the anonymous Actions API read, labelled as supporting evidence only,
+   since that run goes through this repository's `local:.` pin and not through `uvx` from the tag.
+3. The bump is `pyproject.toml` and `uv.lock`, one line each; `.taskrail/installed.json` stays at
+   `v0.4.0`.
+4. Nothing in `CHANGELOG.md`.
+5. The pull request title is
+   `chore(release): bump main to 0.5.0.dev0 after the v0.4.0 tag (T128)`.
+
+One correction: an earlier draft said this clone's local `v0.1.0` tag stays untouched. That tag no
+longer exists — it was deleted at the human's request before this task started, and was never on
+`origin` — so *Out of scope* now lists the tags as they are.
+
 ## Out of scope
 
-- Creating, moving, pushing or deleting any tag. `v0.4.0` is published and only read. This clone's
-  local `v0.1.0` tag is not touched either.
+- Creating, moving, pushing or deleting any tag. `v0.4.0` is published and only read. The local
+  tags in this clone are `v0.2.0`, `v0.3.0` and `v0.4.0`, before and after the checks.
 - `uv tool install`, and `taskrail self upgrade` without `--dry-run`, which would replace the
   human's CLI in `~/.local/bin`. Every install uses `uvx` or a scratch virtual environment.
 - What `init` pins from a development build: `0.5.0.dev0` pins `v0.5.0`, which does not exist until
@@ -187,3 +207,105 @@ The bump:
 11. `taskrail checks T128 --stage implement` runs `test` (`uv run pytest -q`); `lint` is not
     configured in this repository.
 12. `taskrail validate` on this branch, and `git diff --check`.
+
+### Results
+
+Every check passed. No tag was created, moved, pushed or deleted; nothing ran `uv tool install` or
+a `self upgrade` without `--dry-run`. `.taskrail/installed.json` and `CHANGELOG.md` are unchanged.
+
+Checks 1–7 ran as one script under `env -i HOME=<home>`, which set
+`PATH=<s>/bin:/usr/bin:/bin` and unset `VIRTUAL_ENV`, `TASKRAIL_BIN` and `TASKRAIL_SOURCE`. Its
+preamble printed `VIRTUAL_ENV=<unset>`, `command -v taskrail: <none>`, `command -v uvx: <s>/bin/uvx`
+and `uv 0.11.16 (x86_64-unknown-linux-gnu)`. The uv caches `<s>/cache1`, `<s>/cache2` and
+`<s>/cache3` were removed before it started.
+
+The published tag, before the bump — the `uvx` route:
+
+1. `UV_CACHE_DIR=<s>/cache1 uvx --from git+https://github.com/wadsworthai/taskrail.git@v0.4.0 taskrail --version`
+   printed:
+   ```
+      Updating https://github.com/wadsworthai/taskrail.git (v0.4.0)
+       Updated https://github.com/wadsworthai/taskrail.git (a0994e363ea255e90460a7388909245051732071)
+      Building taskrail @ git+https://github.com/wadsworthai/taskrail.git@a0994e363ea255e90460a7388909245051732071
+         Built taskrail @ git+https://github.com/wadsworthai/taskrail.git@a0994e363ea255e90460a7388909245051732071
+   Installed 1 package in 1ms
+   taskrail 0.4.0
+   ```
+   The same `uvx --from …` running
+   `python -c 'import taskrail, sys; print(taskrail.__file__); print(sys.executable)'` printed
+   `<s>/cache1/archive-v0/n5Lif_oBo_9d8ZbN/lib/python3.12/site-packages/taskrail/__init__.py` and
+   `<s>/cache1/archive-v0/n5Lif_oBo_9d8ZbN/bin/python`: the package comes from the scratch cache,
+   not from this checkout.
+2. After `git init -q -b main <s>/repo`,
+   `env -C <s>/repo UV_CACHE_DIR=<s>/cache1 uvx --from git+https://github.com/wadsworthai/taskrail.git@v0.4.0 taskrail init --integration claude --github-workflow`
+   printed `created` for `.taskrail/config.toml`, `TASKRAIL.md`, `.taskrail/bin/taskrail`, the
+   nine skill files under `.claude/skills/` (`taskrail`, `taskrail-autopilot` with its three
+   references, `taskrail-bug`, `taskrail-chore`, `taskrail-feature`, `taskrail-spike`),
+   `.github/workflows/taskrail.yml` and `.gitignore`, then
+   `note      skills changed: restart the agent session so it loads them` and
+   `0 file(s) already up to date`. `.taskrail/installed.json` was written too. The config's first
+   line is `version = "v0.4.0"`, and the wrapper's line 34 is
+   `exec uvx --quiet --from "git+${TASKRAIL_SOURCE:-https://github.com/wadsworthai/taskrail.git}@$pin" taskrail --root "$root" "$@"`.
+   Everything was committed in the scratch repository as `3e0a796`.
+3. `UV_CACHE_DIR=<s>/cache2 sh -x <s>/repo/.taskrail/bin/taskrail --version`, with a second empty
+   cache, traced `pin=v0.4.0`, `installed=`, `command -v uvx` and
+   `exec uvx --quiet --from git+https://github.com/wadsworthai/taskrail.git@v0.4.0 taskrail --root <s>/repo --version`,
+   then printed `taskrail 0.4.0`.
+4. `env -C / UV_CACHE_DIR=<s>/cache2 <s>/repo/.taskrail/bin/taskrail validate`, run from `/`,
+   printed `0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)` and exited 0. `<s>/cache2` then
+   held a git checkout named `a0994e3`.
+
+The published tag — the installed-CLI route:
+
+5. `uv venv -q <s>/venv`, then
+   `UV_CACHE_DIR=<s>/cache3 uv pip install --python <s>/venv git+https://github.com/wadsworthai/taskrail.git@v0.4.0`
+   used Python 3.12.13 and printed
+   `+ taskrail==0.4.0 (from git+https://github.com/wadsworthai/taskrail.git@a0994e363ea255e90460a7388909245051732071)`.
+   `<s>/venv/bin/taskrail --version` printed `taskrail 0.4.0`. With
+   `PATH=<s>/venv/bin:<s>/bin:/usr/bin:/bin`, `sh -x` of the wrapper traced
+   `installed=<s>/venv/bin/taskrail`, `have=0.4.0`, `'[' v0.4.0 = v0.4.0 ']'` and
+   `exec taskrail --root <s>/repo --version`, then printed `taskrail 0.4.0`.
+6. `<s>/venv/bin/taskrail self upgrade --dry-run` printed
+   `uv tool install --force taskrail --from git+https://github.com/wadsworthai/taskrail.git@v0.4.0`.
+
+The generated workflow:
+
+7. `cmp` of the scratch repository's committed `.github/workflows/taskrail.yml` against
+   `git show a0994e3:.github/workflows/taskrail.yml` found no difference. Parsed with
+   `uv run -q --no-project --with pyyaml`, its steps are
+   `[{'uses': 'actions/checkout@v7.0.1', 'with': {'fetch-depth': 0}}, {'uses': 'astral-sh/setup-uv@v10.1.0'}, {'run': '.taskrail/bin/taskrail validate'}]`.
+   Both action tags exist (see decision 2), and the `run` step is check 4, which passed with only
+   `uv` on `PATH`.
+
+   *Supporting evidence only.* The anonymous read
+   `curl -sS "https://api.github.com/repos/wadsworthai/taskrail/actions/runs?head_sha=a0994e363ea255e90460a7388909245051732071"`
+   returned `total_count 2`: `taskrail push main completed success a0994e3`
+   (`https://github.com/wadsworthai/taskrail/actions/runs/35436429292`) and
+   `ci push main completed success a0994e3`
+   (`https://github.com/wadsworthai/taskrail/actions/runs/35436429288`). That `taskrail` run is the
+   same workflow file on GitHub's runners, but it runs this repository's wrapper, whose pin is
+   `local:.`: it goes through `uv run` on the checkout, **not** through `uvx` from the `v0.4.0`
+   tag. A consumer's run on the tag is shown locally by checks 3 and 4, not by this run.
+
+The bump:
+
+8. `uv lock --project <wt>` printed `Resolved 7 packages in 135ms` and
+   `Updated taskrail v0.4.0 -> v0.5.0.dev0`. `uv lock --check --project <wt>` printed
+   `Resolved 7 packages in 1ms`. `git diff` changes one line in `pyproject.toml`
+   (`version = "0.5.0.dev0"`) and one in `uv.lock` (the `taskrail` package's `version`).
+9. `uv run --project <wt> taskrail --version` printed `taskrail 0.5.0.dev0`, and so did
+   `<wt>/.taskrail/bin/taskrail --version`, through the `local:.` pin.
+10. Under the same restricted environment, `uv build -q --project <wt> --out-dir <s>/build` built
+    `taskrail-0.5.0.dev0-py3-none-any.whl` and `taskrail-0.5.0.dev0.tar.gz`. Installed into
+    `<s>/devvenv`
+    (`+ taskrail==0.5.0.dev0 (from file://<s>/build/taskrail-0.5.0.dev0-py3-none-any.whl)`), it
+    printed `taskrail 0.5.0.dev0`. With `PATH=<s>/devvenv/bin:<s>/bin:/usr/bin:/bin`, `sh -x` of the
+    scratch wrapper traced `installed=<s>/devvenv/bin/taskrail`, `have=0.5.0.dev0`,
+    `'[' v0.5.0.dev0 = v0.4.0 ']'`, `command -v uvx` and
+    `exec uvx --quiet --from git+https://github.com/wadsworthai/taskrail.git@v0.4.0 taskrail --root <s>/repo --version`,
+    then printed `taskrail 0.4.0`. The development build is not taken for the release.
+11. `taskrail checks T128 --stage implement` ran `test` (`uv run pytest -q`):
+    `1273 passed in 194.71s (0:03:14)`. It reported `lint` as `not configured`, and the overall
+    result was `passed`.
+12. `taskrail validate` on this branch printed `9 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`,
+    and `git diff --check` printed nothing.
