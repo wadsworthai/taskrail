@@ -48,3 +48,12 @@ has not moved since `df31678`.
 |---|---|---|---|---|
 | 1 | Pull request type and scope | **`ci` / `install`** · `chore` / `install` · `ci` / `repo` | **`ci` / `install`** | The change is continuous-integration behaviour, and the part that matters beyond this repository is the template every consumer installs, which lives in `src/taskrail/install.py`. T120 was `chore` because it hardened a permission; this changes when runs execute. |
 | 2 | What the pull request itself must be watched for | **its own runs** | **recorded** | GitHub's cancellation cannot be tested offline. A second push to this pull request should cancel the first push's `ci` and `taskrail` runs, and each run on `main` after the merge should complete. |
+
+## rebase after T122 merged
+
+`main` advanced to `245f484` (T122) while this branch was in review. It was rebased onto
+`origin/main` with three conflicts, all known classes: the decisions index (appended rows), the
+`CHANGELOG.md` bullets (kept both, this branch's on top), and `TODO.md` (united by ID, `✅` wins).
+`upgrade` re-run in the rebased worktree reports every managed file up to date, so the workflow and
+its digest are still consistent. `taskrail checks T123` passed after the rebase and `taskrail
+validate` reports 6 tasks, 0 errors. Re-published with a lease.
