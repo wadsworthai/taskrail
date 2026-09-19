@@ -15,6 +15,7 @@ Done when: this repository's own backlog runs through the taskrail autopilot
 | ✓  | ID   | Kind    | Pts | Depends On | Title                          | Description                    |
 |----|------|---------|-----|------------|--------------------------------|--------------------------------|
 | ✅ | T114 | chore   | 1   | —          | Archive this repository's closed tasks and epics | Run taskrail archive on TODO.md now that run 20260918-1's branches are merged: it moved 108 closed rows and epics E01, E02, E05, E07 and E08 into docs/archive.md, holding nothing back.   |
+| ⬜ | T131 | chore   | 1   | —          | Record which checks are required on main | The checks required on main are branch protection on GitHub, set by hand, and nothing in the repository says which they are: T108's artifact names test (3.11) and test (3.14), T117's names validate under its own Required checks heading, and T129, which added pr-title.yml, names none. Both artifacts are archived, so the list survives only in closed tasks, and the gap shows: pr-title / lint runs on every pull request and is not required, so a title relscribe lint rejects can still be squash-merged into the one commit on main that relscribe reads to compute the version and write the changelog. Write the required checks where a reader looks first, decide whether pr-title's lint job joins them, and record that each ci matrix leg is part of its check name, so changing the matrix renames the check and the protection has to follow. |
 
 ## E09 — taskrail phase 3
 
