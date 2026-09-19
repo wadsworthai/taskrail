@@ -140,3 +140,94 @@ This is the lane's recommendation. The diagnose gate decides it.
 3. The check lives in `archive.py`'s write path, next to `_ensure_section`, with a small `except`
    in `cmd_archive` that maps it to exit 5. `validate` stays as it is.
 4. A regression test with a negative control, a DESIGN.md §7.6 bullet, and a changelog bullet.
+
+The diagnose gate approved all five points as recommended
+(`docs/autopilot/decisions/T125-stop-archive-from-merging-a-different-ep.md`). The decisions
+were: refuse with exit 5 and move nothing in any backlog, including on `--dry-run`; use the name
+alone as the key, compared exactly; keep T107's second-run test unchanged; write a regression test
+with a negative control; and add the DESIGN.md §7.6 and changelog lines, correcting T122's §7.6
+clause.
+
+A **legitimate rename** between two archive runs is refused too, because the name is the key. The
+message names the one line to edit: the archive heading, which gets renamed to match the epic's
+new name.
+
+## Fix
+
+- `src/taskrail/archive.py`: new `refusal(edits, plan)`. For each epic with rows moving, it looks
+  up that epic's archive section by ID, the same way `_ensure_section` does, and compares the
+  heading's name with the live epic's name. On a mismatch it returns the message. It does nothing
+  when the plan is empty or the archive does not exist yet. The write path itself is unchanged.
+- `src/taskrail/cli.py`, `cmd_archive`: calls `archive.refusal` for every selected backlog before
+  any plan is applied, on the real run and on `--dry-run`. It prints
+  `taskrail: <reason>` and returns exit 5 (`EXIT_REFUSED`), so a refusal writes nothing to any
+  backlog.
+- DESIGN.md §7.6: a new bullet describing the refusal, the name key and what a rename costs. T122's
+  bullet now ends "a later `archive` refuses to file the new epic's rows (below)" instead of saying
+  that archive files them in the old section.
+- `CHANGELOG.md`: one bullet under Unreleased.
+
+## Verification
+
+The two new tests are in `tests/test_archive.py` and use the file's `TODO` fixture. The first
+`archive` run moves E02 `Auth` whole. After that, `reissue_e02` brings E02 back into `TODO.md` by
+hand edit, with one closed row, T007.
+
+- `test_a_different_epic_under_an_archived_id_is_refused_and_nothing_moves`: the live E02 is named
+  `Payments`. `validate` exits 0. `archive --dry-run` and then `archive` each exit 5, and their
+  stderr names `` `E02` `Payments` ``, `` `E02 — Auth` ``, `docs/archive.md` and both remedies.
+  Afterwards `TODO.md` and `docs/archive.md` are byte-identical to how they were before.
+- `test_the_same_epic_under_its_archived_id_still_archives_into_its_section`: this is the negative
+  control. The live E02 is named `Auth`, and archive moves T007 into the one `## E02 — Auth`
+  section, after T006. This shows the refusal depends on the name, not on the ID alone.
+
+**Before the fix**, `uv run pytest -q tests/test_archive.py -k "archived_id_is_refused_and or same_epic_under"`:
+
+```
+>           assert code == 5, out
+E           AssertionError: main: would archive 1 task(s) and 1 epic(s) into docs/archive.md
+E             held back T004: T003 depends on it
+E
+E           assert 0 == 5
+tests/test_archive.py:441: AssertionError
+FAILED tests/test_archive.py::test_a_different_epic_under_an_archived_id_is_refused_and_nothing_moves
+1 failed, 1 passed, 24 deselected in 1.00s
+```
+
+In that run the dry run promised the move. I then put the real run first, temporarily, and ran the
+test again. It failed the same way: `main: archived 1 task(s) and 1 epic(s) into docs/archive.md`,
+then `assert 0 == 5`, `1 failed, 25 deselected in 0.14s`. Both failures match the root cause. The
+control passed, as it must, because the same epic is supposed to archive into its own section.
+
+**After the fix**, `uv run pytest -q tests/test_archive.py` printed `26 passed in 0.79s`. That
+includes T107's second-run test, `test_the_archive_is_created_once_and_a_second_run_appends_to_its_section`,
+which is unchanged. `taskrail checks T125 --stage fix` printed `1261 passed in 143.10s (0:02:23)`,
+`passed test`, `not configured lint` and `T125 in <worktree>: passed`.
+
+**The reproduction, rerun with the fixed source** in the same scratch clones:
+
+```
+repro$ taskrail --root . archive --dry-run
+taskrail: epic `E07` `taskrail phase 3` would be archived under `E07 — Current-branch workflow` in docs/archive.md, a different epic; give the live epic an unused ID, or, if it was renamed, rename that heading to match
+dry-run exit 5
+repro$ taskrail --root . archive
+taskrail: (same message)
+archive exit 5
+repro$ git status --short
+(empty: E06's T114 did not move either)
+
+rename$ taskrail --root . archive
+taskrail: epic `E06` `Backlog tooling` would be archived under `E06 — Repository tooling` in docs/archive.md, a different epic; give the live epic an unused ID, or, if it was renamed, rename that heading to match
+archive exit 5
+```
+
+**Both ways out, followed.** In `rename`, I edited the heading to `## E06 — Backlog tooling`.
+`archive` then printed `main: archived 1 task(s) and 1 epic(s) into docs/archive.md` and exited 0,
+and the archive has one `## E06 — Backlog tooling` section. In `repro`, I renumbered the live epic
+to E09. `archive` printed `main: archived 2 task(s) and 2 epic(s) into docs/archive.md` and exited
+0. The archive then holds `## E07 — Current-branch workflow` and a separate
+`## E09 — taskrail phase 3`, and no `Probe` text appears in the E07 section.
+
+**A normal run is unaffected.** A fresh clone at `origin/main` (`245f484`), run with
+`taskrail --root mainclone archive --dry-run`, printed
+`main: would archive 2 task(s) and 1 epic(s) into docs/archive.md` and exited 0.

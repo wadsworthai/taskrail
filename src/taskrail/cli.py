@@ -1369,6 +1369,12 @@ def cmd_archive(args) -> int:
     plans = [archive.plan(project, backlog) for backlog in project.backlogs if args.backlog in (None, backlog.config.name)]
 
     edits = writer.Edits(config)
+    # Checked for every backlog before any is applied, and on a dry run too, so a refusal moves nothing.
+    for plan in plans:
+        reason = archive.refusal(edits, plan)
+        if reason:
+            print(f"taskrail: {reason}", file=sys.stderr)
+            return EXIT_REFUSED
     if not args.dry_run:
         try:
             for plan in plans:

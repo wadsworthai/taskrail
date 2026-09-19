@@ -147,6 +147,31 @@ def _parse(text: str, relative: str, backlog: Backlog, config) -> list[Task]:
     return tasks
 
 
+def refusal(edits: writer.Edits, plan: Plan) -> str | None:
+    """Why this plan must not run: an epic's archive section has its ID but another epic's name (T125).
+
+    The section is found by ID, so without this a live epic whose ID was reissued — by a hand edit,
+    a merge, or `epic add` before T122 — would be filed under the archived epic's heading. The name
+    is the key: a renamed epic is refused too, and the message names the heading to edit.
+    """
+    if plan.empty or not edits.exists(plan.archive):
+        return None
+    lines = edits.lines(plan.archive)
+    moving = {task.epic for task in plan.tasks}
+    for epic in plan.backlog.epics:
+        found = _section(lines, epic.id) if epic.id in moving else None
+        if found is None:
+            continue
+        sections, index = found
+        name = EPIC_HEADING.match(sections[index].title).group(2).strip()
+        if name != epic.name:
+            return (
+                f"epic `{epic.id}` `{epic.name}` would be archived under `{epic.id} — {name}` in {plan.archive}, "
+                f"a different epic; give the live epic an unused ID, or, if it was renamed, rename that heading to match"
+            )
+    return None
+
+
 def apply_plan(edits: writer.Edits, plan: Plan) -> None:
     """Append the moving rows to the archive and take them, and any archived epic, out of the backlog."""
     aliases = edits.config.column_aliases

@@ -1224,7 +1224,12 @@ was archived, and neither the ID scan nor the merge driver needs anything new fr
   revision (§6.3), so an epic archived whole keeps its ID used: it is never allocated again, and
   `--id` refuses it with exit 5 (T122, T124).
   Without it, the next epic after an archived highest-numbered one reissues that ID, and a later
-  `archive` files the new epic's rows in the old epic's section.
+  `archive` refuses to file the new epic's rows (below).
+- `archive` finds an epic's section by ID and refuses — exit 5, moving nothing in any backlog, on
+  `--dry-run` too — when that section's heading names another epic, so a reissue that reaches the
+  backlog by a hand edit or a merge is never filed under the archived epic's history (T125). The
+  name is the key, compared exactly: an epic renamed between two archive runs is refused as well,
+  and the message names the one heading line to edit.
 - The archive is one of the merge driver's paths (§7.4), class `backlog`, so two lanes archiving at
   once merge row by row: both sides' rows, and a row both archived kept once.
 
