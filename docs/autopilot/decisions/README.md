@@ -108,3 +108,4 @@
 | T121 | Keep autopilot status able to resolve a run whose tasks have been archived | [T121-keep-autopilot-status-able-to-resolve-a.md](T121-keep-autopilot-status-able-to-resolve-a.md) |
 | T124 | Keep epic add from allocating the same epic ID on two branches | [T124-keep-epic-add-from-allocating-the-same-e.md](T124-keep-epic-add-from-allocating-the-same-e.md) |
 | T126 | Resolve the mainline refs once per backlog when checking recorded merges | [T126-resolve-the-mainline-refs-once-per-backl.md](T126-resolve-the-mainline-refs-once-per-backl.md) |
+| T123 | Cancel a pull request superseded workflow runs when a new one is queued | [T123-cancel-a-pull-request-s-superseded-workf.md](T123-cancel-a-pull-request-s-superseded-workf.md) |

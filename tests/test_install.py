@@ -181,6 +181,25 @@ def test_github_workflow_grants_the_job_only_read_access_to_contents(empty_repo,
     assert "\npermissions:\n  contents: read\n" in workflow
 
 
+CONCURRENCY_BLOCK = (
+    "\nconcurrency:\n"
+    "  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}\n"
+    "  cancel-in-progress: true\n"
+)
+
+
+def test_github_workflow_cancels_a_pull_request_s_superseded_run_but_never_a_mainline_one(empty_repo, capsys):
+    # A pull request's runs share refs/pull/N/merge, so a new push cancels the older run. A push
+    # gets its own run_id group: a group holds one running and one pending run, and a newly queued
+    # run cancels the pending one even without cancel-in-progress, so keying pushes on github.ref
+    # would drop a mainline run whenever merges land quickly. Asserted literally, since a
+    # regression to the plain ref would pass a looser test; the trunk half proves no branch is named.
+    init(empty_repo, "--github-workflow", capsys=capsys)
+    workflow = (empty_repo / install.WORKFLOW).read_text()
+    assert CONCURRENCY_BLOCK in workflow
+    assert CONCURRENCY_BLOCK in install.workflow(["trunk"])
+
+
 def test_upgrade_rewrites_an_unedited_workflow_from_an_earlier_template(empty_repo, capsys):
     init(empty_repo, "--github-workflow", capsys=capsys)
     earlier = install.workflow(["main"]).replace("        with:\n          fetch-depth: 0\n", "")

@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+# A pull request's runs share a group, so a new push cancels its superseded run. Each push gets a
+# group of its own: a group keeps one pending run and a newly queued one cancels it, even without
+# cancel-in-progress, so a group keyed on the mainline's ref would drop runs when merges land fast.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest

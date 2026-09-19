@@ -1358,6 +1358,13 @@ session starts.
   else, since checking the repository out and running `validate` writes nothing back and every
   scope a `permissions` block leaves unnamed is `none`; without the block the job would run with
   the repository's default `GITHUB_TOKEN` permissions, which are read-write in older repositories.
+  Its `concurrency` group is
+  `${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}`
+  with `cancel-in-progress: true`: a pull request's runs share `refs/pull/<N>/merge`, so a new push
+  cancels the superseded run, while each push to a mainline is a group of its own. The plain
+  `github.ref` would be wrong for pushes even with a conditional `cancel-in-progress`, because a
+  group keeps one running and one pending run and a newly queued run cancels the pending one
+  regardless — merges landing in quick succession would leave a mainline commit with no result.
   `--pre-commit` writes a marked block into this clone's git
   hook, keeping an existing shell hook's contents; `--merge-driver` is remembered too, keeps a
   marked block of `.gitattributes` current and defines the driver in this clone's git config

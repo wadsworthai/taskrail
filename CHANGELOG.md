@@ -12,6 +12,21 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **The generated GitHub workflow now cancels a pull request's superseded runs.** Every push to a
+  pull request queued a fresh `validate` run while the previous push's run kept going. The
+  workflow `init --github-workflow` writes now has a `concurrency` group: a pull request's runs
+  share one, so the newer run cancels the older, while each push to a mainline gets a group of its
+  own and is never cancelled — GitHub cancels a group's pending run whenever a newer one is
+  queued, so a group keyed on the mainline's ref would drop runs when merges land close together.
+  `taskrail upgrade` rewrites an unedited workflow; one edited locally is reported as
+  `edited locally; --force replaces it`, and its owner adds, at the top level:
+
+  ```yaml
+  concurrency:
+    group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+    cancel-in-progress: true
+  ```
+
 - **`epic add` no longer allocates an epic ID another branch already holds.** It read only the
   working tree, so an epic committed on one branch got its ID handed out again by `epic add` on
   another. It now reads epic IDs where `new` reads task IDs — every local branch and, with
