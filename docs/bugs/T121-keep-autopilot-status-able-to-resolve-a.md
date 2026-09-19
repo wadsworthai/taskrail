@@ -1,0 +1,216 @@
+# T121 — Keep autopilot status able to resolve a run whose tasks have been archived
+
+## Symptom
+
+After `taskrail archive` (T114) moved this repository's closed rows from `TODO.md` into
+`docs/archive.md`, `taskrail autopilot status` reports every run whose tasks were archived as
+unfinished, with none of its tasks resolved: each member reads `state: null`,
+`problem: "not in the backlog"`, `done_merged` is 0 and `complete` is false. The run files and the
+decision records are intact; `status` misreports them.
+
+## Reproduction
+
+On `main` at `df31678` (after T114's archive commit `5215682`):
+
+```
+$ .taskrail/bin/taskrail autopilot status --run 20260918-1 --json
+  "count": 35,
+  "complete": false,
+  "done_merged": 0,
+  "tasks": [
+    {"id": "T087", "title": null, "kind": null, "state": null, "problem": "not in the backlog"},
+    ... the same for all 35 members ...
+  "handoff": {"mode": "sequential", "in_review": null, "queue": [], "next": null},
+```
+
+Expected, and what the same run read before the archive: `complete: true`, `done_merged: 35`,
+each member `done-merged` with its title and kind.
+
+Every run in this clone, summarised from `autopilot status --all --json`:
+
+| run | on `main` (after the archive) | on a detached checkout of `5e8cd1c` (before it) |
+|---|---|---|
+| 20260918-2 | complete true, 1 done-merged | complete true, 1 done-merged |
+| 20260918-1 | complete false, 0 done-merged, 35 `null` | complete true, 35 done-merged |
+| 20260917-1 | complete false, 8 `null` | complete true, 8 done-merged |
+| 20260915-1 … -7 | complete false, every member `null` | complete true, every member done-merged |
+
+20260918-2's task is still in `TODO.md`, so it is unaffected. (Both columns also show one
+`running` T121 lane in 20260918-1: an unrelated slip while claiming this task, reported at the
+diagnose gate, not part of the bug.)
+
+## Evidence
+
+A probe (`status._on_mainline`, `status._recorded`, `Project.task`) for T087, T107 and T120:
+
+```
+# post-archive checkout (this branch at df31678)
+T087 in_checkout_backlog= False done_on_mainline_rows= False recorded_merge= False
+T107 in_checkout_backlog= False done_on_mainline_rows= False recorded_merge= False
+T120 in_checkout_backlog= False done_on_mainline_rows= False recorded_merge= False
+
+# pre-archive checkout (5e8cd1c, detached), same mainline refs
+T087 in_checkout_backlog= True done_on_mainline_rows= False recorded_merge= True
+T107 in_checkout_backlog= True done_on_mainline_rows= False recorded_merge= True
+T120 in_checkout_backlog= True done_on_mainline_rows= False recorded_merge= True
+```
+
+So even before the archive reaches the checkout, the mainline rows no longer show these tasks
+closed (`main`'s `TODO.md` has lost them); the pre-archive checkout reads them `done-merged` only
+because every one of them has a merge record from `autopilot merged` (12.8), and that record is
+honoured only for a task `Project.task` finds.
+
+`status --all --json` takes 1.05–1.21 s on this clone today (three runs: 1.207, 1.063, 1.054 s).
+
+## Root cause
+
+`autopilot status` derives every member's state from the member's backlog row, and three lookups
+see only the backlog file, never its archive:
+
+1. `run_status` (`src/taskrail/autopilot/status.py`) calls `project.task(task_id)` and, when it
+   returns `None`, emits a `state: null` row with `problem: "not in the backlog"`; `complete` counts
+   `done-merged` rows only, so it can never become true again.
+2. `_on_mainline` reads the task statuses from the backlog's main file (and its epic files) at
+   `refs/heads/<mainline>` and `refs/remotes/<remote>/<mainline>`; once the archive commit is on
+   the mainline, an archived ✅ row is in neither, so `done_on_mainline` and
+   `discarded_on_mainline` lose it.
+3. `recorded_merges` (`src/taskrail/autopilot/merged.py`) skips a recorded merge whose task
+   `project.task` does not find, so a proven merge stops counting too.
+
+T107 made `archive` safe for `validate`, ID allocation, the merge driver and `reopen`
+(DESIGN.md §7.6), and did not list the autopilot, whose §12.4 states are defined as "✅ on the
+local mainline or on `<remote>/<mainline>`" of the backlog.
+
+The same lookup drives `autopilot next` (`next_lanes` in `src/taskrail/autopilot/dispatch.py`):
+an archived member gets state `None`, which is not in `COUNTED`, so
+`remaining = run["count"] - <COUNTED members>` over-counts what is left, and `next --run` on a
+count-based run whose finished members were archived would dispatch past the run's count.
+
+## Ruled out
+
+- **The run files lost data.** `.git/taskrail/runs/*.json` still list every member and every
+  `merged` record: 20260918-1 has 35 lanes with a `merged` record, 20260917-1 has 8, each
+  20260915 run has one per lane.
+- **The merge records are invalid.** The same records make the pre-archive checkout read all 35
+  `done-merged` against today's mainline refs, so each record's commit is still on `main`.
+- **`branchrows.adopt` should have found the rows.** It adopts a member whose row only its task
+  branch holds (T071); these rows are on no branch at all now, and their branches are merged.
+- **Claims or worktrees.** The members hold no claim and no worktree; neither enters the
+  `not in the backlog` branch.
+- **A problem limited to this repository.** The cause is in the CLI: any consumer that archives
+  and runs the autopilot sees it, and without merge records (a human merged by hand) even the
+  mainline half fails.
+
+## Affected areas
+
+- `src/taskrail/autopilot/status.py` — `run_status`, `_on_mainline`.
+- `src/taskrail/autopilot/merged.py` — `recorded_merges`.
+- `src/taskrail/autopilot/dispatch.py` — `next_lanes`' state of every lane, and so a count run's
+  `remaining`; `_waiting_reason` for a named task (reports "not in the backlog", which is true and
+  harmless: an archived task is closed and is never dispatched).
+- DESIGN.md §7.6 (*What does not read it*) and §12.4 (`done-merged`, `discarded`); CHANGELOG.md.
+
+## Proposed fix
+
+Read the archive for a run member the backlog no longer holds; record nothing new in the run file.
+
+- `archive.py` gains a reader that parses a backlog's archive document in the checkout into
+  `Task`s with the parser the backlog already uses, cached per project, and a lookup
+  `archived_task(project, task_id)`.
+- `run_status`, `next_lanes` and `recorded_merges` fall back to it when `project.task` returns
+  `None`; the member is then derived like any other row.
+- `_on_mainline` reads the archive at the same mainline refs as the backlog file (same batched
+  blob read), and, without mainline refs, the archive rows in the checkout, so an archived ✅ or ❌
+  still counts as closed on the mainline, under the same reopen rule.
+- `show`, `list`, `next` without a run and `validate` still do not read the archive.
+- `--json` keeps its shape: an archived member is a normal task row again.
+- DESIGN.md §7.6 and §12.4 name the autopilot as a reader of the archive; CHANGELOG.md gets a
+  *Fixed* bullet.
+
+Recording a run's completion once in its run file is not proposed: every run in this clone was
+archived before any such record existed, so it would not repair one of them, and it adds a stored
+state that a later reopen or a reverted merge can make stale.
+
+## Decisions at the diagnose gate
+
+Recorded in `docs/autopilot/decisions/T121-keep-autopilot-status-able-to-resolve-a.md`: read the
+archive only; nothing more for a resumed run; no `--json` shape change; §7.6, §12.4 and one
+changelog bullet; the fixture covers members with and without a merge record, and `next`'s count.
+
+## Regression test
+
+`tests/test_autopilot_archived.py`: a count-2 run whose three lanes (T001 ✅, T002 ✅, T003 ❌) are
+closed and committed on `main`, parametrized with and without `autopilot merged` records, is read
+before and after `taskrail archive` is committed.
+
+Against the unfixed code (`uv run pytest tests/test_autopilot_archived.py -q`):
+
+```
+>       assert (after["complete"], after["done_merged"]) == (True, 2)
+E       assert (False, 0) == (True, 2)                                  # without-merge-record
+E       assert (False, 0) == (True, 2)                                  # with-merge-record
+>       assert status_module._recorded(project, Status.DONE) == {"T001", "T002"}
+E       AssertionError: assert set() == {'T001', 'T002'}
+>       assert result["dispatch"] == []
+E       Left contains one more item: {'id': 'T004', ... 'status': 'pending', ...}   # without-merge-record
+E       Left contains one more item: {'id': 'T004', ... 'status': 'pending', ...}   # with-merge-record
+PASSED tests/test_autopilot_archived.py::test_the_backlog_commands_stay_blind_to_the_archive
+5 failed, 1 passed in 1.12s
+```
+
+Each failure is one of the root cause's lookups: the member row (`complete`), `recorded_merges`,
+and `next`'s count dispatching T004 past a count of 2. The pre-archive assertions in the same tests
+passed, so the fixture reads the run complete before the archive. The passing test guards that
+`list` and `show` stay blind to the archive, which the fix must not change.
+
+## Fix
+
+- `src/taskrail/archive.py`: `archived_tasks(project)` parses each backlog's archive in the
+  checkout with the backlog's own `_parse_tasks`, once per project (cached), and
+  `archived_task(project, id)` looks one up. The header written into a new archive file now says
+  the autopilot reads it too.
+- `src/taskrail/autopilot/status.py`: `run_status` falls back to `archived_task` when
+  `project.task` returns `None`; `_on_mainline` reads the archive at the same mainline refs as the
+  backlog file (the backlog's row wins if both hold one), and, with no mainline refs, the archive
+  rows in the checkout.
+- `src/taskrail/autopilot/dispatch.py`: `next_lanes` derives an archived member's state the same
+  way, so it counts toward the run's count again.
+- `src/taskrail/autopilot/merged.py`: `recorded_merges` honours a record whose task is archived.
+- DESIGN.md §7.6 names the autopilot as the archive's one reader; §12.4 says ✅ and ❌ mean the
+  row in the backlog or its archive. CHANGELOG.md has one bullet.
+
+`src/taskrail/ids.py` is untouched; no run file is written.
+
+## Verification
+
+- `uv run pytest tests/test_autopilot_archived.py -q`: `6 passed in 0.90s`.
+- `taskrail checks T121 --stage fix`: `1262 passed in 167.42s`; `lint: not configured`; `passed`.
+- The live runs, `autopilot status --all --json` from this branch:
+
+  ```
+  20260918-2 count 1 complete True done_merged 1 {'done-merged': 1}
+  20260918-1 count 35 complete True done_merged 35 {'done-merged': 35, 'running': 1}
+  20260917-1 count 8 complete True done_merged 8 {'done-merged': 8}
+  20260915-7 … 20260915-1: complete True, every member done-merged
+  {"id": "T087", "title": "Decide whether the design principles govern new work only or also what exists", "kind": "spike", "state": "done-merged"}
+  ```
+
+  (The one `running` member of 20260918-1 is the stray T121 lane from the diagnose stage, left as
+  decided; it reads `done-merged` once T121 is merged and recorded.)
+
+- **Cost**, `status --all --json` on this clone (eleven open runs, 46,645-byte archive), wall time
+  of five runs each:
+  - main's code, after the archive (58 members unresolved): 0.98, 0.96, 1.13, 1.04, 1.16 s;
+  - main's code on a detached checkout of `5e8cd1c`, before the archive (members resolved):
+    1.69, 1.73, 1.71, 1.63, 1.67 s;
+  - this branch, after the archive (members resolved): 1.90, 2.23, 2.69, 2.11, 2.48 s.
+
+  These wall times were taken under load, with other lanes' test suites running on the same
+  machine, and are not evidence of a slowdown from this change: the gap between the second and
+  third lists is not attributable to it, and the profile below puts the time elsewhere.
+
+  What was measured directly, in-process: parsing the archive in the checkout takes 2.8–3.0 ms,
+  and reading it at the two mainline refs 12.0–14.2 ms, so the archive reads add about 15 ms.
+  A profile of the fixed `status --all` puts 1.18 s of 2.93 s in `recorded_merges`, 0.73 s of it
+  in `merged._mainline_refs`, which runs `rev-parse` on both mainline refs once per task (54
+  calls). That per-task cost predates T121 and is outside this fix; it is a follow-up task.

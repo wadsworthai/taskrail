@@ -105,3 +105,4 @@
 | T120 | Give the generated GitHub workflow a least-privilege permissions block | [T120-give-the-generated-github-workflow-a-lea.md](T120-give-the-generated-github-workflow-a-lea.md) |
 | T114 | Archive this repository closed tasks and epics | [T114-archive-this-repository-s-closed-tasks-a.md](T114-archive-this-repository-s-closed-tasks-a.md) |
 | T122 | Stop epic add from reissuing the ID of an archived epic | [T122-stop-epic-add-from-reissuing-the-id-of-a.md](T122-stop-epic-add-from-reissuing-the-id-of-a.md) |
+| T121 | Keep autopilot status able to resolve a run whose tasks have been archived | [T121-keep-autopilot-status-able-to-resolve-a.md](T121-keep-autopilot-status-able-to-resolve-a.md) |

@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from taskrail import claims as claims_module
-from taskrail import branches, branchrows, gitutil, stack
+from taskrail import archive, branches, branchrows, gitutil, stack
 from taskrail.autopilot import escalation
 from taskrail.autopilot import runs as runs_module
 from taskrail.claims import Claim
@@ -86,10 +86,15 @@ def _on_mainline(project: Project, status: Status) -> set[str]:
                 remote = resolve_remote(root, mainline, config.review.remote).name
                 refs = [ref for ref in (f"refs/heads/{mainline}", f"refs/remotes/{remote}/{mainline}") if ref in existing]
             if not refs:
+                archived = [task for task in archive.archived_tasks(project).values() if task.backlog == backlog.config.name]
                 for closed, found in rows.items():
-                    found |= {task.id for task in backlog.tasks if task.status is closed}
+                    found |= {task.id for task in [*backlog.tasks, *archived] if task.status is closed}
                 continue
             statuses = stack._read_statuses(project, backlog.config.file, refs)
+            # A row `taskrail archive` moved out still counts where the mainline's archive holds it (T121).
+            for ref, archived in stack._read_statuses(project, backlog.config.archive_path, refs).items():
+                for task_id, cell in archived.items():
+                    statuses[ref].setdefault(task_id, cell)
             reopened = {ref: _reopened_elsewhere(root, ref, refs) for ref in refs}
             for closed, found in rows.items():
                 found |= {
@@ -368,7 +373,7 @@ def run_status(project: Project, run: dict, claimed: dict[str, Claim], now: date
     branchrows.adopt(project, members, claimed)  # a member whose row only its branch holds reads as in any checkout (T071)
     rows = []
     for task_id in members:
-        task = project.task(task_id)
+        task = project.task(task_id) or archive.archived_task(project, task_id)  # a member `taskrail archive` moved out (T121)
         if task is None:
             rows.append({"id": task_id, "title": None, "kind": None, "state": None, "problem": "not in the backlog"})
             continue

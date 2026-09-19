@@ -12,6 +12,19 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **`autopilot status` and `autopilot next` now resolve a run whose tasks were archived.** Once
+  `taskrail archive` moved a finished run's rows out of the backlog, `status` reported every one of
+  them as `state: null` with `problem: "not in the backlog"`, `done_merged` fell to 0 and
+  `complete` to false for good; and `next --run` on a count-based run no longer counted those
+  members, so it would dispatch past the run's count. Both now read a member the backlog no longer
+  holds from the checkout's archive, and read the archive alongside the backlog on the mainline
+  refs, so an archived task reads `done-merged` or `discarded` with its title and kind, with or
+  without a merge record from `autopilot merged`. `--json` keeps its shape; `show`, `list`, `next`
+  without a run and `validate` still do not read the archive. The archive reads add about 15 ms to
+  `status --all` in a clone with a 46 KB archive and eleven runs (measured: 3 ms to parse it, 12–14 ms
+  to read it at two mainline refs); resolving the members again costs what it did before they were
+  archived.
+
 - **`epic add` no longer reissues the ID of an archived epic.** It allocated one above the highest
   epic in the `## Epics` table, and `taskrail archive` removes a whole epic from that table, so once
   the highest-numbered epic was archived the next `epic add` handed its ID out again, beside the

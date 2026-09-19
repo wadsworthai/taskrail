@@ -16,7 +16,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from taskrail import branches, branchrows, claims, gitutil
+from taskrail import archive, branches, branchrows, claims, gitutil
 from taskrail.autopilot import runs
 from taskrail.autopilot import status as status_module
 from taskrail.cli import (
@@ -178,7 +178,7 @@ def recorded_merges(project: Project) -> dict[str, str]:
         return {}
     found: dict[str, str] = {}
     for task_id in {task_id for run in every_run for task_id in run["tasks"]}:
-        task = project.task(task_id)
+        task = project.task(task_id) or archive.archived_task(project, task_id)  # a merge stays proven once archived (T121)
         if task is not None and (latest := _latest_record(project, task, every_run)):
             found[task_id] = record_status(latest)
     return found
