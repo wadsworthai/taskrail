@@ -112,6 +112,9 @@ tasks.
   answers lane gates from this file and `DESIGN.md` first, which the config lists in
   `read_first`. Neither is a `governing` path: a lane may change them when its task needs it, the
   orchestrator decides that change at the gate, and the human reviews it in the pull request.
+- **Subagents run on Sonnet 5**, whether an autopilot lane or a one-off subagent given a task,
+  rather than inheriting the orchestrator's model; on Claude Code that is `sonnet` in the Agent
+  tool's `model` parameter. The human naming another model when a run starts overrides it.
 
 ## Merging
 
