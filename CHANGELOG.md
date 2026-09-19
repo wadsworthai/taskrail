@@ -12,6 +12,13 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
+- **`epic add` no longer allocates an epic ID another branch already holds.** It read only the
+  working tree, so an epic committed on one branch got its ID handed out again by `epic add` on
+  another. It now reads epic IDs where `new` reads task IDs — every local branch and, with
+  `claim_remote` set, its remote-tracking branches, archives included — and `--id` refuses an ID
+  one of them holds with exit 5. Epic IDs are still not reserved: two uncommitted `epic add` runs
+  in two worktrees of one clone can still collide (T124).
+
 - **`autopilot status` and `autopilot next` now resolve a run whose tasks were archived.** Once
   `taskrail archive` moved a finished run's rows out of the backlog, `status` reported every one of
   them as `state: null` with `problem: "not in the backlog"`, `done_merged` fell to 0 and

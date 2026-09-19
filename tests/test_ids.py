@@ -75,3 +75,53 @@ def test_concurrent_reservations_never_collide(git_repo):
     results = [p.communicate()[0].strip() for p in processes]
     assert all(p.returncode == 0 for p in processes)
     assert sorted(results) == [f"T{n:03d}" for n in range(4, 16)]
+
+
+EPIC_ROW = "| E02 | Shipping | Send parcels    | —    |"
+
+
+def added_epic(root, capsys, *argv) -> tuple[int, str, str]:
+    return run(root, "epic", "add", "--name", "Payments", "--objective", "Take money", *argv, capsys=capsys)
+
+
+def commit_epic_on_a_branch(git_repo, branch: str = "lane-a") -> None:
+    """Commit epic E02 on `branch`, as `epic add` there would, and go back to main (T124)."""
+    git(git_repo.root, "checkout", "-q", "-b", branch)
+    git_repo.write("TODO.md", BASE_TODO.replace("| E01 | Billing | Charge properly | —    |", f"| E01 | Billing | Charge properly | —    |\n{EPIC_ROW}") + "\n## E02 — Shipping\n\nObjective: Send parcels\n")
+    git(git_repo.root, "commit", "-q", "-am", "add E02 on a branch")
+    git(git_repo.root, "checkout", "-q", "main")
+
+
+def test_an_epic_committed_on_another_branch_is_not_allocated_again(git_repo, capsys):
+    """`epic add` must read other branches as task IDs do: E02 is committed on lane-a, so E03 is next."""
+    commit_epic_on_a_branch(git_repo)
+    code, out, err = added_epic(git_repo.root, capsys)
+    assert (code, out.strip()) == (0, "E03"), err
+
+
+def test_an_epic_archived_on_another_branch_is_not_allocated_again(git_repo, capsys):
+    """On a branch that archived E02 whole, only the archive's heading still names it."""
+    git(git_repo.root, "checkout", "-q", "-b", "lane-a")
+    git_repo.write("docs/archive.md", "# Archive\n\n## E02 — Shipping\n\nObjective: Send parcels\n")
+    git(git_repo.root, "add", "-A")
+    git(git_repo.root, "commit", "-q", "-m", "archive E02 on a branch")
+    git(git_repo.root, "checkout", "-q", "main")
+    code, out, err = added_epic(git_repo.root, capsys)
+    assert (code, out.strip()) == (0, "E03"), err
+
+
+def test_without_the_branch_the_same_clone_would_allocate_the_epic_id(git_repo, capsys):
+    """The negative control: with lane-a deleted, E02 is genuinely free, so the branch is what moves it."""
+    commit_epic_on_a_branch(git_repo)
+    git(git_repo.root, "branch", "-q", "-D", "lane-a")
+    code, out, err = added_epic(git_repo.root, capsys)
+    assert (code, out.strip()) == (0, "E02"), err
+
+
+def test_an_epic_id_on_another_branch_is_refused_when_passed_explicitly(git_repo, capsys):
+    commit_epic_on_a_branch(git_repo)
+    before = (git_repo.root / "TODO.md").read_text(encoding="utf-8")
+    code, _, err = added_epic(git_repo.root, capsys, "--id", "E02")
+    assert code == 5
+    assert "epic `E02` is already used in refs/heads/lane-a:TODO.md; pick another ID" in err
+    assert (git_repo.root / "TODO.md").read_text(encoding="utf-8") == before

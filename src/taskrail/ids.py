@@ -1,4 +1,4 @@
-"""Race-free task ID reservation across branches and worktrees, and the epic IDs an archive holds."""
+"""Race-free task ID reservation across branches and worktrees, and the epic IDs every branch holds."""
 
 from __future__ import annotations
 
@@ -129,23 +129,55 @@ def used_ids(config: Config, backlog: BacklogConfig) -> set[str]:
     return found
 
 
-def archived_epic_ids(config: Config, backlog: BacklogConfig) -> set[str]:
-    """Epic IDs with a section in the backlog's archive on the working tree (DESIGN.md §6.3, §7.6).
-
-    `epic add` counts them as used, so an epic archived whole is never allocated again. Only the
-    working tree is read: an archived epic was in the backlog before it moved, so an ID the working
-    tree lacks came from a branch that never reached it, which no epic scan covers (T122).
-    """
-    try:
-        text = (config.root / backlog.archive_path).read_text(encoding="utf-8")
-    except (FileNotFoundError, UnicodeDecodeError):
-        return set()
-    id_re = re.compile(rf"^{backlog.epic_prefix}\d+$")
+def _epic_ids(text: str, prefix: str, archive: bool) -> set[str]:
+    """Epic IDs in a main file's `## Epics` table, or in an archive's `## E## — Name` headings."""
+    id_re = re.compile(rf"^{prefix}\d+$")
     found = set()
     for section in parse_sections(text):
-        match = EPIC_HEADING.match(section.title or "")
-        if match and id_re.match(match.group(1)):
-            found.add(match.group(1))
+        title = (section.title or "").strip()
+        if archive:
+            match = EPIC_HEADING.match(title)
+            if match and id_re.match(match.group(1)):
+                found.add(match.group(1))
+        elif title.lower() == EPICS_TITLE:
+            for table in section.tables:
+                position = _index(table.header).get("ID")
+                if position is None:
+                    continue
+                for _, cells in table.rows:
+                    if position < len(cells) and id_re.match(cells[position]):
+                        found.add(cells[position])
+    return found
+
+
+def used_epic_ids(config: Config, backlog: BacklogConfig) -> dict[str, str]:
+    """Epic IDs in the backlog's Epics table and archive headings, mapped to where each was first seen.
+
+    Read on the working tree (where the value is the file) and on the revisions `used_ids` scans
+    (`<ref>:<file>`), so `epic add` never allocates an ID another branch holds or an archived epic
+    had (DESIGN.md §6.3, §7.6; T122, T124). Nothing is reserved: an uncommitted epic in another
+    worktree is not seen. Outside a git repository only the working tree is read.
+    """
+    found: dict[str, str] = {}
+    prefix = backlog.epic_prefix
+    for path, archive in ((backlog.file, False), (backlog.archive_path, True)):
+        try:
+            text = (config.root / path).read_text(encoding="utf-8")
+        except (FileNotFoundError, UnicodeDecodeError):
+            continue
+        for epic_id in _epic_ids(text, prefix, archive):
+            found.setdefault(epic_id, path)
+    try:
+        revisions = gitutil.refs(config.root, "refs/heads")
+    except gitutil.GitError:
+        return found
+    if config.claim_remote:
+        revisions += gitutil.refs(config.root, f"refs/remotes/{config.claim_remote}")
+    specs = {f"{rev}:{path}": archive for rev in revisions for path, archive in ((backlog.file, False), (backlog.archive_path, True))}
+    for spec, text in gitutil.read_blobs(config.root, list(specs)).items():
+        if text is not None:
+            for epic_id in _epic_ids(text, prefix, specs[spec]):
+                found.setdefault(epic_id, spec)
     return found
 
 
