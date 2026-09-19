@@ -39,3 +39,15 @@ archived `--id` accepted**, with the negative control passing as it must; the en
 |---|---|---|---|---|
 | 1 | The §7.6 lead-in, "neither the ID scan nor the merge driver needs anything new", now sits above a bullet describing new code | leave it · **reword to "needs nothing new from the format"** | **reword** | The sentence was true when T107 wrote it. With `archived_epic_ids` added, "needs anything new" overstates: the *format* needed nothing new, the *readers* did. A document that says "nothing new" directly above the new thing is the same kind of small inaccuracy this session has corrected several times — in T110's title, in §9's planned marker — and it costs one clause. |
 | 2 | T125's description edited to stop naming a scratch-copy task ID that the real T124 now collides with | **accept** | **accept** | Citing a scratch ID that later becomes a real task's ID would send a reader to the wrong row. Rewording it through `taskrail edit`, and marking the artifact's scratch IDs as such, is the right repair. |
+
+## close
+
+Reviewed: the whole diff against the merge base — the fix in `ids.py` and `cmd_epic_add`, three
+tests, the §6.3 and §7.6 lines with the reworded lead-in, the changelog bullet, T124's and T125's
+rows, the artifact with its *Impact* section, and T122's `✅`; `taskrail validate` (6 tasks,
+0 errors). The last full `checks` run predates three commits that touch no code.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Pull request type and scope | **`fix` / `cli`** | **`fix` / `cli`** | `epic add` reissued an ID it had already handed out; the change is in the CLI. |
+| 2 | Hand-off order | **behind T123** | **behind T123** | T123 is published and awaiting merge; this branch will then need a rebase with a known-class `CHANGELOG.md` conflict. |
