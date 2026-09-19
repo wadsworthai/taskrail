@@ -22,3 +22,28 @@ disclosure of a stray write to run `20260918-1`, confirmed by the orchestrator i
 
 Given with the answers: `show`, `list`, `validate` and plain `next` stay archive-blind, as the lane
 proposes — the read happens only where a run names a member the backlog no longer holds.
+
+## fix gate
+
+Reviewed: commit `c18eff0` and the diff `6089ae1..HEAD` — the archive reader in `archive.py`, the
+one-line fallback in `status.py`, `dispatch.py` and `merged.py`, `_on_mainline` reading the archive
+at the mainline refs, a new test module, the §7.6 and §12.4 lines, the changelog bullet and the
+artifact, with `ids.py`, the workflows and every run file untouched; the recorded failures before
+the fix, **one per blind lookup** and one confirming the over-dispatch past a count of 2; the guard
+that `list` and `show` stay archive-blind passing before and after; `taskrail checks T121 --stage
+fix` (1,262 passed); and `autopilot status --all` from the branch, where all ten finished runs read
+`complete: true` again. The orchestrator read the changelog's cost sentence in place.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the fix | **approve** | **approve** | Every root-cause lookup has a test that failed for its own reason and now passes, and the live repository's ten runs are the end-to-end proof. |
+| 2 | The header of a *newly created* archive file changed, since "reads it only so an archived ID is never allocated again" became false | **keep** · revert | **keep** | Small, inseparable from the fix, and the same class of accuracy repair this session has made several times. The existing `docs/archive.md` is not rewritten, which is right: it is history. |
+| 3 | No dedicated test for `_on_mainline`'s no-mainline-refs branch | **accept without a test** · add a parametrized case | **accept** | Three lines mirroring an existing fallback, reached only outside git or before a first commit. Recorded here as a known untested branch rather than left implicit. |
+| 4 | A follow-up for `merged._mainline_refs` running `rev-parse` once per task | **open it** · leave it | **open it** | CLAUDE.md allows optimizing only what a measurement shows is slow, and this one is measured: 0.73 s of a 2.93 s `status --all`, under cProfile. It predates this task, so it is a new task, not a widening of this one. |
+
+On the cost figures, for whoever reads the changelog: the bullet claims only what was measured
+directly — about 15 ms for the archive reads, split into 3 ms of parsing and 12–14 ms at the two
+mainline refs. The wall-time comparison against the pre-archive checkout (≈1.7 s against ≈2.3 s)
+is **not** evidence of a slowdown from this change: it was taken while other lanes' suites were
+running on the same machine, and the profile attributes the time to per-member work that predates
+T121. That is why the bullet does not quote it, and it should not be quoted later as if it were.
