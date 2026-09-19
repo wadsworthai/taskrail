@@ -1404,12 +1404,16 @@ def cmd_epic_add(args) -> int:
         return EXIT_USAGE
     backlog = next(b for b in project.backlogs if b.config.name == backlog_config.name)
     prefix = backlog_config.epic_prefix
+    archived = ids.archived_epic_ids(config, backlog_config)
     epic_id = args.id
     if epic_id is None:
-        numbers = [int(e.id[len(prefix):]) for e in backlog.epics]
+        numbers = [int(e.id[len(prefix):]) for e in backlog.epics] + [int(i[len(prefix):]) for i in archived]
         epic_id = f"{prefix}{max(numbers, default=0) + 1:02d}"
     if any(e.id == epic_id for e in backlog.epics):
         print(f"taskrail: epic `{epic_id}` already exists", file=sys.stderr)
+        return EXIT_REFUSED
+    if epic_id in archived:
+        print(f"taskrail: epic `{epic_id}` is archived in {backlog_config.archive_path}; an archived ID is never reused", file=sys.stderr)
         return EXIT_REFUSED
     file = args.file
     if args.own_file and file is None:

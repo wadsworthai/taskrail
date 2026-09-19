@@ -1,4 +1,4 @@
-"""Race-free task ID reservation across branches and worktrees."""
+"""Race-free task ID reservation across branches and worktrees, and the epic IDs an archive holds."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from taskrail import gitutil
-from taskrail.backlog import EPICS_TITLE, _index, _is_task_table
+from taskrail.backlog import EPIC_HEADING, EPICS_TITLE, _index, _is_task_table
 from taskrail.config import BacklogConfig, Config
 from taskrail.markdown import parse_sections
 from taskrail.model import NONE_MARKERS
@@ -126,6 +126,26 @@ def used_ids(config: Config, backlog: BacklogConfig) -> set[str]:
     for text in gitutil.read_blobs(config.root, epic_specs).values():
         if text is not None:
             found.update(_task_ids(text, backlog.prefix, config.column_aliases))
+    return found
+
+
+def archived_epic_ids(config: Config, backlog: BacklogConfig) -> set[str]:
+    """Epic IDs with a section in the backlog's archive on the working tree (DESIGN.md §6.3, §7.6).
+
+    `epic add` counts them as used, so an epic archived whole is never allocated again. Only the
+    working tree is read: an archived epic was in the backlog before it moved, so an ID the working
+    tree lacks came from a branch that never reached it, which no epic scan covers (T122).
+    """
+    try:
+        text = (config.root / backlog.archive_path).read_text(encoding="utf-8")
+    except (FileNotFoundError, UnicodeDecodeError):
+        return set()
+    id_re = re.compile(rf"^{backlog.epic_prefix}\d+$")
+    found = set()
+    for section in parse_sections(text):
+        match = EPIC_HEADING.match(section.title or "")
+        if match and id_re.match(match.group(1)):
+            found.add(match.group(1))
     return found
 
 

@@ -566,6 +566,11 @@ since the row then sits only in an uncommitted workspace that no scan reads (T07
 Only IDs in the `ID` column of task tables count, so a description that mentions an ID does
 not move the counter.
 
+**Epic IDs** are allocated by `epic add` as one above the highest epic in the backlog's `## Epics`
+table or with a section in its archive (§7.6), both on the working tree only. They are **not**
+scanned on other branches and not reserved, so two branches adding an epic at once get the same ID;
+`--id` refuses an ID either source already holds.
+
 ### 6.4 Task branches
 
 A task's branch is its **recorded** branch when one exists, otherwise the name its kind's
@@ -1207,11 +1212,15 @@ into the archived section. An epic that keeps even one row keeps its heading and
 **The document** is the same Markdown as a backlog — a `## E## — Name` section per epic, holding
 task tables — and each row keeps its exact line, with the source table's own header, aliases and
 custom columns. So `grep` finds a task wherever it lives, the row's shape never depends on when it
-was archived, and neither the ID scan nor the merge driver needs anything new:
+was archived, and neither the ID scan nor the merge driver needs anything new from the format:
 
 - `ids.used_ids` reads the archive too, on the working tree and on every scanned revision, so an
   archived ID is still used and is never allocated again (§6.3). Without it, `new` would reissue an
   archived ID once the branches carrying the row are gone.
+- `epic add` reads the archive's `## E## — Name` headings on the working tree, so an epic archived
+  whole keeps its ID used: it is never allocated again, and `--id` refuses it with exit 5 (T122).
+  Without it, the next epic after an archived highest-numbered one reissues that ID, and a later
+  `archive` files the new epic's rows in the old epic's section.
 - The archive is one of the merge driver's paths (§7.4), class `backlog`, so two lanes archiving at
   once merge row by row: both sides' rows, and a row both archived kept once.
 
