@@ -51,3 +51,15 @@ rows, the artifact with its *Impact* section, and T122's `✅`; `taskrail valida
 |---|---|---|---|---|
 | 1 | Pull request type and scope | **`fix` / `cli`** | **`fix` / `cli`** | `epic add` reissued an ID it had already handed out; the change is in the CLI. |
 | 2 | Hand-off order | **behind T123** | **behind T123** | T123 is published and awaiting merge; this branch will then need a rebase with a known-class `CHANGELOG.md` conflict. |
+
+## published ahead of T123, on the human's instruction
+
+Hand-off is sequential by default, and T123 was in review when the human asked for this branch's
+pull request directly. Publishing it puts two branches in review at once. That is the human's call
+to make and they made it; recorded here so the order is not mistaken for an oversight.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Publish while T123 is in review | **publish now** · wait for T123 to merge | **publish now** | Asked for by the human. `origin/main` is still `df31678`, this branch's base, so no rebase is needed. Whichever of the two merges second will meet one known-class conflict — a `CHANGELOG.md` bullet — resolved at its rebase. |
+
+Answered by the human (the repository's maintainer), 2026-09-19.
