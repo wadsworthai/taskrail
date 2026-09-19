@@ -1,0 +1,20 @@
+name: pr-title
+
+# The pull request is squash-merged, so its title becomes the commit on main that relscribe reads
+# to compute the next version.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: astral-sh/setup-uv@v10.1.0
+      # The title goes through the environment, never inline in the script.
+      - env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: uvx --from git+https://github.com/wadsworthai/relscribe@v0.1.0 relscribe lint "$TITLE"

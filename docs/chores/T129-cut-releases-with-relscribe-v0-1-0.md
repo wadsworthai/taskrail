@@ -101,6 +101,11 @@ Options:
 them by hand; `sync` does it in the release commit and fails the release if one drifts.
 Alternative: leave them manual in the Releasing steps.
 
+**Answered at the scope gate:** A3 — this pull request pins `v0.1.0` and does not add
+`release.yml`; the next release's pull request adds it, and its one run exiting 4 is expected (a
+follow-up task in E10 carries both). B — yes, the pins are under `sync`. The rest of the change set
+approved as written.
+
 ## Out of scope
 
 - Rewriting or regenerating the existing 0.1.0–0.4.0 changelog sections.

@@ -10,7 +10,7 @@ In a repository that has no `.taskrail/` yet, that is `taskrail init --integrati
 instead of `upgrade`. To install the CLI on your machine as well:
 `uv tool install taskrail --from "git+https://github.com/wadsworthai/taskrail.git@vX.Y.Z"`.
 
-## Unreleased
+## [Unreleased]
 
 ## 0.4.0
 
