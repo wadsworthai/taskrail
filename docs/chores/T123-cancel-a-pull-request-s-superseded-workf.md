@@ -189,3 +189,18 @@ Results:
   cannot be tested offline or from a lane, which never pushes. This pull request's own runs are
   its first real exercise: a second push to it should cancel the first push's `ci` and `taskrail`
   runs, and the runs on `main` after the merge should each complete.
+
+## Documentation and follow-ups
+
+- **`DESIGN.md` §9 *Extras***: after the permissions clause, the template's `concurrency` group
+  and `cancel-in-progress: true` are recorded with both reasons: a pull request's runs share
+  `refs/pull/<N>/merge`, and each push to a mainline gets a group of its own. It also states the
+  pending-run fact that rules out the plain `github.ref`, even with a conditional cancel. Nothing
+  else in §9 changed.
+- **`CHANGELOG.md`**: one bullet under *Unreleased*. It covers what used to happen, what the
+  group does, and why a mainline push gets its own group. It also prints the block, for
+  consumers whose workflow `upgrade` reports as `edited locally; --force replaces it`.
+- **`README.md`** was not changed: its line describes what the extra adds, and that does not
+  change.
+- The implement gate kept the comment above the block in both workflows.
+- No follow-up tasks.

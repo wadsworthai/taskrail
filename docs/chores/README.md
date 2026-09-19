@@ -42,3 +42,4 @@
 | T120 | Give the generated GitHub workflow a least-privilege permissions block | [T120-give-the-generated-github-workflow-a-lea.md](T120-give-the-generated-github-workflow-a-lea.md) |
 | T114 | Archive this repository's closed tasks and epics | [T114-archive-this-repository-s-closed-tasks-a.md](T114-archive-this-repository-s-closed-tasks-a.md) |
 | T126 | Resolve the mainline refs once per backlog when checking recorded merges | [T126-resolve-the-mainline-refs-once-per-backl.md](T126-resolve-the-mainline-refs-once-per-backl.md) |
+| T123 | Cancel a pull request's superseded workflow runs when a new one is queued | [T123-cancel-a-pull-request-s-superseded-workf.md](T123-cancel-a-pull-request-s-superseded-workf.md) |
