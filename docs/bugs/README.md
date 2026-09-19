@@ -19,3 +19,4 @@
 | T113 | Fix the vacuous local-pin wrapper test in test_install.py | [T113-fix-the-vacuous-local-pin-wrapper-test-i.md](T113-fix-the-vacuous-local-pin-wrapper-test-i.md) |
 | T118 | Pass the wrapper's own root to the CLI so a wrapper acts on its own checkout | [T118-pass-the-wrapper-s-own-root-to-the-cli-s.md](T118-pass-the-wrapper-s-own-root-to-the-cli-s.md) |
 | T119 | Warn from done, as claim does, when the checked-out branch is not the task's | [T119-warn-from-done-as-claim-does-when-the-ch.md](T119-warn-from-done-as-claim-does-when-the-ch.md) |
+| T122 | Stop epic add from reissuing the ID of an archived epic | [T122-stop-epic-add-from-reissuing-the-id-of-a.md](T122-stop-epic-add-from-reissuing-the-id-of-a.md) |
