@@ -357,3 +357,14 @@ rewrap:
 $ awk '/^## 0.4.0/,/^## 0.3.0/' CHANGELOG.md | grep -c 'Behaviour change:'
 9
 ```
+
+### Docs stage
+
+No documentation needs to change beyond the change set. README's *Releasing* already describes
+this process (a pull request, then the tag, then the install check and the bump), and CLAUDE.md
+describes the changelog as "under Unreleased until a release", which the new empty
+`## Unreleased` keeps true.
+`grep -rn 'dev0\|0\.4\.0\|0\.3\.0\|Unreleased' README.md CLAUDE.md src/taskrail/skills src/taskrail/integrations examples`
+finds only README's two install examples, already at `v0.4.0`, step 3 of *Releasing*, and
+CLAUDE.md's changelog line. The skills and integration notes name no version. T128 already
+carries the install from the tag and the bump, so no follow-up task was opened.
