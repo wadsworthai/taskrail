@@ -169,6 +169,10 @@ new recorded_merges: min 0.378  median 0.411  max 0.430
    and runs old then new three times: `cmp` reports **all three rounds identical**, and all six
    files share sha256 `a949efd3dbcffde26b58b47c264d81390c4024a7c6bc8724aee6fcabbbcd4e73`
    (75,671 bytes).
+   The not-merge rule was not relaxed to accept this. It exists to catch a change of behaviour, and
+   a field computed from the clock differs between any two runs that straddle a minute boundary,
+   whatever the code. Freezing the clock holds it as fixed as the clone the two codes read, so the
+   frozen comparison is the byte-for-byte test the rule asks for, and it found no difference.
 3. **cProfile time**: the new median total (1.802 s) is below the old minimum (2.260 s), and the
    new maximum (1.813 s) is below the old minimum too. `_mainline_refs` falls from 0.57–0.64 s to
    0.009–0.015 s; `recorded_merges` from a median of 1.020 s to 0.411 s.
