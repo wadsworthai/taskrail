@@ -68,3 +68,9 @@ index and `CHANGELOG.md`); `taskrail checks T123` passed afterwards. Re-publishe
 `main` advanced to `faad84e` (T124). Rebased with three known-class conflicts (the decisions index,
 `CHANGELOG.md`, `TODO.md`); `upgrade` reports every managed file up to date; `taskrail checks T123`
 passed with 1,270 tests. Re-published with a lease.
+
+## rebase after T126 merged
+
+`main` advanced to `881ae6f` (T126). Rebased with known-class conflicts only (index rows and
+`TODO.md`); T126 changed `src/taskrail/autopilot/merged.py`, which this branch does not touch.
+`taskrail checks` passed afterwards. Re-published with a lease.
