@@ -20,3 +20,19 @@ for every file that names a version.
 
 Correction for the artifact: the local `v0.1.0` tag no longer exists. The human asked for it to be
 deleted and the orchestrator deleted it before this task started; it was never on `origin`.
+
+## implement gate
+
+Reviewed: commit `8d978c6` — one line each in `pyproject.toml` and `uv.lock`, and the artifact's
+results; the twelve checks, run under a scrubbed environment whose `PATH` held only `uv` and `uvx`,
+with `command -v taskrail` shown empty first and every install from an empty cache.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the implement stage | **approve** | **approve** | Every check passed, and the three that matter most prove rather than assert: `uvx` fetched `v0.4.0` over HTTPS and resolved it to `a0994e3`, and `import taskrail` loaded from the scratch cache, not this checkout; the committed wrapper with an empty `PATH` fell through to `uvx` from the tag; and a `0.5.0.dev0` wheel placed on `PATH` was **rejected** by the `v0.4.0` pin in favour of the tag — the version check in the wrapper doing its job against the exact build this task creates. |
+
+Worth recording beyond this task: the anonymous Actions API shows both workflows — `ci` and the
+generated `taskrail` — completing with `success` on `main` at `a0994e3`, the release commit, with
+T123's concurrency block in place. It goes through this repository's `local:.` pin and is labelled
+supporting only, but it is the first confirmation from GitHub itself that the generated workflow T116
+fixed now runs.
