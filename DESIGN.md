@@ -1212,7 +1212,7 @@ into the archived section. An epic that keeps even one row keeps its heading and
 **The document** is the same Markdown as a backlog — a `## E## — Name` section per epic, holding
 task tables — and each row keeps its exact line, with the source table's own header, aliases and
 custom columns. So `grep` finds a task wherever it lives, the row's shape never depends on when it
-was archived, and neither the ID scan nor the merge driver needs anything new:
+was archived, and neither the ID scan nor the merge driver needs anything new from the format:
 
 - `ids.used_ids` reads the archive too, on the working tree and on every scanned revision, so an
   archived ID is still used and is never allocated again (§6.3). Without it, `new` would reissue an
