@@ -25,3 +25,24 @@ dropped two it had included (T099 and T003 reach new installs only).
 Noted for the human, not for this task: `git tag` in this clone lists a local `v0.1.0` that is not
 on `origin`, while `CHANGELOG.md` says the repository has no `v0.1.0` tag. The lane reported it and
 touched nothing; neither did the orchestrator.
+
+## implement gate
+
+Reviewed: commit `80cf309` — `pyproject.toml` at `0.4.0`, `uv.lock` changing only its version line,
+the release notes, and the version named in `DESIGN.md` and `README.md`; the lead paragraph and all
+nine `Behaviour change:` sentences read in full; the build, the fresh `init` from the 0.4.0 wheel,
+and the upgrade from 0.3.0 run end to end, which reproduced four of the release's fixes on the
+released 0.3.0 before showing each one gone after `upgrade`; `taskrail checks T127 --stage
+implement` (1,273 passed). Checked by the orchestrator: `pyproject.toml` reads `0.4.0`, `git tag`
+is unchanged (`v0.1.0 v0.2.0 v0.3.0`), and no `v0.4.0` exists on `origin`.
+
+| # | Question | Options | Decision | Reason |
+|---|---|---|---|---|
+| 1 | Approve the implement stage | **approve, with one rewrap** · request wording changes | **approve with one rewrap** | The notes say what a consumer needs, in the file's own convention, and the upgrade check proves the "arrives at `upgrade`" column rather than claiming it. |
+| 1a | T109's marker is wrapped so "Behaviour" and "change:" fall on separate source lines | **rewrap it onto one line** · leave it | **rewrap** | The lead paragraph tells the reader to look for the entries marked **Behaviour change**, and a single-line search finds 8 of the 9. One that a reader's search misses is the one they will not read before upgrading. `## 0.2.0` keeps each marker on one line. |
+| 2 | The extra `(T121)` added while rewording | **keep** · revert | **keep** | The same correction as (b), found while doing (a); the artifact records it. |
+
+The upgrade check is the strongest evidence in this release. On the published 0.3.0 the wrapper run
+from another directory exits 2, `next --limit 0` answers `no eligible tasks` with exit 0, and
+`epic add --id E02` accepts an ID another branch holds; after `upgrade` to 0.4.0 all three behave as
+the notes say, and the config's only change is its version pin.
