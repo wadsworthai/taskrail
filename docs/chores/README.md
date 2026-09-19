@@ -44,3 +44,4 @@
 | T126 | Resolve the mainline refs once per backlog when checking recorded merges | [T126-resolve-the-mainline-refs-once-per-backl.md](T126-resolve-the-mainline-refs-once-per-backl.md) |
 | T123 | Cancel a pull request's superseded workflow runs when a new one is queued | [T123-cancel-a-pull-request-s-superseded-workf.md](T123-cancel-a-pull-request-s-superseded-workf.md) |
 | T127 | Release v0.4.0 | [T127-release-v0-4-0.md](T127-release-v0-4-0.md) |
+| T128 | Install from the v0.4.0 tag and bump main to 0.5.0.dev0 | [T128-install-from-the-v0-4-0-tag-and-bump-mai.md](T128-install-from-the-v0-4-0-tag-and-bump-mai.md) |

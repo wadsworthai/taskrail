@@ -111,3 +111,4 @@
 | T123 | Cancel a pull request superseded workflow runs when a new one is queued | [T123-cancel-a-pull-request-s-superseded-workf.md](T123-cancel-a-pull-request-s-superseded-workf.md) |
 | T125 | Stop archive from merging a different epic into an archived epic section | [T125-stop-archive-from-merging-a-different-ep.md](T125-stop-archive-from-merging-a-different-ep.md) |
 | T127 | Release v0.4.0 | [T127-release-v0-4-0.md](T127-release-v0-4-0.md) |
+| T128 | Install from the v0.4.0 tag and bump main to 0.5.0.dev0 | [T128-install-from-the-v0-4-0-tag-and-bump-mai.md](T128-install-from-the-v0-4-0-tag-and-bump-mai.md) |
