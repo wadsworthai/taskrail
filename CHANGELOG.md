@@ -12,59 +12,57 @@ instead of `upgrade`. To install the CLI on your machine as well:
 
 ## Unreleased
 
-- **`archive` no longer files an epic's rows under a different epic's archived section.** It looked
-  the section up by ID alone, so a live epic whose ID the archive already held for another epic — a
-  reissue by hand edit, by a merge, or by `epic add` before T122 — was merged into that epic's
-  history: its objective stacked above the old one and its rows appended to the old table. When an
-  epic's archive section has its ID but another name, `archive` (and `--dry-run`) now moves nothing
-  in any backlog and exits 5, naming the epic, the heading and the file. Give the live epic an
-  unused ID, or, if it was only renamed, rename that heading to match. `validate` still never
-  reads the archive (T125).
+## 0.4.0
 
+Adds `taskrail archive`, which moves closed tasks and epics out of the backlog into a document of
+their own, and lets an autopilot task that waits for the human give its lane to another. Fixes the
+workflow `init --github-workflow` generates, which failed in every earlier release, and makes the
+wrapper act on the checkout it lives in. New repositories get `TASKRAIL.md` as their backlog; an
+existing one keeps its file. Fixes to the wrapper, the workflow and the skills reach a repository
+only when it runs `taskrail upgrade` after moving its pin. Read the entries marked
+**Behaviour change** before upgrading: `next --limit`, the wrapper, `done` and `discard`,
+`epic add`, `validate`, the autopilot's lanes and the generated workflow.
+
+- **`archive` refuses to file an epic's rows under a different epic's archived section.** When the
+  archive already holds a section with a live epic's ID but another name — an ID reissued by a hand
+  edit or a merge — `archive` (and `--dry-run`) moves nothing in any backlog and exits 5, naming the
+  epic, the heading and the file. Give the live epic an unused ID, or, if it was only renamed,
+  rename that heading to match. `validate` still never reads the archive (T125).
 - **The generated GitHub workflow now cancels a pull request's superseded runs.** Every push to a
   pull request queued a fresh `validate` run while the previous push's run kept going. The
   workflow `init --github-workflow` writes now has a `concurrency` group: a pull request's runs
   share one, so the newer run cancels the older, while each push to a mainline gets a group of its
   own and is never cancelled — GitHub cancels a group's pending run whenever a newer one is
   queued, so a group keyed on the mainline's ref would drop runs when merges land close together.
-  `taskrail upgrade` rewrites an unedited workflow; one edited locally is reported as
-  `edited locally; --force replaces it`, and its owner adds, at the top level:
+  Behaviour change: `upgrade` rewrites an unedited generated workflow, and from then on a pull
+  request's older run is cancelled when a newer push queues one. A workflow edited locally is
+  reported as `edited locally; --force replaces it`, and its owner adds, at the top level (T123):
 
   ```yaml
   concurrency:
     group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
     cancel-in-progress: true
   ```
-
 - **`epic add` no longer allocates an epic ID another branch already holds.** It read only the
   working tree, so an epic committed on one branch got its ID handed out again by `epic add` on
   another. It now reads epic IDs where `new` reads task IDs — every local branch and, with
   `claim_remote` set, its remote-tracking branches, archives included — and `--id` refuses an ID
   one of them holds with exit 5. Epic IDs are still not reserved: two uncommitted `epic add` runs
-  in two worktrees of one clone can still collide (T124).
-
-- **`autopilot status` and `autopilot next` now resolve a run whose tasks were archived.** Once
-  `taskrail archive` moved a finished run's rows out of the backlog, `status` reported every one of
-  them as `state: null` with `problem: "not in the backlog"`, `done_merged` fell to 0 and
-  `complete` to false for good; and `next --run` on a count-based run no longer counted those
-  members, so it would dispatch past the run's count. Both now read a member the backlog no longer
-  holds from the checkout's archive, and read the archive alongside the backlog on the mainline
-  refs, so an archived task reads `done-merged` or `discarded` with its title and kind, with or
-  without a merge record from `autopilot merged`. `--json` keeps its shape; `show`, `list`, `next`
-  without a run and `validate` still do not read the archive. The archive reads add about 15 ms to
-  `status --all` in a clone with a 46 KB archive and eleven runs (measured: 3 ms to parse it, 12–14 ms
-  to read it at two mainline refs); resolving the members again costs what it did before they were
-  archived.
-
-- **`epic add` no longer reissues the ID of an archived epic.** It allocated one above the highest
-  epic in the `## Epics` table, and `taskrail archive` removes a whole epic from that table, so once
-  the highest-numbered epic was archived the next `epic add` handed its ID out again, beside the
-  archive's section of that ID, and a later `archive` filed the new epic's rows under the old one's
-  heading. It now also counts the epic sections in the backlog's archive on the working tree, and
-  `--id` refuses an archived epic's ID with exit 5, as it already refused a live one. `validate`
-  still never reads the archive. Epic IDs are still neither scanned across branches nor reserved,
-  unlike task IDs (T122).
-
+  in two worktrees of one clone can still collide. Behaviour change: `epic add --id` with an ID
+  another branch or the archive holds used to succeed and now exits 5, and `epic add` without
+  `--id` may allocate a higher ID than it did (T124).
+- **`autopilot status` and `autopilot next` resolve a run whose tasks were archived.** A member
+  `taskrail archive` has moved out of the backlog is read from the checkout's archive, and from the
+  archive at the mainline refs, so it reads `done-merged` or `discarded` with its title and kind,
+  with or without a merge record from `autopilot merged`; `done_merged`, `complete` and
+  `next --run`'s count stay right. `--json` keeps its shape; `show`, `list`, `next` without a run
+  and `validate` do not read the archive. The archive reads add about 15 ms to `status --all` in a
+  clone with a 46 KB archive and eleven runs (measured: 3 ms to parse it, 12–14 ms to read it at two
+  mainline refs); resolving the members again costs what it did before they were archived (T121).
+- **`epic add` never reissues the ID of an archived epic.** `archive` removes a whole epic from the
+  `## Epics` table, so `epic add` also counts the epic sections in the backlog's archive, and `--id`
+  refuses an archived epic's ID with exit 5, as it refuses a live one. `validate` still never reads
+  the archive (T122).
 - **`done` and `discard` now warn when the checkout they wrote to is not on the task's branch.**
   Run against another checkout — the mainline, say — they ticked that checkout's row, released the
   claim, printed `<ID> done` and exited 0, while the branch that carries the pull request kept its
@@ -77,8 +75,8 @@ instead of `upgrade`. To install the CLI on your machine as well:
   under `[git].task_branch = "current"`, outside git, and on a detached `HEAD`, which `claim`
   already covers. This is the only cover for the case no rule about resolving the repository root
   can catch, where the path a command was invoked by and the directory it ran in agree and are both
-  the wrong checkout (T119).
-
+  the wrong checkout. Behaviour change: `done` and `discard` can print to stderr, and `--json` has
+  the new `warning` key (T119).
 - **The wrapper now acts on the checkout it lives in, whatever the current directory is.**
   `.taskrail/bin/taskrail` already computed its own checkout's root and used it to read the version
   pin and to find a `local:` source, and then did not pass it on, so the wrapper decided which
@@ -92,12 +90,11 @@ instead of `upgrade`. To install the CLI on your machine as well:
   flag whose last occurrence wins; `TASKRAIL_BIN` is unchanged, since it delegates to a binary of
   the caller's choosing. **An installed repository picks the fix up with `taskrail upgrade`**: the
   wrapper is a managed file, so an untouched one is rewritten and one edited locally is left alone
-  and reported as `edited locally; --force replaces it`. **One caller changes behaviour**: a
-  repository that deliberately ran one checkout's wrapper against another repository without
-  `--root` now acts on the wrapper's own checkout, and must pass `--root` to keep aiming elsewhere
-  — such a caller was already running the wrong pinned version for its target, since the pin comes
-  from the wrapper's own config (T115 decided this, T118 applied it).
-
+  and reported as `edited locally; --force replaces it`. Behaviour change: a repository that
+  deliberately ran one checkout's wrapper against another repository without `--root` now acts on
+  the wrapper's own checkout, and must pass `--root` to keep aiming elsewhere — such a caller was
+  already running the wrong pinned version for its target, since the pin comes from the wrapper's
+  own config (T115 decided this, T118 applied it).
 - **The workflow `--github-workflow` generates now runs with least privilege.** It set no
   `permissions`, so its `validate` job ran with the repository's default `GITHUB_TOKEN`
   permissions — read-write on every scope in repositories created before GitHub changed that
@@ -107,17 +104,15 @@ instead of `upgrade`. To install the CLI on your machine as well:
   and every scope a `permissions` block leaves unnamed is `none`. It is `contents: read` rather
   than no scopes at all because `actions/checkout` still has to read a private repository.
   **An installed repository picks this up with `taskrail upgrade`**: the workflow is a managed
-  file, so an untouched one is rewritten. **A repository whose workflow was edited locally is
-  left alone** — `upgrade` reports it as `edited locally; --force replaces it` — and has to add
-  the two lines itself:
+  file, so an untouched one is rewritten. Behaviour change: `upgrade` rewrites an unedited
+  generated workflow, whose job then gets only `contents: read`. **A repository whose workflow was
+  edited locally is left alone** — `upgrade` reports it as `edited locally; --force replaces it` —
+  and has to add the two lines itself (T120):
 
   ```yaml
   permissions:
     contents: read
   ```
-
-  (T120.)
-
 - **The workflow `--github-workflow` generates now names action tags that exist.** It pinned
   `astral-sh/setup-uv@v10`, and that project publishes bare major tags only through `v7` — its
   tenth line exists only as `v10.0.0`, `v10.0.1` and `v10.1.0` — so GitHub could not resolve the
@@ -128,8 +123,8 @@ instead of `upgrade`. To install the CLI on your machine as well:
   publishes a floating major. **An installed repository picks the fix up with `taskrail upgrade`**:
   the workflow is a managed file, so an untouched one is rewritten, and one edited locally is left
   alone and reported as `edited locally; --force replaces it` — a repository in that case changes
-  the `setup-uv` line itself (T116).
-
+  the `setup-uv` line itself. Behaviour change: `upgrade` rewrites an unedited generated workflow,
+  whose `validate` job then runs where it failed before (T116).
 - **The autopilot skill now says what bounds a run — the orchestrator's context — and tells the
   orchestrator to plan the count against it.** A run's count was chosen with no idea of its ceiling.
   A lane ends with its task, while the orchestrator accumulates every lane's report, every gate
@@ -143,7 +138,6 @@ instead of `upgrade`. To install the CLI on your machine as well:
   context per dispatched task on the two long ones over a 32k–39k session overhead — roughly 21 to
   26 tasks in a 1M context — against 38 lanes that peaked at 78k–356k and never compacted (T057
   measured it, T111 wrote it down). No CLI behaviour changed.
-
 - **`next --limit` refuses a value below 1 instead of answering it wrongly.** `--limit` took any
   integer and was used only as a slice bound, so `--limit 0` printed `no eligible tasks` (and `[]`
   with `--json`) and exited 0 — indistinguishable from a backlog with nothing eligible — while a
@@ -151,10 +145,10 @@ instead of `upgrade`. To install the CLI on your machine as well:
   rest as a complete answer. It now uses the same converter as `validate --history-limit`:
   `--limit 0` and `--limit=-1` exit 2 with
   `argument --limit: expected a whole number of at least 1, got \`0\``, printing nothing to
-  stdout, and a non-numeric value gets that message too instead of `invalid int value`. **A script
-  passing 0 or a negative `--limit` now fails where it used to exit 0**; every value of 1 or more
-  behaves exactly as before (T109).
-
+  stdout, and a non-numeric value gets that message too instead of `invalid int value`. Behaviour
+  change: a script passing 0 or a negative `--limit` now fails where it used to exit 0; every value
+  of 1 or more behaves exactly as before (T109).
+- **`next --help` describes `--limit N`**, which it listed as a bare `--limit LIMIT` (T101).
 - **`taskrail archive` moves closed tasks and closed epics out of the backlog.** A backlog kept
   every row it ever had, so a long-lived one grew without bound and a reader met years of finished
   work before the open rows. The new command — run by the human, never automatic on `done` — moves
@@ -163,11 +157,11 @@ instead of `upgrade`. To install the CLI on your machine as well:
   section, its own file where it has one, and its objective and `Done when:` carried across. A
   closed row that a row staying behind depends on is held back and named in the output, which is
   what keeps the backlog valid: `validate` never reads the archive. The archive is the same
-  Markdown as the backlog, so `grep` still finds a task, `ids` counts archived IDs as used — an
-  archived ID is never allocated again — and the merge driver merges two branches' archives row by
-  row, its `.gitattributes` block naming the archive from `init --merge-driver` and `upgrade`. An
-  archived task is not reopened: `taskrail reopen` exits 3 naming the archive file the ID sits in.
-
+  Markdown as the backlog, so `grep` still finds a task, task ID allocation (`new`, `reserve-id`)
+  counts archived IDs as used — an archived ID is never allocated again — and the merge driver
+  merges two branches' archives row by row, its `.gitattributes` block naming the archive from
+  `init --merge-driver` and `upgrade`. An archived task is not reopened: `taskrail reopen` exits 3
+  naming the archive file the ID sits in (T107).
 - **A task waiting for the human no longer holds an autopilot lane, and the answer puts it back in
   the queue.** A lane stopped at an escalated gate kept its lane until the human replied, so a run
   with `max_lanes = 3` and two escalations had one lane working while `autopilot next` reported
@@ -181,8 +175,8 @@ instead of `upgrade`. To install the CLI on your machine as well:
   every lane is busy waits: `next` lists it in `parked` with why, and `autopilot status` reports
   every task's `holds_lane`, false for a task that keeps its workspace but no lane. Nothing caps
   those parked workspaces, so a run may hold `max_lanes` working lanes plus every task waiting for
-  a human (T105).
-
+  a human. Behaviour change: while an escalated task waits, `autopilot next` may start another task
+  in its lane (T105).
 - **uvx is the documented default, and nothing has to be installed on the machine.** The
   no-global-install route already worked — the committed wrapper runs the pinned version through
   `uvx`, and the generated GitHub workflow installs only `uv` — but the documentation taught
@@ -192,7 +186,7 @@ instead of `upgrade`. To install the CLI on your machine as well:
   what upgrading means with no CLI installed: `uvx --from "git+<repo>@<tag>" taskrail upgrade`
   moves the pin, where `self upgrade` only replaces a global CLI. Installing globally stays
   supported and documented, and no behaviour changed (T100).
-- **The backlog file defaults to `TASKRAIL.md`, and taskrail no longer takes `TODO.md`.**
+- **The backlog file defaults to `TASKRAIL.md`, and `init` no longer seeds `TODO.md`.**
   `[[backlog]].file` was required and `init` seeded it as `TODO.md` — the one name a consuming
   repository is most likely to be using for its own list, which `init` then silently adopted as the
   backlog, leaving the repository failing `validate` out of the box. `file` is now optional and
@@ -204,21 +198,19 @@ instead of `upgrade`. To install the CLI on your machine as well:
   `taskrail import TODO.md --write`. The one cost: a config written for this version that *omits*
   `file` will not load on v0.3.0 or earlier, which exits 2 with `missing required key \`file\``
   (T099).
-
 - **`validate` warns about a name in `.taskrail/config.toml` that taskrail does not define.** A key
   taskrail does not know was ignored in silence, so a typo did nothing and no configuration key
   could be withdrawn without a repository quietly losing what it had set. `validate` now reports it
   as a warning — in its text and in `--json` — naming the key and the table it sits in, with
   `did you mean …?` for a near miss, and one warning for a whole table it does not know. It is never
   an error: the exit code stays 0 and every command goes on working, so a config written for another
-  version still loads (T094).
-
+  version still loads. Behaviour change: `validate` can print warnings for a config it accepted
+  silently; the exit code is still 0 (T094).
 - **Every executor reads the repository's own instructions before it plans.** The `taskrail` skill's
   procedure now opens its stages step by telling the executor to read the repository's agent
   instruction files, if it has any, and follow what they ask of the work at hand — so every kind
   does what `taskrail-chore` alone did, whatever agent runs it. Run `taskrail upgrade` to install
   it (T091).
-
 - **A refused ID now names the configuration key that would accept it.** `validate` refused an
   epic or task ID by quoting the prefix it expected — ``epic ID `EP01` does not match `E` plus two
   or more digits`` — so a repository whose epics are numbered `EP01` was told what taskrail wanted

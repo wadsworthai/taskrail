@@ -1,6 +1,6 @@
 # T127 — Release v0.4.0
 
-Kind: chore · Epic: E10 · Status: scope proposed; the tag follows the merge
+Kind: chore · Epic: E10 · Status: implemented, awaiting review; the tag follows the merge
 
 ## Goal
 
@@ -266,3 +266,84 @@ checks.
 
 After the tag, in T128: the install from the published tag, the wrapper's `uvx` fallback and
 `self upgrade --dry-run`.
+
+## Decisions at the scope gate
+
+Recorded in `docs/autopilot/decisions/T127-release-v0-4-0.md`. Every decision was taken as
+recommended: 0.4.0; the `## 0.2.0` convention (lead paragraph plus a `Behaviour change:` sentence
+per affected bullet, no new heading, nothing moved); corrections (a)–(h); `v0.4.0` in the install
+and pin examples in this pull request; the upgrade check from 0.3.0, with nothing that creates a
+tag and no pin that implies `v0.4.0` exists remotely; the title
+`chore(release): release v0.4.0 (T127)`.
+
+One correction of kind (b) was applied beyond the listed ones: T121's bullet also carried no task
+ID, found while rewording it under (a), and now ends `(T121)`.
+
+### Results before merging
+
+No tag was created: `git tag` in this clone printed `v0.1.0`, `v0.2.0`, `v0.3.0` before and after
+the checks (`diff` of the two listings is empty), and `git ls-remote --tags origin` has no
+`v0.4.0`. Nothing ran `uv tool install`. Scratch files are under `/tmp/claude-7932/T127/`. Wrapper
+checks ran with `PATH=<scratch venv>/bin:/usr/bin:/bin`, which holds neither the human's
+`taskrail` nor `uv`/`uvx`, so the wrapper could only take the scratch environment's CLI and never
+fetch a tag.
+
+1. `taskrail checks T127 --stage implement` ran `test` (`uv run pytest -q`): `1273 passed in
+   180.79s (0:03:00)`. `lint` is `not configured`, and the overall result was `passed`.
+2. `uv run taskrail --version` and `.taskrail/bin/taskrail --version` (the `local:.` pin) printed
+   `taskrail 0.4.0`.
+3. `uv lock` printed `Resolved 7 packages in 117ms` and `Updated taskrail v0.4.0.dev0 -> v0.4.0`;
+   `uv lock --check` printed `Resolved 7 packages in 0.98ms`. `git diff uv.lock` changes only the
+   taskrail `version` line.
+4. `uv build --out-dir /tmp/claude-7932/T127/build` built `taskrail-0.4.0.tar.gz` and
+   `taskrail-0.4.0-py3-none-any.whl`.
+5. A scratch venv with the wheel printed `taskrail 0.4.0`. In a new git repository,
+   `taskrail --root fresh init --integration claude` wrote `version = "v0.4.0"` as the config's
+   first line, `file = "TASKRAIL.md"`, the commented `# [autopilot]` block, and created
+   `TASKRAIL.md`. `sh -x fresh/.taskrail/bin/taskrail --version` traced `'[' v0.4.0 = v0.4.0 ']'`
+   and `exec taskrail --root /tmp/claude-7932/T127/fresh --version`, then printed
+   `taskrail 0.4.0`; `validate` printed `0 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
+6. The upgrade path from 0.3.0. A second venv installed
+   `taskrail @ git+file://<this repository>@v0.3.0`, which read the existing tag
+   (`+ taskrail==0.3.0 (from git+file://...@dbc49d7...)`) and printed `taskrail 0.3.0`.
+   - `taskrail --root old init --integration claude --github-workflow --merge-driver` (0.3.0)
+     pinned `v0.3.0`, seeded `TODO.md`, and wrote the workflow with `actions/checkout@v7` and
+     `astral-sh/setup-uv@v10` and no `permissions` or `concurrency`. An epic E01 and tasks T001 and
+     T002 were added and committed.
+   - Before upgrading, 0.3.0's own behaviour: its wrapper, run from the scratch parent directory
+     without `--root`, exited 2 with `no .taskrail/config.toml found in /tmp/claude-7932/T127 or
+     any parent directory` (the T118 defect, reproduced); `next --limit 0` printed
+     `no eligible tasks` and exited 0; `epic add --id E02` with E02 committed only on another
+     branch printed `E02` and exited 0.
+   - `taskrail --root old upgrade` with the 0.4.0 wheel exited 0 and reported `updated` for
+     `.taskrail/bin/taskrail`, `.claude/skills/taskrail/SKILL.md`,
+     `.claude/skills/taskrail-autopilot/SKILL.md`, `.../references/lane-brief.md`,
+     `.github/workflows/taskrail.yml`, `.gitattributes` and
+     `.taskrail/config.toml (version pin → v0.4.0)`, `9 file(s) already up to date`.
+     `git diff` then showed: the config's only change `version = "v0.3.0"` → `"v0.4.0"` (no
+     `[autopilot]` block added); `.gitattributes` gaining `/docs/archive.md merge=taskrail`; the
+     workflow gaining `permissions: contents: read` and the `concurrency` group and moving to
+     `actions/checkout@v7.0.1` and `astral-sh/setup-uv@v10.1.0`; the wrapper passing
+     `--root "$root"` on its three `exec` lines; `.taskrail/installed.json` updated; `TODO.md`
+     unchanged.
+   - After committing the upgrade, through the upgraded wrapper from the parent directory without
+     `--root`: `sh -x` traced `exec taskrail --root /tmp/claude-7932/T127/old validate`, which
+     printed `2 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)` — the 0.3.0-seeded config draws
+     no unknown-key warning. `next --limit 0` and `next --limit=-1` exited 2 with
+     `argument --limit: expected a whole number of at least 1, got \`0\`` (and `` `-1` ``);
+     `next --limit 1` exited 0 with T001; `next --help` lists `--limit N  show at most N eligible
+     tasks (default 5)`.
+   - A typo key `mainlin = "x"` in `[review]` made `validate` print
+     `warning: unknown key \`mainlin\` in [review]; taskrail ignores it [config-unknown-key]` and
+     `0 error(s), 1 warning(s)`, exit 0.
+   - With E02 committed on branch `other`, `epic add --id E02` on `main` printed
+     `epic \`E02\` is already used in refs/heads/other:TODO.md; pick another ID` and exited 5, and
+     `epic add` without `--id` allocated `E03`.
+   - `done T001 --json` on `main`, with T001's branch `T001-scratch-task`, exited 0, printed the
+     warning on stderr and returned it as `"warning"` beside `id`, `status`, `commit` and `files`.
+   Every scratch change after the upgrade commit was reverted with `git checkout`.
+7. The version `grep` lists only the references this artifact names: `README.md:22`, `:35` and
+   `DESIGN.md:3`, `:138`, `:1322`, `:1331` at `v0.4.0`, and the unchanged ones at their old values.
+   In `CHANGELOG.md`, `0.4.0` appears only as the `## 0.4.0` heading.
+8. `git diff --check` reported nothing, and `taskrail validate` on this branch printed
+   `9 task(s) in 1 backlog(s): 0 error(s), 0 warning(s)`.
